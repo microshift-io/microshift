@@ -1,0 +1,86 @@
+name: Trigger Microshift upstream build
+
+on:
+  workflow_dispatch:
+    inputs:
+      okd-version:
+        default: "4.18.0-okd-scos.4"
+        description: okd release from https://quay.io/repository/okd/scos-release?tab=tags
+        type: string
+      action:
+        type: choice
+        description: what to do?
+        default: run-in-bootc-container
+        options: 
+        - build-upstream-rpms
+        - run-in-bootc-container
+jobs:
+  build:
+    strategy:
+      matrix:
+        #runners: [ubuntu-24.04]
+        #disabled arm because images for arm no available in okd payload
+        #TODO: make sure images for arm also working
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: build microshift upstream
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out microshift-upstream CI repository
+        uses: actions/checkout@v4
+
+      - name: Check out microshift repository
+        uses: actions/checkout@v4
+        with:
+            repository: eslutsky/microshift
+            path: microshift
+            ref: okd-storage      
+
+      - name: Add cwd to path for kubectl.
+        run: echo `pwd` >> $GITHUB_PATH
+
+      - name: Build Microshift RPMs
+        shell: bash
+        run: |
+          # /dev/sdb1  is mounted as /mnt - disk space needed for the podman build containers layers.
+          sudo mkdir -p /mnt/tmp
+          sudo chown 1001:127 /mnt/tmp
+          
+          cd ${GITHUB_WORKSPACE}/
+          mkdir output
+          sudo apt-get install podman -y
+          export OKD_REPO=quay.io/okd/scos-release
+          [[ $(uname -m) == arm* ]] && export OKD_REPO=quay.io/okd-arm/okd-arm-release
+
+          # podman version applies bad ulimits default causing "too many open files" errors so we override ulimits.
+          TMPDIR=/mnt/tmp podman build --ulimit nofile=65536:65536 \
+                                       --build-arg OKD_VERSION_TAG=${{ inputs.okd-version }} \
+                                       --build-arg OKD_REPO=${OKD_REPO} \
+                                       --env WITH_TOPOLVM=1 \
+                                       --env WITH_FLANNEL=1 \
+                                       -f ../microshift-okd-build-rpms.Containerfile \
+                                       -v $(pwd)/output/:/src/_output/rpmbuild/RPMS/:z microshift/
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-v1
+          files: |
+            output/x86_64/*.rpm
+            output/noarch/*.rpm
+
+      - name: build Microshift image with sudo
+        if:  inputs.action == 'run-in-bootc-container'
+        shell: bash
+        run: |
+            cd ${GITHUB_WORKSPACE}
+            sudo podman build --env WITH_FLANNEL=1 --env WITH_TOPOLVM=1 -f microshift-okd-run.Containerfile -v $(pwd)/output/:/tmp/rpm-repo:z . -t microshift-okd
+
+      - name: run Microshift container with sudo
+        if:  inputs.action == 'run-in-bootc-container'
+        shell: bash
+        run: |
+            sudo apt-get -y install lvm2
+            sudo bash -x src/scripts/configure-lvm.sh
+            sudo podman run --privileged --rm --name microshift-okd --volume /dev:/dev:rslave --hostname 127.0.0.1.nip.io -d microshift-okd 
+            sleep 3
+            # wait until everything is running
+            sudo podman exec -ti microshift-okd bash -c 'microshift healthcheck --namespace topolvm-system --deployments topolvm-controller'
