@@ -9,9 +9,11 @@ ENV USER=microshift
 ENV HOME=/microshift
 #ENV MICROSHIFT_SRC=
 ENV GOPATH=/microshift
+ENV OUTPUT_DIR=/output
 ENV GOMODCACHE=/microshift/.cache
 
 RUN dnf install -y git && git clone ${USHIFT_GIT_URL} /microshift
+
 # Adding non-root user for building microshift
 RUN useradd -m -s /bin/bash microshift -d /microshift && \
     echo 'microshift  ALL=(ALL)  NOPASSWD: ALL' >/etc/sudoers.d/microshift && \
@@ -34,6 +36,10 @@ RUN make build && \
     make rpm && \
     createrepo ${REPO_DIR}
 
+USER root:root
+RUN if [ -n "$OUTPUT_DIR" ] ; then \
+      cp -rf /microshift/_output/* ${OUTPUT_DIR}/; \
+    fi
 # Building microshift container from local rpms
 FROM quay.io/centos-bootc/centos-bootc:stream9 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
