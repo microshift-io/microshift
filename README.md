@@ -18,8 +18,11 @@ The RPM/container build process includes the following steps:
 4. Apply upstream customizations (see below).
 
 ## Build and Run Microshift upstream without subscription/pull-secret
-
-- Build the container locally using podman
+- Only build the RPMs 
+  ```bash
+  sudo podman build --target builder --env WITH_FLANNEL=1 --env WITH_TOPOLVM=1 -f microshift-okd-multi-build.Containerfile . -t microshift-okd
+  ```
+- Build the RPMs & container locally using podman
 
   - use `ovn-kubernetes` as CNI (default)
     ```bash
