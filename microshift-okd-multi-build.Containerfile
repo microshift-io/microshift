@@ -9,7 +9,7 @@ ENV USER=microshift
 ENV HOME=/microshift
 #ENV MICROSHIFT_SRC=
 ENV GOPATH=/microshift
-ENV OUTPUT_DIR=/output
+ENV OUTPUT_DIR=
 ENV GOMODCACHE=/microshift/.cache
 
 RUN dnf install -y git && git clone ${USHIFT_GIT_URL} /microshift
