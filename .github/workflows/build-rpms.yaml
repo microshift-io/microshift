@@ -86,6 +86,6 @@ jobs:
       - name: Release if the previous test passed
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: test-v4
+          tag_name: 4.19.0
           files: |
             /mnt/tmp/output/rpmbuild/RPMS/microshift-x86_64.zip
