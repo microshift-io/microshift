@@ -44,13 +44,13 @@ jobs:
           cd ${GITHUB_WORKSPACE}/
           sudo apt-get install podman -y
           export OKD_REPO=quay.io/okd/scos-release
-          export OUTPUT_DIR=/output
           # podman version applies bad ulimits default causing "too many open files" errors so we override ulimits.
           TMPDIR=/mnt/tmp sudo podman build --layers=false --ulimit nofile=65536:65536 \
                                        --build-arg OKD_VERSION_TAG=${{ inputs.okd-version }} \
                                        --build-arg OKD_REPO=${OKD_REPO} \
                                        --env WITH_TOPOLVM=1 \
                                        --env WITH_FLANNEL=1 \
+                                       --env OUTPUT_DIR=/output \
                                        -f microshift-okd-multi-build.Containerfile \
                                        -t microshift-okd \
                                        -v /mnt/tmp/output:/output:z .
