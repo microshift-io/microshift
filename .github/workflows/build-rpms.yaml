@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run : |
           cd /mnt/tmp/output/rpmbuild/RPMS/
-          sudo zip microshift-release.zip \
+          sudo zip microshift-x86_64.zip \
             x86_64/microshift-[0-9]*.rpm \
             x86_64/microshift-topolvm-*.rpm \
             x86_64/microshift-networking-*.rpm \
