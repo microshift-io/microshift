@@ -1,0 +1,23 @@
+---
+
+- name: Run a bootc container
+  containers.podman.podman_container:
+    name: "microshift-okd"
+    image: "{{ _microshift_image_name }}:{{ _microshift_image_tag }}"
+    state: started
+    privileged: true
+    hostname: "{{ ansible_host }}"
+    network: host
+    volume:
+      - /dev:/dev:rslave
+    ports:
+      - "6443:6443"
+
+  become: true
+
+- name: waiting for the healthcheck to be completed
+  containers.podman.podman_container_exec:
+    name: microshift-okd
+    command: "microshift healthcheck --namespace topolvm-system --deployments topolvm-controller"
+    workdir: /
+  become: true
