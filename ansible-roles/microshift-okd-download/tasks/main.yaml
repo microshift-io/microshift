@@ -1,0 +1,37 @@
+---
+# Variables for these tasks would typically be in roles/your_role_name/defaults/main.yml or vars/main.yml
+# Example variables:
+
+- name: Ensure download directory exists
+  ansible.builtin.file:
+    path: "{{ microshift_download_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Define MicroShift download destination path
+  ansible.builtin.set_fact:
+    _microshift_download_dest_path: "{{ microshift_download_dir }}/{{ microshift_asset_filename }}"
+
+- name: Get MicroShift release information
+  vars:
+    _gh_action: "{{ 'latest_release' if microshift_version == 'latest' else 'release_for_tag' }}"
+    # omit tag parameter if we are fetching the latest release, as it's not applicable
+    _gh_tag: "{{ microshift_version if microshift_version != 'latest' else omit }}"
+  community.general.github_release:
+    user: "{{ microshift_github_owner }}"
+    repo: "{{ microshift_github_repository }}"
+    action: "{{ _gh_action }}"
+    tag: "{{ _gh_tag }}"
+  register: _microshift_release_info
+  delegate_to: localhost
+
+- name: Extract MicroShift asset download URL
+  ansible.builtin.set_fact:
+    _microshift_asset_url: "{{ release_base_url }}/{{ _microshift_release_info.tag }}/{{ microshift_asset_filename }}"
+
+- name: "Download MicroShift '{{ microshift_version }}' release asset: {{ _microshift_release_info.tag }}"
+  ansible.builtin.get_url:
+    url: "{{ _microshift_asset_url }}"
+    dest: "{{ _microshift_download_dest_path }}"
+    mode: '0644'  # Permissions for the downloaded file (e.g., a zip file)
+  when: _microshift_asset_url is not none

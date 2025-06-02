@@ -1,0 +1,17 @@
+# Example for defaults/main.yml or vars/main.yml
+microshift_version: "latest"  # Use "latest" or specify a tag like "4.19.0"
+microshift_github_owner: "microshift-io"
+microshift_github_repository: "microshift"
+# The filename of the asset you want to download from the release.
+# You can make this dynamic, e.g., using ansible_facts.architecture:
+# microshift_asset_filename: "microshift-{{ ansible_facts.architecture }}.zip"
+microshift_asset_filename: "microshift-x86_64.zip" # Matching your original example
+# Directory where the asset will be downloaded.
+microshift_download_dir: "./cache/microshift_assets"
+# size of the lvm loopback disk
+lvm_disk_size_in_giga: 20
+
+# logical volume group name
+# WARNING: the name is default for the topolvm driver,it shouldn't be changed.
+lvm_vg_name: myvg1
+lvm_thinpool_size_giga: 6
