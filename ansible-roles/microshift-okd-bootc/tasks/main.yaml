@@ -1,0 +1,13 @@
+---
+
+- name: prepare topolvm backend
+  ansible.builtin.include_tasks: topolvm.yaml
+
+- name: build microshift bootc containers from released rpms
+  ansible.builtin.include_tasks: build.yaml
+
+- name: run microshift bootc container
+  ansible.builtin.include_tasks: run.yaml
+
+- name: fetch kubeconfig from bootc container
+  ansible.builtin.include_tasks: fetch-kubeconfig.yaml
