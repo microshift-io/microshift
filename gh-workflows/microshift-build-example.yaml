@@ -40,7 +40,7 @@ jobs:
           # podman version applies bad ulimits default causing "too many open files" errors so we override ulimits.
           TMPDIR=/mnt/tmp podman build --ulimit nofile=65536:65536 \
                                        --build-arg OKD_VERSION_TAG=${{ inputs.okd-version }} \
-                                       --env WITH_FLANNEL=1 \
+                                       --env WITH_KINDNET=1 \
                                        -f okd/src/microshift-okd-build-rpms.Containerfile \
                                        -v $(pwd)/output/:/src/_output/rpmbuild/RPMS/:z .
 
@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           cd ${GITHUB_WORKSPACE}
-          sudo podman build --env WITH_FLANNEL=1 -f okd/src/microshift-okd-run.Containerfile -v $(pwd)/output/:/tmp/rpm-repo:z . -t microshift-okd
+          sudo podman build --env WITH_KINDNET=1 -f okd/src/microshift-okd-run.Containerfile -v $(pwd)/output/:/tmp/rpm-repo:z . -t microshift-okd
 
 
       - name: run Microshift container with sudo

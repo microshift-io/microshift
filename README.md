@@ -20,7 +20,7 @@ The RPM/container build process includes the following steps:
 ## Build and Run Microshift upstream without subscription/pull-secret
 - Only build the RPMs 
   ```bash
-  sudo podman build --target builder --env WITH_FLANNEL=1 --env WITH_TOPOLVM=1 -f microshift-okd-multi-build.Containerfile . -t microshift-okd
+  sudo podman build --target builder --env WITH_KINDNET=1 --env WITH_TOPOLVM=1 -f microshift-okd-multi-build.Containerfile . -t microshift-okd
   ```
 - Build the RPMs & container locally using podman
 
@@ -28,17 +28,17 @@ The RPM/container build process includes the following steps:
     ```bash
         sudo podman build -f microshift-okd-multi-build.Containerfile . -t microshift-okd
     ```
-  - To use flannel as CNI
+  - To use kindnet as CNI
     ```bash
-        sudo podman build --env WITH_FLANNEL=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd-4.19
+        sudo podman build --env WITH_KINDNET=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd-4.19
     ```
   - To embed all component images
     ```bash
         sudo podman build --env EMBED_CONTAINER_IMAGES=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd
     ```
-  - To use flannel CNI with [TopoLVM](https://github.com/topolvm/topolvm) upstream as CSI 
+  - To use kindnet CNI with [TopoLVM](https://github.com/topolvm/topolvm) upstream as CSI 
     ```bash
-        sudo podman build --env WITH_FLANNEL=1 --env WITH_TOPOLVM=1 -f okd/src/microshift-okd-multi-build.Containerfile . -t microshift-okd
+        sudo podman build --env WITH_KINDNET=1 --env WITH_TOPOLVM=1 -f okd/src/microshift-okd-multi-build.Containerfile . -t microshift-okd
     ```
 
 - running the container with ovn-kubernetes 
@@ -81,7 +81,7 @@ The RPM/container build process includes the following steps:
         cert-manager           cert-manager-5f864bbfd-bpd6h               1/1     Running   0               4m49s
         cert-manager           cert-manager-cainjector-589dc747b5-cfwjf   1/1     Running   0               4m49s
         cert-manager           cert-manager-webhook-5987c7ff58-mzq6l      1/1     Running   0               4m49s
-        kube-flannel           kube-flannel-ds-6nvq6                      1/1     Running   0               4m12s
+        kube-kindnet           kube-kindnet-ds-6nvq6                      1/1     Running   0               4m12s
         kube-proxy             kube-proxy-zlvb2                           1/1     Running   0               4m12s
         kube-system            csi-snapshot-controller-75d84cb97c-nkfsz   1/1     Running   0               4m50s
         openshift-dns          dns-default-dbjh4                          2/2     Running   0               4m1s

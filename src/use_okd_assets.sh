@@ -43,7 +43,7 @@ replace_assets(){
     # update the infra pods for crio
     sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${arch}]}.conf"
 
-    # kube proxy is required for flannel
+    # kube proxy is required for kindnet
     kube_proxy_okd_image_with_hash=$(oc adm release info --image-for="kube-proxy" "${okd_url}:${okd_releaseTag}")
     echo "kube-proxy ${kube_proxy_okd_image_with_hash}"
     # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
