@@ -49,7 +49,7 @@ jobs:
                                        --build-arg OKD_VERSION_TAG=${{ inputs.okd-version }} \
                                        --build-arg OKD_REPO=${OKD_REPO} \
                                        --env WITH_TOPOLVM=1 \
-                                       --env WITH_FLANNEL=1 \
+                                       --env WITH_KINDNET=1 \
                                        --env OUTPUT_DIR=/output \
                                        -f microshift-okd-multi-build.Containerfile \
                                        -t microshift-okd \
@@ -76,12 +76,12 @@ jobs:
             x86_64/microshift-[0-9]*.rpm \
             x86_64/microshift-topolvm-*.rpm \
             x86_64/microshift-networking-*.rpm \
-            x86_64/microshift-flannel-*.rpm \
+            x86_64/microshift-kindnet-*.rpm \
             noarch/microshift-release-info-*.rpm \
             noarch/microshift-greenboot-*.rpm \
             noarch/microshift-selinux-*.rpm \
             noarch/microshift-topolvm-*.rpm \
-            noarch/microshift-flannel-*.rpm
+            noarch/microshift-kindnet-*.rpm
 
 
       - name: Release if the previous test passed

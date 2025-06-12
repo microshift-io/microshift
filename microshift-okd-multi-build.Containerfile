@@ -56,13 +56,13 @@ RUN dnf install -y centos-release-nfv-openvswitch && \
     dnf clean all
 
 # Installing MicroShift and cleanup
-# In case of flannel we don't need openvswitch service which is by default enabled as part
+# In case of kindnet we don't need openvswitch service which is by default enabled as part
 # once microshift is installed so better to disable it because it cause issue when required
 # module is not enabled.
 RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
-    if [ -n "$WITH_FLANNEL" ] ; then \
-        dnf install -y microshift-flannel ; \
+    if [ -n "$WITH_KINDNET" ] ; then \
+        dnf install -y microshift-kindnet ; \
         systemctl disable openvswitch ; \
     fi && \
     if [ -n "$WITH_TOPOLVM" ] ; then \
