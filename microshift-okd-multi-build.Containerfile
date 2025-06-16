@@ -5,13 +5,14 @@ ARG OKD_REPO=quay.io/okd/scos-release
 ARG OKD_VERSION_TAG=4.18.0-okd-scos.4
 ARG REPO_DIR=/microshift/_output/rpmbuild/RPMS/
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
+ARG USHIFT_BRANCH=main
 ENV USER=microshift
 ENV HOME=/microshift
 #ENV MICROSHIFT_SRC=
 ENV GOPATH=/microshift
 ENV GOMODCACHE=/microshift/.cache
 
-RUN dnf install -y git && git clone ${USHIFT_GIT_URL} /microshift
+RUN dnf install -y git && git clone --branch ${USHIFT_BRANCH} --single-branch ${USHIFT_GIT_URL} /microshift
 
 # Adding non-root user for building microshift
 RUN useradd -m -s /bin/bash microshift -d /microshift && \

@@ -18,6 +18,10 @@ The RPM/container build process includes the following steps:
 4. Apply upstream customizations (see below).
 
 ## Build and Run Microshift upstream without subscription/pull-secret
+- Use a specific microshift branch (default main)
+  ```
+  sudo podman build --build-arg USHIFT_BRANCH=release-4.19 -f microshift-okd-multi-build.Containerfile . -t microshift-okd 
+  ```
 - Only build the RPMs 
   ```bash
   sudo podman build --target builder --env WITH_KINDNET=1 --env WITH_TOPOLVM=1 -f microshift-okd-multi-build.Containerfile . -t microshift-okd
