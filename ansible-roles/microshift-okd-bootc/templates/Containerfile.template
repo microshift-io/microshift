@@ -1,0 +1,16 @@
+      # Containerfile to package the downloaded MicroShift asset
+      FROM quay.io/centos-bootc/centos-bootc:stream9
+
+      COPY . /opt/
+      ENV KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig
+
+      LABEL name="{{ _microshift_image_name }}"
+      LABEL version="{{ _microshift_image_tag }}"
+      LABEL description="Image containing MicroShift {{ _microshift_image_tag }}"
+      RUN dnf -y install createrepo unzip
+      RUN cd /opt && unzip {{ microshift_asset_filename }} && createrepo .
+      RUN bash /opt/create_repos.sh /opt
+      RUN dnf -y install microshift microshift-topolvm ; \
+        dnf install -y microshift-flannel ; \
+        systemctl disable openvswitch ; \
+        systemctl enable microshift ; \

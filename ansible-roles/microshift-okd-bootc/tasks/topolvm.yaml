@@ -1,0 +1,72 @@
+---
+- name: Ensure lvm2 package is present
+  ansible.builtin.package:
+    name: lvm2
+    state: present
+  become: true
+
+- name: Define target size for lvmdisk
+  ansible.builtin.set_fact:
+    _lvmdisk_target_size_str: "{{ lvm_disk_size_in_giga }}G"
+    _lvmdisk_target_size_bytes: "{{ lvm_disk_size_in_giga * 1024 * 1024 * 1024 }}"
+
+- name: check /tmp/lvmdisk  file exists
+  ansible.builtin.stat:
+    path: /tmp/lvmdisk
+  register: _lvmdisk_stat
+
+- name: Create/truncate /tmp/lvmdisk to {{ _lvmdisk_target_size_str }}
+  ansible.builtin.command:
+    cmd: "truncate --size={{ _lvmdisk_target_size_str }} /tmp/lvmdisk"
+  when: not _lvmdisk_stat.stat.exists or _lvmdisk_stat.stat.size != _lvmdisk_target_size_bytes
+  become: true
+  changed_when: true 
+
+- name: Check if /tmp/lvmdisk is already associated with a loop device
+  ansible.builtin.shell:
+    cmd: "losetup -j /tmp/lvmdisk | head -n1 | cut -d: -f1 | tr -d '\n'"
+  register: _associated_loop_device
+  changed_when: false
+  failed_when: false # rc!=0 if not associated, stdout will be empty
+  become: true
+
+- name: Set up loop device for /tmp/lvmdisk if not already associated
+  ansible.builtin.command:
+    cmd: "losetup --show -f /tmp/lvmdisk"  # --show prints the device name
+  when: _associated_loop_device.stdout == ""
+  register: _losetup_output # Contains stdout with device name if run
+  changed_when: true # This command makes a change
+  become: true
+
+- name: Determine the loop device path
+  ansible.builtin.set_fact:
+    loop_device_path: >-
+      {% if _associated_loop_device.stdout | trim != "" -%}
+      {{ _associated_loop_device.stdout | trim }}
+      {%- elif _losetup_output is defined and _losetup_output.stdout is defined and _losetup_output.stdout | trim != "" -%}
+      {{ _losetup_output.stdout | trim }}
+      {%- else -%}
+      ""
+      {%- endif %}
+- name: Setup VG
+  block:
+  - name: Debug loop device path
+    ansible.builtin.debug:
+      var: loop_device_path
+  - name: Create volume group 'myvg1' on {{ loop_device_path }}
+    community.general.lvg:
+      vg: myvg1
+      pvs: "{{ loop_device_path }}"
+      state: present
+      force: true # Corresponds to vgcreate -f. Use with care if PVs might be in use by other VGs.
+    become: true
+  
+  - name: Create {{ lvm_thinpool_size_giga }}G thin pool 'thinpool' in volume group 'myvg1'
+    community.general.lvol:
+      vg: myvg1
+      lv: thinpool
+      size: "{{ lvm_thinpool_size_giga }}G"
+      opts: "--type thin-pool" # This creates a thin pool
+    become: true
+  # when belongs to block
+  when: loop_device_path != "" # Ensures VG creation was attempted

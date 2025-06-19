@@ -1,0 +1,38 @@
+---
+# --- Tasks to build a container image with the downloaded asset ---
+
+- name: Define MicroShift image name and tag
+  ansible.builtin.set_fact:
+    _microshift_image_name: "microshift-asset-image"
+    _microshift_image_tag: "{{ (_microshift_release_info.tag | default(microshift_version) | replace('v', '')) if _microshift_release_info is defined and _microshift_release_info.tag is defined else (microshift_version | replace('v', '')) }}"
+  when: microshift_asset_filename is defined # Ensure download tasks were intended to run
+
+- name: Ensure podman is installed
+  ansible.builtin.package:
+    name: podman
+    state: present
+  become: true
+  when: microshift_asset_filename is defined # Only if we are building an image
+
+- name: Create Containerfile in the download directory for the image build
+  ansible.builtin.template:
+    dest: "{{ microshift_download_dir }}/Containerfile"
+    src: "templates/Containerfile.template"
+    mode: '0644'
+  when: microshift_asset_filename is defined and _microshift_image_tag is defined
+
+- name: copy create_repos.sh
+  ansible.builtin.copy:
+    dest: "{{ microshift_download_dir }}/create_repos.sh"
+    src: "files/create_repos.sh"
+
+- name: Build MicroShift asset image using podman
+  containers.podman.podman_image:
+    name: "{{ _microshift_image_name }}"
+    tag: "{{ _microshift_image_tag }}"
+    path: "{{ microshift_download_dir }}"  # Build context (contains Containerfile and asset)
+    build:
+      file: "{{ microshift_download_dir }}/Containerfile"
+    state: build # Ensures the image is built
+  when: microshift_asset_filename is defined and _microshift_image_tag is defined
+  become: true
