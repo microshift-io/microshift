@@ -63,7 +63,7 @@ RUN dnf install -y centos-release-nfv-openvswitch && \
 RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ -n "$WITH_KINDNET" ] ; then \
-        dnf install -y microshift-kindnet ; \
+        dnf install -y microshift-kindnet microshift-kindnet-release-info; \
         systemctl disable openvswitch ; \
     fi && \
     if [ -n "$WITH_TOPOLVM" ] ; then \
