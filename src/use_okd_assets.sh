@@ -57,6 +57,8 @@ replace_assets(){
     # install yq tool to update the image and hash
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
     "${MICROSHIFT_ROOT}"/_output/bin/yq eval ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${kube_proxy_okd_image_name}\" | .digest = \"${kube_proxy_okd_image_hash}\")" -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${arch}.yaml"
+    jq --arg img "$kube_proxy_okd_image_with_hash" '.images["kube-proxy"] = $img' "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json" >"${temp_release_json}"
+    mv "${temp_release_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json"
 }
 
 usage() {

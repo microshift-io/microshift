@@ -63,7 +63,7 @@ RUN dnf install -y centos-release-nfv-openvswitch && \
 RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ -n "$WITH_KINDNET" ] ; then \
-        dnf install -y microshift-kindnet ; \
+        dnf install -y microshift-kindnet microshift-kindnet-release-info; \
         systemctl disable openvswitch ; \
     fi && \
     if [ -n "$WITH_TOPOLVM" ] ; then \
@@ -89,6 +89,12 @@ RUN if [ -n "$EMBED_CONTAINER_IMAGES" ] ; then \
         for i in $(jq -r '.images | to_entries | map(select(.key != "lvms_operator")) | .[].value' "/usr/share/microshift/release/release-$(uname -m).json") ; do \
             skopeo copy --retry-times 3 --preserve-digests "docker://${i}" "containers-storage:${i}" ; \
         done ; \
+        if [ "$WITH_KINDNET" ]; then \
+            kindnetImage=$(jq -r '.images.kindnet' /usr/share/microshift/release/release-kindnet-$(uname -m).json) ; \
+            skopeo copy --retry-times 3 --preserve-digests "docker://${kindnetImage}" "containers-storage:${kindnetImage}" ; \
+            kubeproxyImage=$(jq -r '.images["kube-proxy"]' /usr/share/microshift/release/release-kube-proxy-$(uname -m).json) ; \
+            skopeo copy --retry-times 3 --preserve-digests "docker://${kubeproxyImage}" "containers-storage:${kubeproxyImage}" ; \
+        fi && \
         rm -f /etc/subuid /etc/subgid ; \
     fi
 
