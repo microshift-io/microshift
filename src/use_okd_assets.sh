@@ -59,6 +59,78 @@ replace_assets(){
     "${MICROSHIFT_ROOT}"/_output/bin/yq eval ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${kube_proxy_okd_image_name}\" | .digest = \"${kube_proxy_okd_image_hash}\")" -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${arch}.yaml"
     jq --arg img "$kube_proxy_okd_image_with_hash" '.images["kube-proxy"] = $img' "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json" >"${temp_release_json}"
     mv "${temp_release_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json"
+
+    # replace olm images with upstream (from OKD release)
+    # This is extracted from openshift/microshift/scripts/auto-rebase/rebase.sh and modified to work with OKD release
+    local olm_image_refs_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/image-references"
+    local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${arch}.yaml"
+    local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${arch}.json"
+
+    # Create the OLM release-${arch}.json file with base structure
+    jq -n '{"release": {"base": "unknown"}, "images": {}}' > "${olm_release_json}"
+
+    # Create extra kustomization for each arch in separate file
+    cat <<EOF > "${kustomization_arch_file}"
+
+images:
+EOF
+
+    # Read from the image-references file to find the images we need to update
+    local containers=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r '.spec.tags[].name' "${olm_image_refs_file}")
+    for container in ${containers[@]}; do
+        # Get image (registry.com/image) without the tag or digest from image-references
+        local orig_image_name
+        orig_image_name=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r ".spec.tags[] | select(.name == \"${container}\") | .from.name" "${olm_image_refs_file}" | awk -F '[@:]' '{ print $1; }')
+
+        # Get the new image from OKD release
+        local new_image
+        new_image=$(oc adm release info --image-for="${container}" "${okd_url}:${okd_releaseTag}" || true)
+
+        if [ -n "${new_image}" ] ; then
+            echo "${container} ${new_image}"
+            local new_image_name="${new_image%@*}"
+            local new_image_digest="${new_image#*@}"
+
+            # Update kustomization file with image mapping
+            cat <<EOF >> "${kustomization_arch_file}"
+  - name: ${orig_image_name}
+    newName: ${new_image_name}
+    digest: ${new_image_digest}
+EOF
+
+            # Update JSON file
+            jq --arg container "${container}" --arg img "${new_image}" '.images[$container] = $img' "${olm_release_json}" >"${temp_release_json}"
+            mv "${temp_release_json}" "${olm_release_json}"
+        fi
+    done
+
+    # Add patches section for environment variables
+    # Get specific images for the patches
+    local olm_image
+    olm_image=$(oc adm release info --image-for="operator-lifecycle-manager" "${okd_url}:${okd_releaseTag}" || true)
+    local registry_image
+    registry_image=$(oc adm release info --image-for="operator-registry" "${okd_url}:${okd_releaseTag}" || true)
+
+    if [ -n "${olm_image}" ] && [ -n "${registry_image}" ] ; then
+        cat << EOF >> "${kustomization_arch_file}"
+
+patches:
+  - patch: |-
+     - op: add
+       path: /spec/template/spec/containers/0/env/-
+       value:
+         name: OPERATOR_REGISTRY_IMAGE
+         value: ${registry_image}
+     - op: add
+       path: /spec/template/spec/containers/0/env/-
+       value:
+         name: OLM_IMAGE
+         value: ${olm_image}
+    target:
+      kind: Deployment
+      labelSelector: app=catalog-operator
+EOF
+    fi
 }
 
 usage() {

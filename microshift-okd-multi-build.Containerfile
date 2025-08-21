@@ -77,7 +77,7 @@ RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
 RUN ${OKD_CONFIG_SCRIPT} && rm -rf ${OKD_CONFIG_SCRIPT}
 
 # If the EMBED_CONTAINER_IMAGES environment variable is set to 1:
-# 1. Temporarily configure user namespace UID and GID mappings by writing to /etc/subuid and /etc/subgid and clean it later
+# 1. Temporarily configure user namespace UID and GID mappings by writing to /etc/subuid and  /etc/subgid and clean it later
 #    - This allows the skopeo command to operate properly which requires user namespace support.
 #    - Without it following error occur during image build
 #       - FATA[0129] copying system image from manifest list:[...]unpacking failed (error: exit status 1; output: potentially insufficient UIDs or GIDs available[...]
