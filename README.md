@@ -36,6 +36,10 @@ The RPM/container build process includes the following steps:
     ```bash
         sudo podman build --env WITH_KINDNET=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd-4.19
     ```
+  - To install OLM as part of image
+    ```bash
+       sudo podman build --env WITH_OLM=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd-4.19
+    ```
   - To embed all component images
     ```bash
         sudo podman build --env EMBED_CONTAINER_IMAGES=1 -f microshift-upstream/microshift-okd-multi-build.Containerfile . -t microshift-okd
