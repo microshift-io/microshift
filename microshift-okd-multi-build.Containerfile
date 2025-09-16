@@ -72,6 +72,9 @@ RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
     if [ -n "$WITH_OLM" ] ; then \
         dnf install -y microshift-olm microshift-olm-release-info ; \
     fi && \
+    if [ -n "$WITH_OBSERVABILITY" ] ; then \
+        dnf install -y microshift-observability ; \
+    fi && \
     ${REPO_CONFIG_SCRIPT} -delete && \
     rm -f ${REPO_CONFIG_SCRIPT} && \
     rm -rf $USHIFT_RPM_REPO_PATH && \
