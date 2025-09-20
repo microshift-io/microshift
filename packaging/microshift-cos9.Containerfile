@@ -54,7 +54,7 @@ ARG OKD_CONFIG_SCRIPT=/tmp/configure.sh
 ARG USHIFT_RPM_REPO_NAME=microshift-local
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
 
-# Environment variables controlling the list of MicroShift components to build
+# Environment variables controlling the list of MicroShift components to install
 ENV WITH_KINDNET=${WITH_KINDNET:-1}
 ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
