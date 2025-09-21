@@ -66,21 +66,15 @@ sudo modprobe openvswitch
 Run the following command to start MicroShift inside a Bootc container.
 
 ```bash
-sudo podman run --privileged --rm -d \
-  --name microshift-okd \
-  --volume /dev:/dev:rslave \
-  microshift-okd
+make run
 ```
-
-Note: It is necessary to mount the entire `/dev` directory tree inside the constainer,
-as LVM management requires full visibility of the new volumes under `/dev/dm-*`.
 
 ### Container Login
 
 Log into the container by running the following command.
 
 ```bash
-sudo podman exec -it microshift-okd bash
+make login
 ```
 
 Verify that all the MicroShift services are up and running successfully.
@@ -96,7 +90,7 @@ oc get pods -A
 Run the following command to stop the MicroShift Bootc container.
 
 ```bash
-sudo podman stop --time 0 microshift-okd
+make stop
 ```
 
 ## Cleanup
@@ -113,17 +107,19 @@ sudo dnf remove -y microshift*
 
 ### Bootc Containers
 
-Run the following commands to stop MicroShift Bootc containers and clean up any
-LVM volumes or kernel modules.
+Run the following commands to delete MicroShift Bootc container images.
+
+```bash
+make clean
+```
+
+Finally, clean up any LVM volumes.
 
 ```bash
 LVM_DISK=/var/db/lvmdisk.image
 VG_NAME=myvg1
 
-sudo podman stop --time 0 microshift-okd
-sudo rmmod openvswitch
 sudo vgremove -y "${VG_NAME}"
-
 DEVICE_NAME="$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)"
 [ -n "${DEVICE_NAME}" ] && sudo losetup -d "${DEVICE_NAME}"
 sudo rm -f "${LVM_DISK}"

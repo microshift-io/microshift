@@ -1,16 +1,16 @@
 FROM quay.io/centos-bootc/centos-bootc:stream9 as builder
 
 ARG OKD_REPO=quay.io/okd/scos-release
-ARG OKD_VERSION_TAG=""
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
-ARG USHIFT_BRANCH=main
 ENV USER=microshift
 ENV HOME=/microshift
 ARG REPO_DIR=/microshift/_output/rpmbuild/RPMS/
 ENV GOPATH=/microshift
 ENV GOMODCACHE=/microshift/.cache
 
-# Environment variables controlling the list of MicroShift components to build
+# Variables controlling the list of MicroShift components to build
+ARG OKD_VERSION_TAG
+ARG USHIFT_BRANCH=main
 ENV WITH_KINDNET=${WITH_KINDNET:-1}
 ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
