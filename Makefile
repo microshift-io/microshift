@@ -4,6 +4,7 @@
 #
 USHIFT_BRANCH ?= main
 OKD_VERSION_TAG ?=
+RPM_OUTDIR ?=
 WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
@@ -36,7 +37,7 @@ endif
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	-t microshift-okd -f packaging/microshift-cos9.Containerfile . && \
-	outdir="$$(mktemp -d /tmp/microshift-rpms-XXXXXX)" && \
+	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount microshift-okd)" && \
 	sudo cp -r "$${mntdir}/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
 	sudo podman image umount microshift-okd && \

@@ -15,14 +15,15 @@ commands.
 The following options can be specified in the make command line using the
 `NAME=VAL` format.
 
-|Name                  |Required|Default|Comments
-|----------------------|--------|-------|--------
-|USHIFT_BRANCH         |no      |main   |[List of branches](https://github.com/openshift/microshift/branches)
-|OKD_VERSION_TAG       |yes     |       |[List of tags](https://quay.io/repository/okd/scos-release?tab=tags)
-|WITH_KINDNET          |no      |1      |OVK-K CNI is used when Kindnet is disabled
-|WITH_TOPOLVM          |no      |1      |Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
-|WITH_OLM              |no      |0      |Enable OLM support
-|EMBED_CONTAINER_IMAGES|no      |0      |Embed all component container dependencies in Bootc images
+|Name                  |Required|Default |Comments
+|----------------------|--------|--------|--------
+|USHIFT_BRANCH         |no      |main    |[List of branches](https://github.com/openshift/microshift/branches)
+|OKD_VERSION_TAG       |yes     |        |[List of tags](https://quay.io/repository/okd/scos-release?tab=tags)
+|RPM_OUTDIR            |no      |/tmp/...|RPM repository output directory for `make rpm`
+|WITH_KINDNET          |no      |1       |OVK-K CNI is used when Kindnet is disabled
+|WITH_TOPOLVM          |no      |1       |Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
+|WITH_OLM              |no      |0       |Enable OLM support
+|EMBED_CONTAINER_IMAGES|no      |0       |Embed all component container dependencies in Bootc images
 
 ### Build MicroShift RPMs
 
@@ -39,10 +40,18 @@ make rpm \
 ```
 
 If the build completes successfully, the MicroShift RPM repository is copied to
-a temporary directory on the host. The packages from this repository can be used
-to install MicroShift on the supported operating systems.
+the `RPM_OUTDIR` directory on the host. The packages from this repository can be
+used to install MicroShift on the supported operating systems.
 
-Note: The path to the temporary directory is displayed in the end of the build procedure.
+Note: The path to the `RPM_OUTDIR` directory (either temporary or specified in
+the `make rpm` command line) is displayed in the end of the build procedure.
+
+```
+...
+...
+Build completed successfully
+RPMs are available in '/tmp/microshift-rpms-EI3IXg'
+```
 
 ### Build MicroShift Bootc Image
 
