@@ -30,4 +30,5 @@ Note: When the Bootc container images are built, one of the workflow steps tests
 the validity of the produced artifacts by attempting to run the container image
 and making sure all the MicroShift services are functional.
 
-The build artifacts are available for download after the job finishes successfully.
+The build artifacts are available for download under [Releases](https://github.com/microshift-io/microshift/releases)
+after the job finishes successfully.
