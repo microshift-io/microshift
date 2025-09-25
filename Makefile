@@ -72,6 +72,7 @@ run:
 	sudo podman run --privileged --rm -d \
 		--name microshift-okd \
 		--volume /dev:/dev:rslave \
+		--hostname 127.0.0.1.nip.io \
 		microshift-okd
 
 .PHONY: login
