@@ -43,7 +43,7 @@ RUN echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
 
 # Building Microshift RPMs and local repo
 RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
-        make rpm srpm && \
+        make rpm && \
     createrepo -v "${REPO_DIR}"
 
 # Building microshift container from local RPMs
