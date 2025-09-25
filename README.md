@@ -15,7 +15,8 @@ The goal is to enable contributors and testers to work with an upstream build of
 set up using OKD components, making it easier to develop, verify, and iterate on features
 outside the downstream Red Hat payloads.
 
-## Build and Run
+## Documentation
 
 * [Build MicroShift Upstream](./docs/build.md)
 * [Run MicroShift Upstream](./docs/run.md)
+* [GitHub Workflows](./docs/workflows.md)
