@@ -1,78 +1,122 @@
-name: Trigger Microshift upstream build
+name: MicroShift RPM and Container Image Builder
 
 on:
   workflow_dispatch:
     inputs:
-      okd-version:
-        default: "4.18.0-okd-scos.4"
-        description: okd release from https://quay.io/repository/okd/scos-release?tab=tags
+      ushift-branch:
+        default: "main"
+        description: MicroShift branch from https://github.com/openshift/microshift/branches
+        type: string
+      okd-version-tag:
+        default: "4.19.0-okd-scos.19"
+        description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
         type: string
       action:
         type: choice
-        description: what to do?
-        default: run-in-bootc-container
-        options: 
-        - build-upstream-rpms
-        - run-in-bootc-container
+        description: Action to perform
+        default: build-all
+        options:
+        - build-all
+        - build-rpms
+        - build-bootc-image
+
 jobs:
   build:
     strategy:
       matrix:
-        #disabled arm runner because images for arm no available in okd payload- see USHIFT-5570
+        # The ARM runner is disabled because OKD images for ARM are not available.
+        # See USHIFT-5570
         runners: [ubuntu-24.04]
-    name: build microshift upstream
+    name: Build MicroShift upstream
     runs-on: ${{ matrix.runners }}
     steps:
-      - name: Check out microshift-upstream CI repository
+      - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Check out microshift repository
-        uses: actions/checkout@v4
-        with:
-            repository: openshift/microshift
-            path: microshift
-            ref: main      
-
-      - name: Add cwd to path for kubectl.
-        run: echo `pwd` >> $GITHUB_PATH
-
-      - name: Build Microshift RPMs and Container
+      - name: Prepare the build and run environment
         shell: bash
         run: |
-          # /dev/sdb1  is mounted as /mnt - disk space needed for the podman build containers layers.
-          sudo mkdir -p /mnt/tmp/output
+          # The /dev/sdb1 partition is mounted as /mnt.
+          sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/storage /mnt/release
+          sudo chmod 1777 /mnt/tmp
+
+          sudo apt-get install -y make lvm2 podman
+
+          # Redirect the container build directories to /mnt/ to avoid running out of disk space.
+          sudo mv /var/tmp /var/tmp.orig
+          sudo mv /var/lib/containers/storage /var/lib/containers/storage.orig
+          sudo ln -s /mnt/tmp /var/tmp
+          sudo ln -s /mnt/storage /var/lib/containers/storage
+
+      - name: Build MicroShift RPMs
+        if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
+        shell: bash
+        run: |
+          # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
+          # for more information about the build process.
+
+          # Raise open file limits to avoid "too many open files" errors.
+          ulimit -n 65536
+
+          # Run the RPM build process.
           cd ${GITHUB_WORKSPACE}/
-          sudo apt-get install podman -y
-          export OKD_REPO=quay.io/okd/scos-release
-          # podman version applies bad ulimits default causing "too many open files" errors so we override ulimits.
-          TMPDIR=/mnt/tmp sudo podman build --layers=false --ulimit nofile=65536:65536 \
-                                       --build-arg OKD_VERSION_TAG=${{ inputs.okd-version }} \
-                                       --build-arg OKD_REPO=${OKD_REPO} \
-                                       --env WITH_TOPOLVM=1 \
-                                       --env WITH_KINDNET=1 \
-                                       --env OUTPUT_DIR=/output \
-                                       -f microshift-okd-multi-build.Containerfile \
-                                       -t microshift-okd \
-                                       -v /mnt/tmp/output:/output:z .
-      - name: run test verifying that Microshift is running 
-        if:  inputs.action == 'run-in-bootc-container'
+          make rpm \
+            USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+            OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+            RPM_OUTDIR=/mnt/rpms
+
+      - name: Build MicroShift bootc container image
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         shell: bash
         run: |
-            sudo apt-get -y install lvm2
-            sudo truncate --size=20G /tmp/lvmdisk
-            sudo losetup -f /tmp/lvmdisk
-            device_name=$(losetup -j /tmp/lvmdisk | cut -d: -f1)
-            sudo vgcreate -f -y myvg1 ${device_name}
-            sudo lvcreate -T myvg1/thinpool -L 6G
-            sudo podman run --privileged --rm --name microshift-okd --volume /dev:/dev:rslave --hostname 127.0.0.1.nip.io -d microshift-okd 
-            sleep 3
-            # wait until everything is running
-            sudo podman exec -ti microshift-okd bash -c 'microshift healthcheck --namespace topolvm-system --deployments topolvm-controller'
-      - name: prepare release acrhive
+          # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
+          # for more information about the build process.
+
+          # Raise open file limits to avoid "too many open files" errors.
+          ulimit -n 65536
+
+          # Run the container image build process, first cleaning up any
+          # existing container images to generate a smaller artifact.
+          cd ${GITHUB_WORKSPACE}/
+          make clean image \
+            USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+            OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
+
+      - name: Run a test to verify that MicroShift is functioning properly.
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+        shell: bash
+        run: |
+          # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
+          # for more information about the run process.
+
+          # Prepare the TopoLVM CSI backend on the host to be used by MicroShift when compiled with the default `WITH_TOPOLVM=1` built option.
+          LVM_DISK=/mnt/lvmdisk.image
+          VG_NAME=myvg1
+
+          sudo truncate --size=1G "${LVM_DISK}"
+          sudo losetup -f "${LVM_DISK}"
+
+          DEVICE_NAME="$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)"
+          sudo vgcreate -f -y "${VG_NAME}" "${DEVICE_NAME}"
+
+          # Run the MicroShift container.
+          make run && sleep 5
+
+          # Wait until everything is up and running.
+          sudo podman exec -it microshift-okd \
+            bash -c 'microshift healthcheck -v=2 --timeout=600s --namespace topolvm-system --deployments topolvm-controller'
+
+          # Stop the MicroShift container.
+          make stop
+
+      - name: Prepare the RPM archive.
+        if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         shell: bash
         run : |
-          cd /mnt/tmp/output/rpmbuild/RPMS/
-          sudo zip microshift-x86_64.zip \
+          cd /mnt/rpms
+          find . -type f -name "microshift-*.rpm"
+
+          sudo tar zcvf /mnt/release/microshift-rpms-x86_64.tgz \
             x86_64/microshift-[0-9]*.rpm \
             x86_64/microshift-topolvm-*.rpm \
             x86_64/microshift-networking-*.rpm \
@@ -80,13 +124,30 @@ jobs:
             noarch/microshift-release-info-*.rpm \
             noarch/microshift-greenboot-*.rpm \
             noarch/microshift-selinux-*.rpm \
-            noarch/microshift-topolvm-*.rpm \
             noarch/microshift-kindnet-*.rpm
 
+      - name: Prepare the bootc image archive.
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+        shell: bash
+        run : |
+          sudo bash -c \
+            'podman save microshift-okd | gzip > /mnt/release/microshift-bootc-image-x86_64.tgz'
 
-      - name: Release if the previous test passed
+      - name: Release RPMs.
+        if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: 4.19.0
+          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
           files: |
-            /mnt/tmp/output/rpmbuild/RPMS/microshift-x86_64.zip
+            /mnt/release/microshift-rpms-x86_64.tgz
+          overwrite_files: true
+
+      - name: Release bootc image.
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
+          files: |
+            /mnt/release/microshift-bootc-image-x86_64.tgz
+          overwrite_files: true
+          body_path: .github/workflows/build-rpms.md
