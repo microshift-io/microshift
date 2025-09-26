@@ -34,7 +34,7 @@ those manifests files will be generated:
 ## Integrating with Microshift RPMs
 - clone Microshift `git clone https://github.com/openshift/microshift.git ~/microshift` 
 - replace the content of ~/microshift/assets/optional/topolvm with the generated `manifests/`
-- build the RPMs using microshift using `cd ~/microshift && make build`
+- build the RPMs using microshift using `cd ~/microshift && make build MICROSHIFT_VARIANT=community`
 
 ## License
 

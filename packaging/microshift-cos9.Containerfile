@@ -42,8 +42,8 @@ RUN echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
    /src/use_okd_assets.sh --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 # Building Microshift RPMs and local repo
-RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
-        make rpm && \
+RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" MICROSHIFT_VARIANT=community \
+        make MICROSHIFT_VARIANT=community rpm && \
     createrepo -v "${REPO_DIR}"
 
 # Building microshift container from local RPMs
