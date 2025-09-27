@@ -9,6 +9,8 @@ WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+# Internal variables
+BUILDER_IMAGE := microshift-okd-builder
 
 #
 # Define the main targets
@@ -25,35 +27,20 @@ all:
 	@echo ""
 
 .PHONY: rpm
-rpm:
-ifndef OKD_VERSION_TAG
-	$(error Run 'make rpm USHIFT_BRANCH=value OKD_VERSION_TAG=value')
-endif
-	@echo "Building the MicroShift RPMs"
-	sudo podman build --target builder \
-    	--build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
-    	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-    	--env WITH_KINDNET="${WITH_KINDNET}" \
-    	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
-    	--env WITH_OLM="${WITH_OLM}" \
-    	-t microshift-okd -f packaging/microshift-cos9.Containerfile . && \
+rpm: _builder
+	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
-	mntdir="$$(sudo podman image mount microshift-okd)" && \
+	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
 	sudo cp -r "$${mntdir}/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
-	sudo podman image umount microshift-okd && \
+	sudo podman image umount "${BUILDER_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
 
 .PHONY: image
-image:
-ifndef OKD_VERSION_TAG
-	$(error Run 'make image USHIFT_BRANCH=value OKD_VERSION_TAG=value')
-endif
+image: _builder
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
-    	--build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
-    	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
@@ -89,4 +76,22 @@ stop:
 clean:
 	@echo "Cleaning up the MicroShift container"
 	sudo podman rmi -f microshift-okd || true
+	sudo podman rmi -f "${BUILDER_IMAGE}" || true
 	sudo rmmod openvswitch || true
+
+#
+# Define the private targets
+#
+.PHONY: _builder
+_builder:
+	@echo "Building the MicroShift builder image"
+ifndef OKD_VERSION_TAG
+	$(error Specify USHIFT_BRANCH=value and OKD_VERSION_TAG=value arguments')
+endif
+	sudo podman build \
+    	--build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
+    	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+    	--env WITH_KINDNET="${WITH_KINDNET}" \
+    	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
+    	--env WITH_OLM="${WITH_OLM}" \
+        -t "${BUILDER_IMAGE}" -f packaging/microshift-cos9-builder.Containerfile .
