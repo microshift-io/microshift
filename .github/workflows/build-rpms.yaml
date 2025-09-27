@@ -37,16 +37,16 @@ jobs:
         shell: bash
         run: |
           # The /dev/sdb1 partition is mounted as /mnt.
-          sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/storage /mnt/release
+          sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
           sudo chmod 1777 /mnt/tmp
 
           sudo apt-get install -y make lvm2 podman
 
           # Redirect the container build directories to /mnt/ to avoid running out of disk space.
           sudo mv /var/tmp /var/tmp.orig
-          sudo mv /var/lib/containers/storage /var/lib/containers/storage.orig
+          sudo mv /var/lib/containers /mnt/containers
           sudo ln -s /mnt/tmp /var/tmp
-          sudo ln -s /mnt/storage /var/lib/containers/storage
+          sudo ln -s /mnt/containers /var/lib/containers
 
       - name: Build MicroShift RPMs
         if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
@@ -75,14 +75,13 @@ jobs:
           # Raise open file limits to avoid "too many open files" errors.
           ulimit -n 65536
 
-          # Run the container image build process, first cleaning up any
-          # existing container images to generate a smaller artifact.
+          # Run the container image build process.
           cd ${GITHUB_WORKSPACE}/
-          make clean image \
+          make image \
             USHIFT_BRANCH=${{ inputs.ushift-branch }} \
             OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
 
-      - name: Run a test to verify that MicroShift is functioning properly.
+      - name: Run a test to verify that MicroShift is functioning properly
         if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         shell: bash
         run: |
@@ -109,45 +108,41 @@ jobs:
           # Stop the MicroShift container.
           make stop
 
-      - name: Prepare the RPM archive.
+      - name: Prepare the RPM archives
         if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         shell: bash
         run : |
+          # Archive sources separately from the RPMs
+          sudo mv /mnt/rpms/srpms /mnt/srpms
+          cd /mnt/srpms
+          sudo tar zcvf /mnt/release/microshift-src.tgz .
+
           cd /mnt/rpms
-          find . -type f -name "microshift-*.rpm"
+          sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
 
-          sudo tar zcvf /mnt/release/microshift-rpms-x86_64.tgz \
-            x86_64/microshift-[0-9]*.rpm \
-            x86_64/microshift-topolvm-*.rpm \
-            x86_64/microshift-networking-*.rpm \
-            x86_64/microshift-kindnet-*.rpm \
-            noarch/microshift-release-info-*.rpm \
-            noarch/microshift-greenboot-*.rpm \
-            noarch/microshift-selinux-*.rpm \
-            noarch/microshift-kindnet-*.rpm
-
-      - name: Prepare the bootc image archive.
+      - name: Prepare the bootc image archive
         if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         shell: bash
         run : |
           sudo bash -c \
-            'podman save microshift-okd | gzip > /mnt/release/microshift-bootc-image-x86_64.tgz'
+            'podman save microshift-okd | gzip > "/mnt/release/microshift-bootc-image-$(uname -m).tgz"'
 
-      - name: Release RPMs.
+      - name: Release RPMs
         if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
           files: |
-            /mnt/release/microshift-rpms-x86_64.tgz
+            /mnt/release/microshift-rpms-*.tgz
+            /mnt/release/microshift-src.tgz
           overwrite_files: true
 
-      - name: Release bootc image.
+      - name: Release bootc image
         if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
           files: |
-            /mnt/release/microshift-bootc-image-x86_64.tgz
+            /mnt/release/microshift-bootc-image-*.tgz
           overwrite_files: true
           body_path: .github/workflows/build-rpms.md

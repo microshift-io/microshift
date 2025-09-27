@@ -25,9 +25,31 @@ See [Build MicroShift RPMs](../docs/build.md#build-microshift-rpms) for more inf
 ```bash
 RPM_REPO_DIR=/tmp/microshift-rpms
 
-sudo dnf install microshift \
+sudo dnf install -y microshift \
   --repofrompath=microshift-local,"${RPM_REPO_DIR}" \
   --setopt=microshift-local.gpgcheck=0
+```
+
+### Start MicroShift Service
+
+Run the following commands to configure the minimum required firewall rules and
+start the MicroShift service.
+
+```bash
+sudo firewall-cmd --permanent --zone=trusted --add-source=10.42.0.0/16
+sudo firewall-cmd --permanent --zone=trusted --add-source=169.254.169.1
+sudo firewall-cmd --reload
+
+sudo systemctl enable --now microshift.service
+```
+
+Verify that all the MicroShift pods are up and running successfully.
+
+```bash
+mkdir -p ~/.kube
+sudo cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
+
+oc get pods -A
 ```
 
 ## MicroShift Bootc Image
@@ -58,8 +80,6 @@ If OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option), the
 ```bash
 sudo modprobe openvswitch
 ```
-
-## MicroShift In a Bootc Container
 
 ### Start the Container
 
@@ -113,7 +133,7 @@ Run the following commands to delete MicroShift Bootc container images.
 make clean
 ```
 
-Finally, clean up any LVM volumes.
+Clean up the LVM volume used by the TopoLVM CSI backend.
 
 ```bash
 LVM_DISK=/var/db/lvmdisk.image
