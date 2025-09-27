@@ -11,6 +11,7 @@ WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 # Internal variables
 BUILDER_IMAGE := microshift-okd-builder
+USHIFT_IMAGE := microshift-okd
 
 #
 # Define the main targets
@@ -31,7 +32,7 @@ rpm: _builder
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
-	sudo cp -r "$${mntdir}/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
+	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
 	sudo podman image umount "${BUILDER_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
@@ -41,11 +42,12 @@ rpm: _builder
 image: _builder
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
+		-t "${USHIFT_IMAGE}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-    	-t microshift-okd -f packaging/microshift-cos9.Containerfile .
+        -f packaging/microshift-cos9.Containerfile .
 
 # Prerequisites for running the MicroShift container:
 # - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option),
@@ -57,25 +59,25 @@ run:
 	@echo "Running the MicroShift container"
 	sudo modprobe openvswitch
 	sudo podman run --privileged --rm -d \
-		--name microshift-okd \
+		--name "${USHIFT_IMAGE}" \
 		--volume /dev:/dev:rslave \
 		--hostname 127.0.0.1.nip.io \
-		microshift-okd
+		"${USHIFT_IMAGE}"
 
 .PHONY: login
 login:
 	@echo "Logging into the MicroShift container"
-	sudo podman exec -it microshift-okd bash
+	sudo podman exec -it "${USHIFT_IMAGE}" bash
 
 .PHONY: stop
 stop:
 	@echo "Stopping the MicroShift container"
-	sudo podman stop --time 0 microshift-okd || true
+	sudo podman stop --time 0 "${USHIFT_IMAGE}" || true
 
 .PHONY: clean
 clean:
 	@echo "Cleaning up the MicroShift container"
-	sudo podman rmi -f microshift-okd || true
+	sudo podman rmi -f "${USHIFT_IMAGE}" || true
 	sudo podman rmi -f "${BUILDER_IMAGE}" || true
 	sudo rmmod openvswitch || true
 
@@ -89,9 +91,10 @@ ifndef OKD_VERSION_TAG
 	$(error Specify USHIFT_BRANCH=value and OKD_VERSION_TAG=value arguments')
 endif
 	sudo podman build \
-    	--build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
+        -t "${BUILDER_IMAGE}" \
+        --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
     	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
-        -t "${BUILDER_IMAGE}" -f packaging/microshift-cos9-builder.Containerfile .
+        -f packaging/microshift-cos9-builder.Containerfile .

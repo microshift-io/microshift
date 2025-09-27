@@ -2,9 +2,12 @@ FROM localhost/microshift-okd-builder:latest AS builder
 FROM quay.io/centos-bootc/centos-bootc:stream9
 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
-ARG OKD_CONFIG_SCRIPT=/tmp/configure.sh
+ARG USHIFT_CONFIG_SCRIPT=/tmp/configure.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
-ARG BUILDER_RPM_REPO_PATH=/microshift/_output/rpmbuild/RPMS
+
+# Builder image related variables
+ARG BUILDER_RPM_REPO_PATH=/home/microshift/microshift/_output/rpmbuild/RPMS
+ARG BUILDER_RSHARED_SERVICE=/home/microshift/microshift/packaging/imagemode/systemd/microshift-make-rshared.service
 
 # Environment variables controlling the list of MicroShift components to install
 ENV WITH_KINDNET=${WITH_KINDNET:-1}
@@ -12,8 +15,9 @@ ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
 ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
 
+# Copy the scripts and the builder RPM repository
 COPY --chmod=755 ./src/create_repos.sh ${REPO_CONFIG_SCRIPT}
-COPY --chmod=755 ./src/configure.sh ${OKD_CONFIG_SCRIPT}
+COPY --chmod=755 ./src/configure.sh ${USHIFT_CONFIG_SCRIPT}
 COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 
 # Install nfv-openvswitch repo which provides openvswitch extra policy package
@@ -23,7 +27,7 @@ RUN dnf install -y centos-release-nfv-openvswitch && \
 # Installing MicroShift and cleanup
 # With kindnet enabled, we do not need openvswitch service which is enabled by default
 # once MicroShift is installed. Disable the service to avoid the need to configure it.
-RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
+RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
         dnf install -y microshift-kindnet microshift-kindnet-release-info; \
@@ -40,7 +44,8 @@ RUN ${REPO_CONFIG_SCRIPT} ${USHIFT_RPM_REPO_PATH} && \
     rm -rvf ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
 
-RUN ${OKD_CONFIG_SCRIPT} && rm -vf ${OKD_CONFIG_SCRIPT}
+# Post-install MicroShift configuration
+RUN ${USHIFT_CONFIG_SCRIPT} && rm -vf ${USHIFT_CONFIG_SCRIPT}
 
 # If the EMBED_CONTAINER_IMAGES environment variable is set to 1:
 # 1. Temporarily configure user namespace UID and GID mappings by writing to /etc/subuid and  /etc/subgid and clean it later
@@ -66,5 +71,5 @@ RUN if [ "${EMBED_CONTAINER_IMAGES}" = "1" ] ; then \
 
 # Create a systemd unit to recursively make the root filesystem subtree
 # shared as required by OVN images
-COPY --from=builder /microshift/packaging/imagemode/systemd/microshift-make-rshared.service /usr/lib/systemd/system/microshift-make-rshared.service
+COPY --from=builder ${BUILDER_RSHARED_SERVICE} /usr/lib/systemd/system/microshift-make-rshared.service
 RUN systemctl enable microshift-make-rshared.service
