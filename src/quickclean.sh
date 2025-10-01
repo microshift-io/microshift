@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+
+LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
+VG_NAME="myvg1"
+
+# Check if the script is running as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+# Stop and remove the container
+podman rm -f --time 0 microshift-okd || true
+
+# Remove the image
+podman rmi -f localhost/microshift-okd:latest || true
+
+# Remove the LVM disk
+if [ -f "${LVM_DISK}" ]; then
+    vgremove -y "${VG_NAME}" || true
+    DEVICE_NAME="$(losetup -j "${LVM_DISK}" | cut -d: -f1)"
+    [ -n "${DEVICE_NAME}" ] && losetup -d "${DEVICE_NAME}"
+    rm -rf "$(dirname "${LVM_DISK}")"
+fi
