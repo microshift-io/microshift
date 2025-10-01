@@ -25,20 +25,25 @@ See [Build MicroShift RPMs](../docs/build.md#build-microshift-rpms) for more inf
 ```bash
 RPM_REPO_DIR=/tmp/microshift-rpms
 
-sudo dnf install -y microshift \
-  --repofrompath=microshift-local,"${RPM_REPO_DIR}" \
-  --setopt=microshift-local.gpgcheck=0
+sudo ./src/create_repos.sh -create "${RPM_REPO_DIR}"
+
+sudo dnf install -y microshift
 ```
 
 ### Start MicroShift Service
 
-Run the following commands to configure the minimum required firewall rules and
-start the MicroShift service.
+Run the following commands to configure the minimum required firewall rules,
+disable LVMS, and start the MicroShift service.
 
 ```bash
 sudo firewall-cmd --permanent --zone=trusted --add-source=10.42.0.0/16
 sudo firewall-cmd --permanent --zone=trusted --add-source=169.254.169.1
 sudo firewall-cmd --reload
+
+cat << EOF | sudo tee -a /etc/microshift/config.yaml >/dev/null
+storage:
+    driver: "none"
+EOF
 
 sudo systemctl enable --now microshift.service
 ```
