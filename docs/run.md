@@ -32,13 +32,18 @@ sudo dnf install -y microshift
 
 ### Start MicroShift Service
 
-Run the following commands to configure the minimum required firewall rules and
-start the MicroShift service.
+Run the following commands to configure the minimum required firewall rules,
+disable LVMS, and start the MicroShift service.
 
 ```bash
 sudo firewall-cmd --permanent --zone=trusted --add-source=10.42.0.0/16
 sudo firewall-cmd --permanent --zone=trusted --add-source=169.254.169.1
 sudo firewall-cmd --reload
+
+cat << EOF | sudo tee -a /etc/microshift/config.yaml >/dev/null
+storage:
+    driver: "none"
+EOF
 
 sudo systemctl enable --now microshift.service
 ```
