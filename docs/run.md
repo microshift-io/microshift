@@ -25,9 +25,9 @@ See [Build MicroShift RPMs](../docs/build.md#build-microshift-rpms) for more inf
 ```bash
 RPM_REPO_DIR=/tmp/microshift-rpms
 
-sudo dnf install -y microshift \
-  --repofrompath=microshift-local,"${RPM_REPO_DIR}" \
-  --setopt=microshift-local.gpgcheck=0
+sudo ./src/create_repos.sh -create "${RPM_REPO_DIR}"
+
+sudo dnf install -y microshift
 ```
 
 ### Start MicroShift Service
