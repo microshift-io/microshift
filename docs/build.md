@@ -3,7 +3,7 @@
 ### Overview
 The build process is containerized and it includes the following steps:
 
-1. Replace the MicroShift payload/images with the OKD [released images](https://github.com/okd-project/okd-scos/releases).
+1. Replace the MicroShift payload/images with the OKD [released images](https://github.com/okd-project/okd/releases).
 1. Build the MicroShift RPMs and repository from the MicroShift sources.
 1. Build the `microshift-okd` Bootc container based on CentOS Stream.
 
