@@ -40,6 +40,9 @@ VG name:   myvg1
 To access the container, run the following command:
  - sudo podman exec -it microshift-okd /bin/bash
 
+To verify that MicroShift pods are up and running, run the following command:
+ - sudo podman exec -it microshift-okd oc get pods -A
+
 To uninstall MicroShift, run the following command:
  - curl -s https://raw.githubusercontent.com/microshift-io/microshift/main/src/quickclean.sh | sudo bash
 ```

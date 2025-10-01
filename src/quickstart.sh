@@ -1,20 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-OWNER=microshift-io
+OWNER=${OWNER:-microshift-io}
 REPO=microshift
-BOOTC_ARCHIVE=""
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
 
-TMPDIR="$(mktemp -d /tmp/microshift-okd-XXXXXX)"
-trap 'rm -rf ${TMPDIR} &>/dev/null' EXIT
+# Internal variables
+_BOOTC_ARCHIVE=""
+_WORKDIR="$(mktemp -d /tmp/microshift-okd-XXXXXX)"
+
+# Ensure the work directory is removed on exit
+trap 'rm -rf ${_WORKDIR} &>/dev/null' EXIT
 
 function download_bootc_image() {
     local -r filter="$1"
 
-    pushd "${TMPDIR}" >/dev/null
+    pushd "${_WORKDIR}" &>/dev/null
     local -r url=$(curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
         | grep "browser_download_url" \
         | cut -d '"' -f 4 \
@@ -27,9 +30,9 @@ function download_bootc_image() {
 
     echo "Downloading '${url}'"
     curl -L --progress-bar -O "${url}"
-    popd >/dev/null
+    popd &>/dev/null
 
-    BOOTC_ARCHIVE="${TMPDIR}/$(basename "${url}")"
+    _BOOTC_ARCHIVE="${_WORKDIR}/$(basename "${url}")"
 }
 
 function install_bootc_image() {
@@ -44,7 +47,8 @@ function prepare_lvm_disk() {
     local -r vg_name="$2"
 
     if [ -f "${lvm_disk}" ]; then
-        echo "INFO: '${lvm_disk}' already exists. Reusing it."
+        echo "INFO: '${lvm_disk}' already exists. Clearing and reusing it."
+        dd if=/dev/zero of="${lvm_disk}" bs=1M count=100 >/dev/null
         return 0
     fi
 
@@ -67,6 +71,19 @@ function run_bootc_image() {
   		--volume /dev:/dev:rslave \
         --hostname 127.0.0.1.nip.io \
         "${image_name}"
+
+    echo "Waiting for MicroShift to start"
+    local -r kubeconfig="/var/lib/microshift/resources/kubeadmin/kubeconfig"
+    while true ; do
+        if podman exec microshift-okd /bin/test -f "${kubeconfig}" &>/dev/null ; then
+            break
+        fi
+        sleep 1
+    done
+
+    # Update kubeconfig in the container user home directory
+    podman exec microshift-okd /bin/mkdir -p /root/.kube
+    podman exec microshift-okd /bin/cp "${kubeconfig}" /root/.kube/config
 }
 
 # Check if the script is running as root
@@ -77,7 +94,7 @@ fi
 
 # Run the procedures
 download_bootc_image "microshift-bootc-image-$(uname -m)"
-install_bootc_image  "${BOOTC_ARCHIVE}"
+install_bootc_image  "${_BOOTC_ARCHIVE}"
 prepare_lvm_disk     "${LVM_DISK}" "${VG_NAME}"
 run_bootc_image      "localhost/microshift-okd:latest"
 
