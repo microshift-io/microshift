@@ -2,44 +2,18 @@
 set -euo pipefail
 
 OWNER=${OWNER:-microshift-io}
-REPO=microshift
+REPO=${REPO:-microshift}
+TAG=${TAG:-latest}
+IMAGE_REF="ghcr.io/${OWNER}/${REPO}:${TAG}"
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
 
-# Internal variables
-_BOOTC_ARCHIVE=""
-_WORKDIR="$(mktemp -d /tmp/microshift-okd-XXXXXX)"
+function pull_bootc_image() {
+    local -r image_ref="$1"
 
-# Ensure the work directory is removed on exit
-trap 'rm -rf ${_WORKDIR} &>/dev/null' EXIT
-
-function download_bootc_image() {
-    local -r filter="$1"
-
-    pushd "${_WORKDIR}" &>/dev/null
-    local -r url=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/releases/latest" \
-        | grep "browser_download_url" \
-        | cut -d '"' -f 4 \
-        | grep "${filter}")
-
-    if [ -z "${url}" ]; then
-        echo "ERROR: No packages found for '${filter}'"
-        return 1
-    fi
-
-    echo "Downloading '${url}'"
-    curl -L --progress-bar -O "${url}"
-    popd &>/dev/null
-
-    _BOOTC_ARCHIVE="${_WORKDIR}/$(basename "${url}")"
-}
-
-function install_bootc_image() {
-    local -r image_file="$1"
-
-    echo "Installing '${image_file}'"
-    podman load -q -i "${image_file}"
+    echo "Pulling '${image_ref}'"
+    podman pull "${image_ref}"
 }
 
 function prepare_lvm_disk() {
@@ -60,14 +34,14 @@ function prepare_lvm_disk() {
 }
 
 function run_bootc_image() {
-    local -r image_name="$1"
+    local -r image_ref="$1"
 
     # Prerequisites for running the MicroShift container:
     # - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option),
     #   the `openvswitch` module must be loaded on the host.
     # - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default build option),
     #   the /dev/dm-* device must be shared with the container.
-    echo "Running '${image_name}'"
+    echo "Running '${image_ref}'"
     modprobe openvswitch || true
 
     # Share the /dev directory with the container to enable TopoLVM CSI driver.
@@ -84,7 +58,7 @@ function run_bootc_image() {
         ${vol_opts} \
         --name microshift-okd \
         --hostname 127.0.0.1.nip.io \
-        "${image_name}"
+        "${image_ref}"
 
     echo "Waiting for MicroShift to start"
     local -r kubeconfig="/var/lib/microshift/resources/kubeadmin/kubeconfig"
@@ -107,10 +81,9 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Run the procedures
-download_bootc_image "microshift-bootc-image-$(uname -m)"
-install_bootc_image  "${_BOOTC_ARCHIVE}"
+pull_bootc_image     "${IMAGE_REF}"
 prepare_lvm_disk     "${LVM_DISK}" "${VG_NAME}"
-run_bootc_image      "localhost/microshift-okd:latest"
+run_bootc_image      "${IMAGE_REF}"
 
 # Follow-up instructions
 echo

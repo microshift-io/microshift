@@ -10,11 +10,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+image_ref="$(podman inspect --format '{{.Image}}' microshift-okd)"
+
 # Stop and remove the container
 podman rm -f --time 0 microshift-okd || true
 
 # Remove the image
-podman rmi -f localhost/microshift-okd:latest || true
+podman rmi -f "${image_ref}" || true
 
 # Remove the LVM disk
 if [ -f "${LVM_DISK}" ]; then

@@ -49,6 +49,8 @@ image: _builder
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
+     	--label microshift.branch="${USHIFT_BRANCH}" \
+     	--label okd.version="${OKD_VERSION_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
