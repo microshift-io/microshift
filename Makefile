@@ -156,5 +156,5 @@ _shellcheck:
 	shopt -s globstar nullglob && \
 	podman run --rm -i \
 		-v "$(CURDIR):/mnt:Z" \
-		docker.io/koalaman/shellcheck:stable --format=gcc --external-sources \
+		docker.io/koalaman/shellcheck:v0.11.0 --format=gcc --external-sources \
 		**/*.sh
