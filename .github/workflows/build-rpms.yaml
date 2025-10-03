@@ -110,13 +110,6 @@ jobs:
           cd /mnt/rpms
           sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
 
-      - name: Prepare the bootc image archive
-        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
-        shell: bash
-        run : |
-          sudo bash -c \
-            'podman save microshift-okd | gzip > "/mnt/release/microshift-bootc-image-$(uname -m).tgz"'
-
       - name: Release RPMs
         if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
@@ -127,12 +120,31 @@ jobs:
             /mnt/release/microshift-src.tgz
           overwrite_files: true
 
-      - name: Release bootc image
+      - name: Login to GitHub Container Registry
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          auth_file_path: /tmp/ghcr-auth.json
+
+      - name: Publish Bootc image
+        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+        shell: bash
+        run: |
+          sudo podman tag microshift-okd \
+            ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} \
+            ghcr.io/${{ github.repository }}:latest
+          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
+          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:latest
+
+          # Prepare the release note for the bootc image usage
+          TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/build-rpms.md > /tmp/build-rpms.md
+
+      - name: Add release note for bootc image usage
         if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
-          files: |
-            /mnt/release/microshift-bootc-image-*.tgz
-          overwrite_files: true
-          body_path: .github/workflows/build-rpms.md
+          body_path: /tmp/build-rpms.md
