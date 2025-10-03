@@ -9,9 +9,12 @@ WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+LVM_VOLSIZE ?= 1G
 # Internal variables
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
+LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
+VG_NAME := myvg1
 
 #
 # Define the main targets
@@ -19,12 +22,13 @@ USHIFT_IMAGE := microshift-okd
 .PHONY: all
 all:
 	@echo "make <rpm | image | run | login | stop | clean>"
-	@echo "   rpm:      build the MicroShift RPMs"
-	@echo "   image:    build the MicroShift bootc container image"
-	@echo "   run:      run the MicroShift bootc container"
-	@echo "   login:    login to the MicroShift bootc container"
-	@echo "   stop:     stop the MicroShift bootc container"
-	@echo "   clean:    clean up the MicroShift container"
+	@echo "   rpm:       build the MicroShift RPMs"
+	@echo "   image:     build the MicroShift bootc container image"
+	@echo "   run:       run the MicroShift bootc container"
+	@echo "   login:     login to the MicroShift bootc container"
+	@echo "   stop:      stop the MicroShift bootc container"
+	@echo "   clean:     clean up the MicroShift container and the TopoLVM CSI backend"
+	@echo "   clean-all: perform a full cleanup, including the container images"
 	@echo ""
 
 .PHONY: rpm
@@ -49,18 +53,20 @@ image: _builder
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/microshift-cos9.Containerfile .
 
-# Prerequisites for running the MicroShift container:
-# - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option),
-#   the `openvswitch` module must be loaded on the host.
-# - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default build option),
-#   the /dev/dm-* device must be shared with the container.
 .PHONY: run
 run:
 	@echo "Running the MicroShift container"
 	sudo modprobe openvswitch
+	$(MAKE) _topolvm_create
+
+	VOL_OPTS=(--tty --volume /dev:/dev) ; \
+	for device in input snd dri; do \
+		[ -d "/dev/$${device}" ] && VOL_OPTS+=("--tmpfs /dev/$${device}") ; \
+	done ; \
 	sudo podman run --privileged --rm -d \
+		--replace \
+		$${VOL_OPTS[@]} \
 		--name "${USHIFT_IMAGE}" \
-		--volume /dev:/dev:rslave \
 		--hostname 127.0.0.1.nip.io \
 		"${USHIFT_IMAGE}"
 
@@ -76,10 +82,17 @@ stop:
 
 .PHONY: clean
 clean:
-	@echo "Cleaning up the MicroShift container"
+	@echo "Cleaning up the MicroShift container and the TopoLVM CSI backend"
+	$(MAKE) stop
+	sudo rmmod openvswitch || true
+	$(MAKE) _topolvm_delete
+
+.PHONY: clean-all
+clean-all:
+	@echo "Performing a full cleanup"
+	$(MAKE) clean
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
 	sudo podman rmi -f "${BUILDER_IMAGE}" || true
-	sudo rmmod openvswitch || true
 
 #
 # Define the private targets
@@ -98,3 +111,20 @@ endif
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
         -f packaging/microshift-cos9-builder.Containerfile .
+
+.PHONY: _topolvm_create
+_topolvm_create:
+	@echo "Creating the TopoLVM CSI backend"
+	sudo mkdir -p "$$(dirname "${LVM_DISK}")"
+	sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}"
+	DEVICE_NAME="$$(sudo losetup --find --show --nooverlap "${LVM_DISK}")" && \
+	sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}"
+
+.PHONY: _topolvm_delete
+_topolvm_delete:
+	@echo "Deleting the TopoLVM CSI backend"
+	sudo lvremove -y "${VG_NAME}" || true
+	sudo vgremove -y "${VG_NAME}" || true
+	DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" && \
+	[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true
+	sudo rm -rf "$$(dirname "${LVM_DISK}")" || true
