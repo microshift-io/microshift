@@ -18,8 +18,9 @@ podman rmi -f localhost/microshift-okd:latest || true
 
 # Remove the LVM disk
 if [ -f "${LVM_DISK}" ]; then
+    lvremove -y "${VG_NAME}" || true
     vgremove -y "${VG_NAME}" || true
     DEVICE_NAME="$(losetup -j "${LVM_DISK}" | cut -d: -f1)"
-    [ -n "${DEVICE_NAME}" ] && losetup -d "${DEVICE_NAME}"
+    [ -n "${DEVICE_NAME}" ] && losetup -d ${DEVICE_NAME}
     rm -rf "$(dirname "${LVM_DISK}")"
 fi

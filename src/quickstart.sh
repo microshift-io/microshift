@@ -54,21 +54,35 @@ function prepare_lvm_disk() {
 
     mkdir -p "$(dirname "${lvm_disk}")"
     truncate --size=1G "${lvm_disk}"
-    losetup -f "${lvm_disk}"
 
-    local -r device_name="$(losetup -j "${lvm_disk}" | cut -d: -f1)"
+    local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
     vgcreate -f -y "${vg_name}" "${device_name}"
 }
 
 function run_bootc_image() {
     local -r image_name="$1"
 
+    # Prerequisites for running the MicroShift container:
+    # - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option),
+    #   the `openvswitch` module must be loaded on the host.
+    # - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default build option),
+    #   the /dev/dm-* device must be shared with the container.
     echo "Running '${image_name}'"
     modprobe openvswitch || true
+
+    # Share the /dev directory with the container to enable TopoLVM CSI driver.
+    # Mask the devices that may conflict with the host by sharing them on a
+    # temporary file system. Note that a pseudo-TTY is also allocated to
+    # prevent the container from using host consoles.
+    local vol_opts="--tty --volume /dev:/dev"
+    for device in input snd dri; do
+        [ -d "/dev/${device}" ] && vol_opts="${vol_opts} --tmpfs /dev/${device}"
+    done
+    # shellcheck disable=SC2086
     podman run --privileged --rm -d \
         --replace \
+        ${vol_opts} \
         --name microshift-okd \
-  		--volume /dev:/dev:rslave \
         --hostname 127.0.0.1.nip.io \
         "${image_name}"
 
