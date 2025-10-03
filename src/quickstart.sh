@@ -2,7 +2,7 @@
 set -euo pipefail
 
 OWNER=${OWNER:-microshift-io}
-REPO=microshift
+REPO=${REPO:-microshift}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
@@ -18,7 +18,7 @@ function download_bootc_image() {
     local -r filter="$1"
 
     pushd "${_WORKDIR}" &>/dev/null
-    local -r url=$(curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
+    local -r url=$(curl -s "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" \
         | grep "browser_download_url" \
         | cut -d '"' -f 4 \
         | grep "${filter}")
@@ -127,4 +127,4 @@ echo "To verify that MicroShift pods are up and running, run the following comma
 echo " - sudo podman exec -it microshift-okd oc get pods -A"
 echo
 echo "To uninstall MicroShift, run the following command:"
-echo " - curl -s https://raw.githubusercontent.com/${OWNER}/${REPO}/main/src/quickclean.sh | sudo bash"
+echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo bash"
