@@ -18,7 +18,7 @@ function download_bootc_image() {
     local -r filter="$1"
 
     pushd "${_WORKDIR}" &>/dev/null
-    local -r url=$(curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
+    local -r url=$(curl -s "https://api.github.com/repos/$OWNER/$REPO/releases/latest" \
         | grep "browser_download_url" \
         | cut -d '"' -f 4 \
         | grep "${filter}")

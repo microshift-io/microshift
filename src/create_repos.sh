@@ -5,7 +5,7 @@ USHIFT_LOCAL_REPO_FILE=/etc/yum.repos.d/microshift-local.repo
 OCP_MIRROR_REPO_FILE=/etc/yum.repos.d/openshift-mirror-beta.repo
 
 function usage() {
-    echo "Usage: $(basename $0) [-create <repo_path>] | [-delete]"
+    echo "Usage: $(basename "$0") [-create <repo_path>] | [-delete]"
     exit 1
 }
 

@@ -69,8 +69,8 @@ images:
 EOF
 
     # Read from the image-references file to find the images we need to update
-    local containers=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r '.spec.tags[].name' "${olm_image_refs_file}")
-    for container in ${containers[@]}; do
+    local -r containers=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r '.spec.tags[].name' "${olm_image_refs_file}")
+    for container in "${containers[@]}" ; do
         # Get image (registry.com/image) without the tag or digest from image-references
         local orig_image_name
         orig_image_name=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r ".spec.tags[] | select(.name == \"${container}\") | .from.name" "${olm_image_refs_file}" | awk -F '[@:]' '{ print $1; }')
