@@ -74,14 +74,14 @@ function run_bootc_image() {
     # Mask the devices that may conflict with the host by sharing them on a
     # temporary file system. Note that a pseudo-TTY is also allocated to
     # prevent the container from using host consoles.
-    local vol_opts=(--tty --volume /dev:/dev)
+    local vol_opts="--tty --volume /dev:/dev"
     for device in input snd dri; do
-        [ -d "/dev/${device}" ] && vol_opts+=("--tmpfs /dev/${device}")
+        [ -d "/dev/${device}" ] && vol_opts="${vol_opts} --tmpfs /dev/${device}"
     done
-    # shellcheck disable=SC2068
+    # shellcheck disable=SC2086
     podman run --privileged --rm -d \
         --replace \
-        ${vol_opts[@]} \
+        ${vol_opts} \
         --name microshift-okd \
         --hostname 127.0.0.1.nip.io \
         "${image_name}"

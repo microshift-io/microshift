@@ -59,13 +59,13 @@ run:
 	sudo modprobe openvswitch
 	$(MAKE) _topolvm_create
 
-	VOL_OPTS=(--tty --volume /dev:/dev) ; \
+	VOL_OPTS="--tty --volume /dev:/dev" ; \
 	for device in input snd dri; do \
-		[ -d "/dev/$${device}" ] && VOL_OPTS+=("--tmpfs /dev/$${device}") ; \
+		[ -d "/dev/$${device}" ] && VOL_OPTS="$${VOL_OPTS} --tmpfs /dev/$${device}" ; \
 	done ; \
 	sudo podman run --privileged --rm -d \
 		--replace \
-		$${VOL_OPTS[@]} \
+		$${VOL_OPTS} \
 		--name "${USHIFT_IMAGE}" \
 		--hostname 127.0.0.1.nip.io \
 		"${USHIFT_IMAGE}"
