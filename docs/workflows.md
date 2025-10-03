@@ -11,7 +11,7 @@ and run existing or create new workflows in their private repository branches.
 
 The remainder of this document describes the existing workflows and their functionality.
 
-### MicroShift RPM and Container Image Builder
+### Release MicroShift RPMs and Container Images
 
 The workflow implements a build process producing MicroShift RPM and Bootc
 container image artifacts.
@@ -32,3 +32,19 @@ and making sure all the MicroShift services are functional.
 
 The build artifacts are available for download under [Releases](https://github.com/microshift-io/microshift/releases)
 after the job finishes successfully.
+
+### Presubmit Pull Request Verification
+
+The workflow is run as a prerequisite for merging a pull request into the main
+branch.
+
+It implements the following verification procedures:
+* Run `shellcheck` on all scripts in the repository
+* Run `hadolint` on all container files in the repository
+* Run MicroShift bootc image build and test the services are up and running
+
+Note: The bootc image build is performed on the `main` MicroShift branch and the
+latest published OKD version tag.
+
+If any of these procedures exit with errors, the pull request cannot be merged
+before all the errors are fixed.

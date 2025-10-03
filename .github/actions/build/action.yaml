@@ -1,0 +1,88 @@
+name: Build MicroShift RPMs and Container Images
+description: Reusable action to build MicroShift RPMs and container images
+
+inputs:
+  ushift-branch:
+    description: MicroShift branch from https://github.com/openshift/microshift/branches
+    required: true
+    type: string
+  okd-version-tag:
+    description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+    required: true
+    type: string
+  action:
+    type: choice
+    description: Action to perform
+    required: true
+    options:
+    - build-all
+    - build-rpms
+    - build-bootc-image
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare the build and run environment
+      shell: bash
+      run: |
+        # The /dev/sdb1 partition is mounted as /mnt.
+        sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
+        sudo chmod 1777 /mnt/tmp
+
+        sudo apt-get install -y make lvm2 podman
+
+        # Redirect the container build directories to /mnt/ to avoid running out of disk space.
+        sudo mv /var/tmp /var/tmp.orig
+        sudo mv /var/lib/containers /mnt/containers
+        sudo ln -s /mnt/tmp /var/tmp
+        sudo ln -s /mnt/containers /var/lib/containers
+
+    - name: Build MicroShift RPMs
+      if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
+      shell: bash
+      run: |
+        # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
+        # for more information about the build process.
+
+        # Raise open file limits to avoid "too many open files" errors.
+        ulimit -n 65536
+
+        # Run the RPM build process.
+        cd ${GITHUB_WORKSPACE}/
+        make rpm \
+          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+          OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+          RPM_OUTDIR=/mnt/rpms
+
+    - name: Build MicroShift bootc container image
+      if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+      shell: bash
+      run: |
+        # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
+        # for more information about the build process.
+
+        # Raise open file limits to avoid "too many open files" errors.
+        ulimit -n 65536
+
+        # Run the container image build process.
+        cd ${GITHUB_WORKSPACE}/
+        make image \
+          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+          OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
+
+    - name: Run a test to verify that MicroShift is functioning properly
+      if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+      shell: bash
+      run: |
+        # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
+        # for more information about the run process.
+
+        # Run the MicroShift container
+        make run && sleep 5
+
+        # Wait until everything is up and running.
+        sudo podman exec -it microshift-okd \
+          bash -c 'microshift healthcheck -v=2 --timeout=600s --namespace topolvm-system --deployments topolvm-controller'
+
+        # Stop the MicroShift container.
+        make stop
