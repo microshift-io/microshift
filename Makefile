@@ -22,7 +22,7 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | login | stop | clean>"
+	@echo "make <rpm | image | run | login | stop | clean | check>"
 	@echo "   rpm:       build the MicroShift RPMs"
 	@echo "   image:     build the MicroShift bootc container image"
 	@echo "   run:       run the MicroShift bootc container"
@@ -30,6 +30,7 @@ all:
 	@echo "   stop:      stop the MicroShift bootc container"
 	@echo "   clean:     clean up the MicroShift container and the TopoLVM CSI backend"
 	@echo "   clean-all: perform a full cleanup, including the container images"
+	@echo "   check:     run the presubmit checks"
 	@echo ""
 
 .PHONY: rpm
