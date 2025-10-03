@@ -11,6 +11,7 @@ WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 LVM_VOLSIZE ?= 1G
 # Internal variables
+SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
