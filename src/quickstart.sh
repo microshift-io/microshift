@@ -100,4 +100,4 @@ echo "To verify that MicroShift pods are up and running, run the following comma
 echo " - sudo podman exec -it microshift-okd oc get pods -A"
 echo
 echo "To uninstall MicroShift, run the following command:"
-echo " - curl -s https://raw.githubusercontent.com/${OWNER}/${REPO}/main/src/quickclean.sh | sudo bash"
+echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo bash"

@@ -24,7 +24,7 @@ Run the following command to quickly run the latest build of MicroShift inside a
 Bootc container on your host.
 
 ```bash
-curl -s https://raw.githubusercontent.com/microshift-io/microshift/main/src/quickstart.sh | sudo bash
+curl -s https://microshift-io.github.io/microshift/quickstart.sh | sudo bash
 ```
 
 When completed successfully, the command displays information about the system
@@ -44,7 +44,7 @@ To verify that MicroShift pods are up and running, run the following command:
  - sudo podman exec -it microshift-okd oc get pods -A
 
 To uninstall MicroShift, run the following command:
- - curl -s https://raw.githubusercontent.com/microshift-io/microshift/main/src/quickclean.sh | sudo bash
+ - curl -s https://microshift-io.github.io/microshift/quickclean.sh | sudo bash
 ```
 
 ## Documentation
