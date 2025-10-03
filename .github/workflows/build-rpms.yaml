@@ -88,17 +88,7 @@ jobs:
           # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
           # for more information about the run process.
 
-          # Prepare the TopoLVM CSI backend on the host to be used by MicroShift when compiled with the default `WITH_TOPOLVM=1` built option.
-          LVM_DISK=/mnt/lvmdisk.image
-          VG_NAME=myvg1
-
-          sudo truncate --size=1G "${LVM_DISK}"
-          sudo losetup -f "${LVM_DISK}"
-
-          DEVICE_NAME="$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)"
-          sudo vgcreate -f -y "${VG_NAME}" "${DEVICE_NAME}"
-
-          # Run the MicroShift container.
+          # Run the MicroShift container
           make run && sleep 5
 
           # Wait until everything is up and running.
