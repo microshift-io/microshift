@@ -23,14 +23,18 @@ VG_NAME := myvg1
 .PHONY: all
 all:
 	@echo "make <rpm | image | run | login | stop | clean | check>"
-	@echo "   rpm:       build the MicroShift RPMs"
-	@echo "   image:     build the MicroShift bootc container image"
-	@echo "   run:       run the MicroShift bootc container"
-	@echo "   login:     login to the MicroShift bootc container"
-	@echo "   stop:      stop the MicroShift bootc container"
-	@echo "   clean:     clean up the MicroShift container and the TopoLVM CSI backend"
-	@echo "   clean-all: perform a full cleanup, including the container images"
-	@echo "   check:     run the presubmit checks"
+	@echo "   rpm:       	build the MicroShift RPMs"
+	@echo "   image:     	build the MicroShift bootc container image"
+	@echo "   run:       	run the MicroShift bootc container"
+	@echo "   login:     	login to the MicroShift bootc container"
+	@echo "   stop:      	stop the MicroShift bootc container"
+	@echo "   clean:     	clean up the MicroShift container and the LVM backend"
+	@echo "   check:     	run the presubmit checks"
+	@echo ""
+	@echo "Sub-targets:"
+	@echo "   run-ready: 	wait until the MicroShift service is ready"
+	@echo "   run-health:	wait until the MicroShift services are up and running"
+	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
 
 .PHONY: rpm
@@ -73,6 +77,29 @@ run:
 		--name "${USHIFT_IMAGE}" \
 		--hostname 127.0.0.1.nip.io \
 		"${USHIFT_IMAGE}"
+
+.PHONY: run-ready
+run-ready:
+	@echo "Waiting for the MicroShift service to be ready"
+	@for _ in $$(seq 60); do \
+		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
+			printf "\nOK\n" && exit 0; \
+		fi ; \
+		echo -n "." && sleep 1 ; \
+	done ; \
+	@printf "\nFAILED\n" && exit 1
+
+.PHONY: run-health
+run-health:
+	@echo "Waiting for the MicroShift services to be up and running"
+	@for _ in $$(seq 600); do \
+		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
+		if [ "$${state}" = "exited" ] ; then \
+			printf "\nOK\n" && exit 0; \
+		fi ; \
+		echo -n "." && sleep 10 ; \
+	done ; \
+	@printf "\nFAILED\n" && exit 1
 
 .PHONY: login
 login:
