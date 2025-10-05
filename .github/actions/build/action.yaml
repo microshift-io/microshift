@@ -80,11 +80,9 @@ runs:
         # Run the MicroShift container
         make run
 
-        # Wait until the MicroShift service is ready
+        # Wait until the MicroShift service is ready and healthy
         make run-ready
-
-        # Wait until everything is up and running
-        make run-health
+        make run-healthy
 
         # Stop the MicroShift container
         make stop
