@@ -33,7 +33,7 @@ all:
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   run-ready: 	wait until the MicroShift service is ready"
-	@echo "   run-health:	wait until the MicroShift services are up and running"
+	@echo "   run-healthy:	wait until the MicroShift service is healthy"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
 
@@ -89,9 +89,9 @@ run-ready:
 	done ; \
 	@printf "\nFAILED\n" && exit 1
 
-.PHONY: run-health
-run-health:
-	@echo "Waiting for the MicroShift services to be up and running"
+.PHONY: run-healthy
+run-healthy:
+	@echo "Waiting for the MicroShift service to be healthy"
 	@for _ in $$(seq 600); do \
 		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
 		if [ "$${state}" = "exited" ] ; then \
