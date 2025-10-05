@@ -24,7 +24,8 @@ RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
 RUN useradd -m -s /bin/bash "${USER}" && \
     echo "${USER}  ALL=(ALL)  NOPASSWD: ALL" > "/etc/sudoers.d/${USER}" && \
     chmod 0640 /etc/shadow && \
-    dnf install -y git
+    dnf install -y git && \
+    dnf clean all
 COPY ./src "${HOME}/src"
 
 # Set the user and work directory
@@ -38,9 +39,8 @@ RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "$
     "${HOME}/src/use_okd_assets.sh" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 # Building Microshift RPMs and SRPMs
-RUN cd "${HOME}/microshift" && \
-    WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
-        make rpm srpm
+RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
+        make -C "${HOME}/microshift" rpm srpm
 
 # Create a local repository for RPMs and add SRPMs on top of it
 RUN mkdir -p "${BUILDER_RPM_REPO_PATH}/srpms" && \

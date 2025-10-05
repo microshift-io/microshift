@@ -1,4 +1,5 @@
-name: MicroShift RPM and Container Image Builder
+name: Release MicroShift RPMs and Container Images
+description: Workflow to build and release MicroShift RPMs and container images
 
 on:
   workflow_dispatch:
@@ -33,71 +34,15 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Prepare the build and run environment
-        shell: bash
-        run: |
-          # The /dev/sdb1 partition is mounted as /mnt.
-          sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
-          sudo chmod 1777 /mnt/tmp
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: ${{ inputs.ushift-branch }}
+          okd-version-tag: ${{ inputs.okd-version-tag }}
+          action: ${{ inputs.action }}
 
-          sudo apt-get install -y make lvm2 podman
-
-          # Redirect the container build directories to /mnt/ to avoid running out of disk space.
-          sudo mv /var/tmp /var/tmp.orig
-          sudo mv /var/lib/containers /mnt/containers
-          sudo ln -s /mnt/tmp /var/tmp
-          sudo ln -s /mnt/containers /var/lib/containers
-
-      - name: Build MicroShift RPMs
-        if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
-        shell: bash
-        run: |
-          # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
-          # for more information about the build process.
-
-          # Raise open file limits to avoid "too many open files" errors.
-          ulimit -n 65536
-
-          # Run the RPM build process.
-          cd ${GITHUB_WORKSPACE}/
-          make rpm \
-            USHIFT_BRANCH=${{ inputs.ushift-branch }} \
-            OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
-            RPM_OUTDIR=/mnt/rpms
-
-      - name: Build MicroShift bootc container image
-        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
-        shell: bash
-        run: |
-          # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
-          # for more information about the build process.
-
-          # Raise open file limits to avoid "too many open files" errors.
-          ulimit -n 65536
-
-          # Run the container image build process.
-          cd ${GITHUB_WORKSPACE}/
-          make image \
-            USHIFT_BRANCH=${{ inputs.ushift-branch }} \
-            OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
-
-      - name: Run a test to verify that MicroShift is functioning properly
-        if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
-        shell: bash
-        run: |
-          # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
-          # for more information about the run process.
-
-          # Run the MicroShift container
-          make run && sleep 5
-
-          # Wait until everything is up and running.
-          sudo podman exec -it microshift-okd \
-            bash -c 'microshift healthcheck -v=2 --timeout=600s --namespace topolvm-system --deployments topolvm-controller'
-
-          # Stop the MicroShift container.
-          make stop
-
+        # The release process consumes the RPMs and the container image
+        # prepared by the build action.
       - name: Prepare the RPM archives
         if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
         shell: bash
@@ -140,11 +85,11 @@ jobs:
           sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:latest
 
           # Prepare the release note for the bootc image usage
-          TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/build-rpms.md > /tmp/build-rpms.md
+          TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/release.md > /tmp/release.md
 
       - name: Add release note for bootc image usage
         if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
-          body_path: /tmp/build-rpms.md
+          body_path: /tmp/release.md

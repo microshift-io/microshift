@@ -11,6 +11,7 @@ WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 LVM_VOLSIZE ?= 1G
 # Internal variables
+SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
@@ -21,7 +22,7 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | login | stop | clean>"
+	@echo "make <rpm | image | run | login | stop | clean | check>"
 	@echo "   rpm:       build the MicroShift RPMs"
 	@echo "   image:     build the MicroShift bootc container image"
 	@echo "   run:       run the MicroShift bootc container"
@@ -29,6 +30,7 @@ all:
 	@echo "   stop:      stop the MicroShift bootc container"
 	@echo "   clean:     clean up the MicroShift container and the TopoLVM CSI backend"
 	@echo "   clean-all: perform a full cleanup, including the container images"
+	@echo "   check:     run the presubmit checks"
 	@echo ""
 
 .PHONY: rpm
@@ -96,6 +98,9 @@ clean-all:
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
 	sudo podman rmi -f "${BUILDER_IMAGE}" || true
 
+.PHONY: check
+check: _hadolint _shellcheck
+
 #
 # Define the private targets
 #
@@ -130,3 +135,29 @@ _topolvm_delete:
 	DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" && \
 	[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true
 	sudo rm -rf "$$(dirname "${LVM_DISK}")" || true
+
+# When run inside a container, the file contents are redirected via stdin and
+# the output of errors does not contain the file path. Work around this issue
+# by replacing the '^-:' token in the output by the actual file name.
+.PHONY: _hadolint
+_hadolint:
+	set -euo pipefail && \
+	RET=0 && \
+	FILES=$$(find . -iname '*containerfile*' -o -iname '*dockerfile*' | grep -v "vendor\|_output\|origin\|.git") && \
+	for f in $${FILES} ; do \
+    	echo "$${f}" ; \
+    	if ! podman run --rm -i \
+        		-v "$(CURDIR)/.hadolint.yaml:/.hadolint.yaml:Z" \
+        		ghcr.io/hadolint/hadolint:2.12.0 < "$${f}" | sed "s|^-:|$${f}:|" ; then \
+			RET=1 ; \
+		fi ; \
+	done ; \
+	exit $${RET}
+
+.PHONY: _shellcheck
+_shellcheck:
+	shopt -s globstar nullglob && \
+	podman run --rm -i \
+		-v "$(CURDIR):/mnt:Z" \
+		docker.io/koalaman/shellcheck:v0.11.0 --format=gcc --external-sources \
+		**/*.sh
