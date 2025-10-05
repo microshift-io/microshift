@@ -46,3 +46,20 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.okd-version-tag.outputs.okd_version_tag }}
           action: build-bootc-image
+
+  quick-start-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Run the quick start script
+        run: |
+          cat ./src/quickstart.sh | sudo bash
+          # Wait until the MicroShift service is ready and healthy
+          make run-ready
+          make run-healthy
+
+      - name: Run the quick clean script
+        run: |
+          cat ./src/quickclean.sh | sudo bash
