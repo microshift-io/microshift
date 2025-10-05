@@ -148,20 +148,24 @@ endif
 
 .PHONY: _topolvm_create
 _topolvm_create:
-	@echo "Creating the TopoLVM CSI backend"
-	sudo mkdir -p "$$(dirname "${LVM_DISK}")"
-	sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}"
-	DEVICE_NAME="$$(sudo losetup --find --show --nooverlap "${LVM_DISK}")" && \
-	sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}"
+	if [ ! -f "${LVM_DISK}" ] ; then \
+		echo "Creating the TopoLVM CSI backend" ; \
+		sudo mkdir -p "$$(dirname "${LVM_DISK}")" ; \
+		sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}" ; \
+		DEVICE_NAME="$$(sudo losetup --find --show --nooverlap "${LVM_DISK}")" && \
+		sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}" ; \
+	fi
 
 .PHONY: _topolvm_delete
 _topolvm_delete:
-	@echo "Deleting the TopoLVM CSI backend"
-	sudo lvremove -y "${VG_NAME}" || true
-	sudo vgremove -y "${VG_NAME}" || true
-	DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" && \
-	[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true
-	sudo rm -rf "$$(dirname "${LVM_DISK}")" || true
+	if [ -f "${LVM_DISK}" ] ; then \
+		echo "Deleting the TopoLVM CSI backend" ; \
+		sudo lvremove -y "${VG_NAME}" || true ; \
+		sudo vgremove -y "${VG_NAME}" || true ; \
+		DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" ; \
+		[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true ; \
+		sudo rm -rf "$$(dirname "${LVM_DISK}")" ; \
+	fi
 
 # When run inside a container, the file contents are redirected via stdin and
 # the output of errors does not contain the file path. Work around this issue
