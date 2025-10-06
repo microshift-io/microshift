@@ -37,15 +37,19 @@ runs:
         sudo ln -s /mnt/tmp /var/tmp
         sudo ln -s /mnt/containers /var/lib/containers
 
+        # Print the current system limits
+        ulimit -a
+
+        # Raise open file limits to avoid "too many open files" errors
+        echo '* soft nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
+        echo '* hard nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
+
     - name: Build MicroShift RPMs
       if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
         # for more information about the build process.
-
-        # Raise open file limits to avoid "too many open files" errors.
-        ulimit -n 65536
 
         # Run the RPM build process.
         cd ${GITHUB_WORKSPACE}/
@@ -60,9 +64,6 @@ runs:
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
         # for more information about the build process.
-
-        # Raise open file limits to avoid "too many open files" errors.
-        ulimit -n 65536
 
         # Run the container image build process.
         cd ${GITHUB_WORKSPACE}/
