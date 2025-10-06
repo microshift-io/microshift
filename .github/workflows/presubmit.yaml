@@ -46,3 +46,36 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.okd-version-tag.outputs.okd_version_tag }}
           action: build-bootc-image
+
+  quick-start-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Run the quick start script
+        shell: bash
+        run: |
+          set -x
+          cat ./src/quickstart.sh | sudo bash -x
+
+          # Wait until the MicroShift service is ready and healthy
+          make run-ready
+          make run-healthy
+
+      - name: Run the quick clean script
+        shell: bash
+        run: |
+          set -x
+          cat ./src/quickclean.sh | sudo bash -x
+
+          # Verify the container and its image are removed
+          sudo podman ps -a  | grep microshift-okd && exit 1
+          sudo podman images | grep microshift-okd && exit 1
+
+          # Verify the LVM volume group and backing storage are removed
+          sudo vgs | grep myvg1 && exit 1
+          if [ -e /var/lib/microshift-okd ]; then
+            ls -la /var/lib/microshift-okd/
+            exit 1
+          fi
