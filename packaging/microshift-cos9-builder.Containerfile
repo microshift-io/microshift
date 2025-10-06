@@ -40,6 +40,7 @@ RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "$
 
 # Building Microshift RPMs and SRPMs
 RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
+        MICROSHIFT_VARIANT="community" \
         make -C "${HOME}/microshift" rpm srpm
 
 # Create a local repository for RPMs and add SRPMs on top of it
