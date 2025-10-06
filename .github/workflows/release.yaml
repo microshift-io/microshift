@@ -44,7 +44,7 @@ jobs:
         # The release process consumes the RPMs and the container image
         # prepared by the build action.
       - name: Prepare the RPM archives
-        if:  inputs.build == 'rpms' || inputs.build == 'all'
+        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
         shell: bash
         run : |
           # Archive sources separately from the RPMs
@@ -56,7 +56,7 @@ jobs:
           sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
 
       - name: Release RPMs
-        if:  inputs.build == 'rpms' || inputs.build == 'all'
+        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
@@ -66,7 +66,7 @@ jobs:
           overwrite_files: true
 
       - name: Login to GitHub Container Registry
-        if:  inputs.build == 'bootc-image' || inputs.build == 'all'
+        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: redhat-actions/podman-login@v1
         with:
           registry: ghcr.io/${{ github.repository_owner }}
@@ -75,7 +75,7 @@ jobs:
           auth_file_path: /tmp/ghcr-auth.json
 
       - name: Publish Bootc image
-        if:  inputs.build == 'bootc-image' || inputs.build == 'all'
+        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         shell: bash
         run: |
           sudo podman tag microshift-okd \
@@ -88,7 +88,7 @@ jobs:
           TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/release.md > /tmp/release.md
 
       - name: Add release note for bootc image usage
-        if:  inputs.build == 'bootc-image' || inputs.build == 'all'
+        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
