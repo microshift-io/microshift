@@ -1,8 +1,13 @@
+# Optionally allow for the base image override
+ARG BOOTC_IMAGE_URL=quay.io/centos-bootc/centos-bootc
+ARG BOOTC_IMAGE_TAG=stream9
+
 FROM localhost/microshift-okd-builder:latest AS builder
-FROM quay.io/centos-bootc/centos-bootc:stream9
+FROM ${BOOTC_IMAGE_URL}:${BOOTC_IMAGE_TAG}
 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
 ARG USHIFT_CONFIG_SCRIPT=/tmp/configure.sh
+ARG INSTALL_CNI_PLUGINS_SCRIPT=/tmp/install_cni_plugins.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
 
 # Builder image related variables
@@ -18,20 +23,25 @@ ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
 # Copy the scripts and the builder RPM repository
 COPY --chmod=755 ./src/create_repos.sh ${REPO_CONFIG_SCRIPT}
 COPY --chmod=755 ./src/configure.sh ${USHIFT_CONFIG_SCRIPT}
+COPY --chmod=755 ./src/kindnet/install_cni_plugins.sh ${INSTALL_CNI_PLUGINS_SCRIPT}
 COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 
-# Install nfv-openvswitch repo which provides openvswitch extra policy package
-RUN dnf install -y centos-release-nfv-openvswitch && \
-    dnf clean all
-
-# Installing MicroShift and cleanup
-# With kindnet enabled, we do not need openvswitch service which is enabled by default
-# once MicroShift is installed. Disable the service to avoid the need to configure it.
+# Install MicroShift and cleanup
+#
+# The fuse-overlayfs package is required for crio to function properly inside
+# a bootc container. It is not available by default in CentOS Stream 10.
+#
+# With kindnet enabled:
+# - No need for openvswitch service which is enabled by default once MicroShift
+#   is installed. Disable the service to avoid the need to configure it.
+# - May need to install the containernetworking-plugins package from the package
+#   GitHub release page (e.g. CentOS 10),
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
-    dnf install -y microshift microshift-release-info && \
+    dnf install -y microshift microshift-release-info fuse-overlayfs && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
         dnf install -y microshift-kindnet microshift-kindnet-release-info; \
         systemctl disable openvswitch ; \
+        ${INSTALL_CNI_PLUGINS_SCRIPT} ; \
     fi && \
     if [ "${WITH_TOPOLVM}" = "1" ] ; then \
         dnf install -y microshift-topolvm ; \
