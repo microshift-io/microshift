@@ -45,7 +45,7 @@ jobs:
         with:
           ushift-branch: main
           okd-version-tag: ${{ steps.okd-version-tag.outputs.okd_version_tag }}
-          action: build-bootc-image
+          build: bootc-image
 
   quick-start-and-clean:
     runs-on: ubuntu-latest

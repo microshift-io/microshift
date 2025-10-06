@@ -10,14 +10,14 @@ inputs:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
     type: string
-  action:
+  build:
     type: choice
-    description: Action to perform
+    description: Types of artifacts to build
     required: true
     options:
-    - build-all
-    - build-rpms
-    - build-bootc-image
+    - all
+    - rpms
+    - bootc-image
 
 runs:
   using: "composite"
@@ -38,7 +38,7 @@ runs:
         sudo ln -s /mnt/containers /var/lib/containers
 
     - name: Build MicroShift RPMs
-      if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
+      if:  inputs.build == 'rpms' || inputs.build == 'all'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -55,7 +55,7 @@ runs:
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
-      if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+      if:  inputs.build == 'bootc-image' || inputs.build == 'all'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -71,7 +71,7 @@ runs:
           OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
 
     - name: Run a test to verify that MicroShift is functioning properly
-      if:  inputs.action == 'build-bootc-image' || inputs.action == 'build-all'
+      if:  inputs.build == 'bootc-image' || inputs.build == 'all'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
