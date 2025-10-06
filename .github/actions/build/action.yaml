@@ -78,11 +78,11 @@ runs:
         # for more information about the run process.
 
         # Run the MicroShift container
-        make run && sleep 5
+        make run
 
-        # Wait until everything is up and running.
-        sudo podman exec -it microshift-okd \
-          bash -c 'microshift healthcheck -v=2 --timeout=600s --namespace topolvm-system --deployments topolvm-controller'
+        # Wait until the MicroShift service is ready and healthy
+        make run-ready
+        make run-healthy
 
-        # Stop the MicroShift container.
+        # Stop the MicroShift container
         make stop
