@@ -1,0 +1,24 @@
+name: Detect CPU Architecture
+description: Reusable action to detect the CPU architecture
+
+outputs:
+  arch:
+    description: "CPU Architecture"
+    value: ${{ steps.arch.outputs.arch }}
+  go_arch:
+    description: "CPU Architecture for Go"
+    value: ${{ steps.arch.outputs.go_arch }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect CPU architecture
+      id: arch
+      shell: bash
+      run: |
+        arch="$(uname -m)"
+        [[ "${arch}" == "x86_64"  ]] && go_arch="amd64"
+        [[ "${arch}" == "aarch64" ]] && go_arch="arm64"
+
+        echo "arch=${arch}"       >> $GITHUB_OUTPUT
+        echo "go_arch=${go_arch}" >> $GITHUB_OUTPUT
