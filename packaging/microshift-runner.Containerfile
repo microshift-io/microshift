@@ -35,7 +35,7 @@ COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 # - No need for openvswitch service which is enabled by default once MicroShift
 #   is installed. Disable the service to avoid the need to configure it.
 # - May need to install the containernetworking-plugins package from the package
-#   GitHub release page (e.g. CentOS 10),
+#   GitHub release page (e.g. CentOS 10)
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info fuse-overlayfs && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
