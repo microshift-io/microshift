@@ -5,6 +5,7 @@ ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV USER=microshift
 ENV HOME=/home/microshift
 ARG BUILDER_RPM_REPO_PATH=${HOME}/microshift/_output/rpmbuild/RPMS
+ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 
 # Variables controlling the list of MicroShift components to build
 ARG OKD_VERSION_TAG
@@ -26,7 +27,7 @@ RUN useradd -m -s /bin/bash "${USER}" && \
     chmod 0640 /etc/shadow && \
     dnf install -y git && \
     dnf clean all
-COPY ./src "${HOME}/src"
+COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 
 # Set the user and work directory
 USER ${USER}:${USER}
@@ -36,7 +37,7 @@ WORKDIR ${HOME}
 RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
     echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
     "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret && \
-    "${HOME}/src/use_okd_assets.sh" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
+    "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 # Building Microshift RPMs and SRPMs
 RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
