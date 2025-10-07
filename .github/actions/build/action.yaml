@@ -52,7 +52,6 @@ runs:
         echo '* hard nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
 
     - name: Build MicroShift RPMs
-      if: contains(fromJSON('["all", "rpms"]'), inputs.build)
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -75,8 +74,6 @@ runs:
         # Run the container image build process.
         cd ${GITHUB_WORKSPACE}/
         make image \
-          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
-          OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
           BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }}
 

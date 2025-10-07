@@ -3,7 +3,7 @@
 # using NAME=value make arguments
 #
 USHIFT_BRANCH ?= main
-OKD_VERSION_TAG ?=
+OKD_VERSION_TAG ?= $$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
 RPM_OUTDIR ?=
 WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
@@ -42,7 +42,18 @@ all:
 	@echo ""
 
 .PHONY: rpm
-rpm: _builder
+rpm:
+	@echo "Building the MicroShift builder image"
+	sudo podman build \
+        -t "${BUILDER_IMAGE}" \
+        --ulimit nofile=524288:524288 \
+        --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
+        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --env WITH_KINDNET="${WITH_KINDNET}" \
+        --env WITH_TOPOLVM="${WITH_TOPOLVM}" \
+        --env WITH_OLM="${WITH_OLM}" \
+        -f packaging/microshift-builder.Containerfile .
+
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
@@ -53,7 +64,12 @@ rpm: _builder
 	echo "RPMs are available in '$${outdir}'"
 
 .PHONY: image
-image: _builder
+image:
+	@if ! sudo podman image exists microshift-okd-builder ; then \
+		echo "Error: Run 'make rpm' to build the MicroShift RPMs"; \
+		exit 1; \
+	fi
+
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
@@ -137,22 +153,6 @@ check: _hadolint _shellcheck
 #
 # Define the private targets
 #
-.PHONY: _builder
-_builder:
-	@echo "Building the MicroShift builder image"
-ifndef OKD_VERSION_TAG
-	$(error Specify USHIFT_BRANCH=value and OKD_VERSION_TAG=value arguments')
-endif
-	sudo podman build \
-        -t "${BUILDER_IMAGE}" \
-        --ulimit nofile=524288:524288 \
-        --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
-    	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-    	--env WITH_KINDNET="${WITH_KINDNET}" \
-    	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
-    	--env WITH_OLM="${WITH_OLM}" \
-        -f packaging/microshift-builder.Containerfile .
-
 .PHONY: _topolvm_create
 _topolvm_create:
 	if [ ! -f "${LVM_DISK}" ] ; then \
