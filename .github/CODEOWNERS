@@ -1,0 +1,4 @@
+# This line designates the @microshift-io/microshift team as the owner of all files.
+# When a pull request is opened that changes any file, this team will be
+# automatically requested for review.
+* @microshift-io/microshift
