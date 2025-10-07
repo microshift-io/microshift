@@ -57,13 +57,12 @@ rpm:
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
-	outdir="${RPM_OUTDIR}" && \
 	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
-	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
+	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "${RPM_OUTDIR}" && \
 	sudo podman image umount "${BUILDER_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
-	echo "RPMs are available in '$${outdir}'"
+	echo "RPMs are available in ${RPM_OUTDIR}"
 
 .PHONY: rpm-deb
 rpm-deb:
@@ -71,8 +70,8 @@ rpm-deb:
 		echo "Error: Run 'make rpm' to build the MicroShift RPMs"; \
 		exit 1; \
 	fi
-	@if ! find "${RPM_OUTDIR}" -iname "microshift*.rpm" | grep -q "." ; then \
-		echo "Error: No MicroShift RPMs found in '${RPM_OUTDIR}' directory"; \
+	@if ! find "${RPM_OUTDIR}" -type f -iname "microshift*.rpm" | grep -q "." ; then \
+		echo "Error: No MicroShift RPMs found in ${RPM_OUTDIR} directory"; \
 		exit 1; \
 	fi
 
@@ -88,6 +87,8 @@ rpm-deb:
 				echo "Converting $${rpm} to Debian package" ; \
 				alien --to-deb --keep-version --scripts "$${rpm}" ; \
 			done ; \
+			# The microshift-networking package is not supported on Ubuntu \
+			rm -f /mnt/deb/microshift-networking*.deb ; \
 		'
 
 .PHONY: image

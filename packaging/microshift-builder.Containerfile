@@ -44,7 +44,22 @@ RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WI
         MICROSHIFT_VARIANT="community" \
         make -C "${HOME}/microshift" rpm srpm
 
-# Create a local repository for RPMs and add SRPMs on top of it
-RUN mkdir -p "${BUILDER_RPM_REPO_PATH}/srpms" && \
-    createrepo -v "${BUILDER_RPM_REPO_PATH}" && \
+# Delete unsupported RPMs, create a local RPM repository and add SRPMs on top of it
+# hadolint ignore=DL3059
+RUN /bin/bash -c <<'EOF'
+    set -euo pipefail
+    set -x
+
+    # These RPMs are built unconditionally.
+    # To add support for an RPM, undo the file removal and add a presubmit test for it.
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-ai-model-serving*.rpm
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-cert-manager*.rpm
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-gateway-api*.rpm
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-low-latency*.rpm
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-multus*.rpm
+    rm -f "${BUILDER_RPM_REPO_PATH}"/*/microshift-observability*.rpm
+
+    mkdir -p "${BUILDER_RPM_REPO_PATH}/srpms"
+    createrepo -v "${BUILDER_RPM_REPO_PATH}"
     cp -r "${BUILDER_RPM_REPO_PATH}/../SRPMS/." "${BUILDER_RPM_REPO_PATH}/srpms/"
+EOF
