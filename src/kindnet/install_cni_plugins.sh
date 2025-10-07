@@ -19,7 +19,7 @@ curl -sSL --retry 5 -o "/tmp/${CNP_PKG}" \
 # Extract the package into the CNI plugins directory as defined 
 # in the crio.conf.d/13-microshift-kindnet.conf file.
 mkdir -p /usr/libexec/cni
-tar zxvf "/tmp/${CNP_PKG}" -C /usr/libexec/cni && \
+tar zxvf "/tmp/${CNP_PKG}" -C /usr/libexec/cni
 
 # Clean up
 rm -f "/tmp/${CNP_PKG}"
