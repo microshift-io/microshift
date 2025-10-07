@@ -65,24 +65,6 @@ runs:
           OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
           RPM_OUTDIR=/mnt/rpms
 
-        # Prepare the RPMs for upload to GitHub Internal Storage
-        cd /mnt/rpms
-        sudo tar zcvf /mnt/microshift-rpms-$(uname -m).tgz .
-
-    - name: Detect CPU architecture
-      id: arch
-      uses: ./.github/actions/arch
-
-    - name: Upload MicroShift RPMs to GitHub Internal Storage
-      if:  inputs.action == 'build-rpms' || inputs.action == 'build-all'
-      uses: actions/upload-artifact@v4
-      with:
-        name: microshift-rpms-${{ steps.arch.outputs.arch }}
-        path: /mnt/microshift-rpms-${{ steps.arch.outputs.arch }}.tgz
-        if-no-files-found: error
-        compression-level: 0
-        overwrite: true
-
     - name: Build MicroShift bootc container image
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
