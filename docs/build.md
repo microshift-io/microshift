@@ -31,6 +31,8 @@ The following options can be specified in the make command line using the
 | WITH_TOPOLVM           | no       | 1        | Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
 | WITH_OLM               | no       | 0        | Enable OLM support
 | EMBED_CONTAINER_IMAGES | no       | 0        | Embed all component container dependencies in Bootc images
+| BOOTC_IMAGE_URL        | no       | quay.io/centos-bootc/centos-bootc | Base Bootc image URL used in `make image` command
+| BOOTC_IMAGE_TAG        | no       | stream9  | Base Bootc image tag used in `make image` command
 
 ### Build MicroShift RPMs
 
@@ -75,3 +77,6 @@ make image \
 ```
 
 If the build completes successfully, the `microshift-okd` image is created.
+
+Note: The base operating system image used to run MicroShift can be overriden by
+specifying `BOOTC_IMAGE_URL` and `BOOTC_IMAGE_TAG` make command line.

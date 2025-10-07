@@ -10,6 +10,16 @@ inputs:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
     type: string
+  bootc-image-url:
+    description: Base Bootc image URL used in `make image` command
+    required: false
+    default: quay.io/centos-bootc/centos-bootc
+    type: string
+  bootc-image-tag:
+    description: Base Bootc image tag used in `make image` command
+    required: false
+    default: stream9
+    type: string
   build:
     type: choice
     description: Types of artifacts to build
@@ -36,9 +46,6 @@ runs:
         sudo mv /var/lib/containers /mnt/containers
         sudo ln -s /mnt/tmp /var/tmp
         sudo ln -s /mnt/containers /var/lib/containers
-
-        # Print the current system limits
-        ulimit -a
 
         # Raise open file limits to avoid "too many open files" errors
         echo '* soft nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
@@ -69,7 +76,9 @@ runs:
         cd ${GITHUB_WORKSPACE}/
         make image \
           USHIFT_BRANCH=${{ inputs.ushift-branch }} \
-          OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
+          OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+          BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
+          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }}
 
     - name: Run a test to verify that MicroShift is functioning properly
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)

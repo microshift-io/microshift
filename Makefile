@@ -10,6 +10,10 @@ WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 LVM_VOLSIZE ?= 1G
+
+BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
+BOOTC_IMAGE_TAG ?= stream9
+
 # Internal variables
 SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
@@ -55,11 +59,13 @@ image: _builder
 		-t "${USHIFT_IMAGE}" \
      	--label microshift.branch="${USHIFT_BRANCH}" \
      	--label okd.version="${OKD_VERSION_TAG}" \
+        --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
+        --build-arg BOOTC_IMAGE_TAG="${BOOTC_IMAGE_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-        -f packaging/microshift-cos9.Containerfile .
+        -f packaging/microshift-runner.Containerfile .
 
 .PHONY: run
 run:
@@ -87,7 +93,7 @@ run-ready:
 		fi ; \
 		echo -n "." && sleep 1 ; \
 	done ; \
-	@printf "\nFAILED\n" && exit 1
+	printf "\nFAILED\n" && exit 1
 
 .PHONY: run-healthy
 run-healthy:
@@ -99,7 +105,7 @@ run-healthy:
 		fi ; \
 		echo -n "." && sleep 10 ; \
 	done ; \
-	@printf "\nFAILED\n" && exit 1
+	printf "\nFAILED\n" && exit 1
 
 .PHONY: login
 login:
@@ -139,12 +145,13 @@ ifndef OKD_VERSION_TAG
 endif
 	sudo podman build \
         -t "${BUILDER_IMAGE}" \
+        --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
     	--build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
-        -f packaging/microshift-cos9-builder.Containerfile .
+        -f packaging/microshift-builder.Containerfile .
 
 .PHONY: _topolvm_create
 _topolvm_create:

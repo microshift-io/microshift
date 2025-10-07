@@ -1,0 +1,23 @@
+name: Detect OKD Version Tag
+description: Reusable action to detect the OKD version tag
+
+outputs:
+  okd-version-tag:
+    description: "OKD Version Tag"
+    value: ${{ steps.okd-version-tag.outputs.okd_version_tag }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Compute the latest OKD version tag
+      id: okd-version-tag
+      shell: bash
+      run: |
+        sudo apt-get install -y jq
+        # Get the latest OKD version tag
+        okd_version_tag="$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)"
+        if [ -z "${okd_version_tag}" ]; then
+          echo "Error: No OKD version tag found"
+          exit 1
+        fi
+        echo "okd_version_tag=${okd_version_tag}" >> $GITHUB_OUTPUT
