@@ -1,0 +1,66 @@
+#!/bin/bash
+set -euo pipefail
+set -x
+
+install_cni_plugins() {
+    # If containernetworking-plugins is already installed, exit
+    if rpm -q containernetworking-plugins &>/dev/null; then
+        return 0
+    fi
+
+    # Set the package version and name
+    CNP_VER=v1.8.0
+    CNP_PKG="cni-plugins-linux-amd64-${CNP_VER}.tgz"
+    [ "$(uname -m)" = "aarch64" ] && CNP_PKG="cni-plugins-linux-arm64-${CNP_VER}.tgz"
+
+    # Download the package
+    curl -sSL --retry 5 -o "/tmp/${CNP_PKG}" \
+        "https://github.com/containernetworking/plugins/releases/download/${CNP_VER}/${CNP_PKG}"
+
+    # Extract the package into the CNI plugins directory as defined
+    # in the crio.conf.d/13-microshift-kindnet.conf file.
+    mkdir -p /usr/libexec/cni
+    tar zxvf "/tmp/${CNP_PKG}" -C /usr/libexec/cni && \
+
+    # Clean up
+    rm -f "/tmp/${CNP_PKG}"
+}
+
+microshift_config() {
+    cat > "/etc/microshift/config.yaml" <<EOF
+storage:
+    driver: "none"
+EOF
+}
+
+#
+# Main
+#
+# Check if the script is running as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
+microshift_config
+
+# Firewall configuration
+dnf install -y firewalld
+firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
+firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
+
+# With kindnet present:
+# - No need for openvswitch service which is enabled by default once MicroShift
+#   is installed. Disable the service to avoid the need to configure it.
+# - Need to disable systemd-resolved service to allow proper host name resolution.
+# - May need to install the containernetworking-plugins package from the package
+#   GitHub release page (e.g. CentOS 10).
+if rpm -q microshift-kindnet &>/dev/null; then
+    systemctl disable openvswitch      &>/dev/null || true
+    systemctl disable systemd-resolved &>/dev/null || true
+
+    install_cni_plugins
+fi
+
+# Enable the MicroShift service
+systemctl enable microshift

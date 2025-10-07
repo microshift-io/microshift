@@ -126,6 +126,11 @@ EOF
     fi
 }
 
+fix_rpm_spec(){
+    # Fix the RPM spec by removing the microshift-networking package hard dependency
+    sed -i 's/Requires: microshift-networking/Recommends: microshift-networking/' "${MICROSHIFT_ROOT}/packaging/rpm/microshift.spec"
+}
+
 usage() {
     echo "Usage:"
     echo "$(basename "$0") --verify  OKD_URL RELEASE_TAG         verify upstream release"
@@ -138,6 +143,7 @@ if [ $# -eq 3 ] ; then
     --replace)
         verify "$2" "$3"
         replace_assets "$2" "$3"
+        fix_rpm_spec
         ;;
     --verify)
         verify "$2" "$3"

@@ -6,8 +6,7 @@ FROM localhost/microshift-okd-builder:latest AS builder
 FROM ${BOOTC_IMAGE_URL}:${BOOTC_IMAGE_TAG}
 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
-ARG USHIFT_CONFIG_SCRIPT=/tmp/configure.sh
-ARG INSTALL_CNI_PLUGINS_SCRIPT=/tmp/install_cni_plugins.sh
+ARG USHIFT_POSTINSTALL_SCRIPT=/tmp/postinstall.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
 
 # Builder image related variables
@@ -22,26 +21,14 @@ ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
 
 # Copy the scripts and the builder RPM repository
 COPY --chmod=755 ./src/create_repos.sh ${REPO_CONFIG_SCRIPT}
-COPY --chmod=755 ./src/configure.sh ${USHIFT_CONFIG_SCRIPT}
-COPY --chmod=755 ./src/kindnet/install_cni_plugins.sh ${INSTALL_CNI_PLUGINS_SCRIPT}
+COPY --chmod=755 ./src/image/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
 COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 
-# Install MicroShift and cleanup
-#
-# The fuse-overlayfs package is required for crio to function properly inside
-# a bootc container. It is not available by default in CentOS Stream 10.
-#
-# With kindnet enabled:
-# - No need for openvswitch service which is enabled by default once MicroShift
-#   is installed. Disable the service to avoid the need to configure it.
-# - May need to install the containernetworking-plugins package from the package
-#   GitHub release page (e.g. CentOS 10)
+# Run repository configuration script, install MicroShift and cleanup
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info fuse-overlayfs && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
         dnf install -y microshift-kindnet microshift-kindnet-release-info; \
-        systemctl disable openvswitch ; \
-        ${INSTALL_CNI_PLUGINS_SCRIPT} ; \
     fi && \
     if [ "${WITH_TOPOLVM}" = "1" ] ; then \
         dnf install -y microshift-topolvm ; \
@@ -55,7 +42,7 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
 
 # Post-install MicroShift configuration
-RUN ${USHIFT_CONFIG_SCRIPT} && rm -vf ${USHIFT_CONFIG_SCRIPT}
+RUN ${USHIFT_POSTINSTALL_SCRIPT} && rm -vf "${USHIFT_POSTINSTALL_SCRIPT}"
 
 # If the EMBED_CONTAINER_IMAGES environment variable is set to 1:
 # 1. Temporarily configure user namespace UID and GID mappings by writing to /etc/subuid and  /etc/subgid and clean it later
