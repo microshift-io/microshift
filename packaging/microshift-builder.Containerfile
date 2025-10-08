@@ -6,6 +6,7 @@ ENV USER=microshift
 ENV HOME=/home/microshift
 ARG BUILDER_RPM_REPO_PATH=${HOME}/microshift/_output/rpmbuild/RPMS
 ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
+ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 
 # Variables controlling the list of MicroShift components to build
 ARG OKD_VERSION_TAG
@@ -27,24 +28,33 @@ RUN useradd -m -s /bin/bash "${USER}" && \
     chmod 0640 /etc/shadow && \
     dnf install -y git && \
     dnf clean all
-COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 
 # Set the user and work directory
 USER ${USER}:${USER}
 WORKDIR ${HOME}
 
-# Preparing for the build
+# Preparing the OS configuration for the build
 RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
     echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
-    "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret && \
-    "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
+    "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret
 
-# Building Microshift RPMs and SRPMs
-RUN WITH_KINDNET="${WITH_KINDNET}" WITH_TOPOLVM="${WITH_TOPOLVM}" WITH_OLM="${WITH_OLM}" \
+# Preparing the build scripts
+COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
+RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
+
+# Building downstream Microshift RPMs and SRPMs
+# TODO: Remove WITH_TOPOLVM=0 once TopoLVM is deleted from downstream
+# hadolint ignore=DL3059
+RUN WITH_KINDNET="${WITH_KINDNET}" WITH_OLM="${WITH_OLM}" WITH_TOPOLVM=0 \
         MICROSHIFT_VARIANT="community" \
         make -C "${HOME}/microshift" rpm srpm
 
-# Create a local repository for RPMs and add SRPMs on top of it
-RUN mkdir -p "${BUILDER_RPM_REPO_PATH}/srpms" && \
-    createrepo -v "${BUILDER_RPM_REPO_PATH}" && \
-    cp -r "${BUILDER_RPM_REPO_PATH}/../SRPMS/." "${BUILDER_RPM_REPO_PATH}/srpms/"
+# Building TopoLVM upstream RPM
+COPY --chmod=644 ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
+COPY ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
+COPY ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
+RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
+
+# Post-build MicroShift configuration
+COPY --chmod=755 ./src/image/postbuild.sh ${USHIFT_POSTBUILD_SCRIPT}
+RUN "${USHIFT_POSTBUILD_SCRIPT}" "${BUILDER_RPM_REPO_PATH}"
