@@ -26,7 +26,7 @@ COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 
 # Run repository configuration script, install MicroShift and cleanup
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
-    dnf install -y microshift microshift-release-info fuse-overlayfs && \
+    dnf install -y microshift microshift-release-info && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
         dnf install -y microshift-kindnet microshift-kindnet-release-info; \
     fi && \
