@@ -93,16 +93,19 @@ run:
 	for device in input snd dri; do \
 		[ -d "/dev/$${device}" ] && VOL_OPTS="$${VOL_OPTS} --tmpfs /dev/$${device}" ; \
 	done ; \
+	# The containers storage is mounted on a tmpfs to avoid usage of fuse-overlayfs,
+	# which is less efficient than the default driver
 	sudo podman run --privileged --rm -d \
 		--replace \
 		$${VOL_OPTS} \
+		--tmpfs /var/lib/containers \
 		--name "${USHIFT_IMAGE}" \
 		--hostname 127.0.0.1.nip.io \
 		"${USHIFT_IMAGE}"
 
 .PHONY: run-ready
 run-ready:
-	@echo "Waiting for the MicroShift service to be ready"
+	@echo "Waiting 1m for the MicroShift service to be ready"
 	@for _ in $$(seq 60); do \
 		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
 			printf "\nOK\n" && exit 0; \
@@ -113,8 +116,8 @@ run-ready:
 
 .PHONY: run-healthy
 run-healthy:
-	@echo "Waiting for the MicroShift service to be healthy"
-	@for _ in $$(seq 600); do \
+	@echo "Waiting 10m for the MicroShift service to be healthy"
+	@for _ in $$(seq 60); do \
 		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
 		if [ "$${state}" = "exited" ] ; then \
 			printf "\nOK\n" && exit 0; \
