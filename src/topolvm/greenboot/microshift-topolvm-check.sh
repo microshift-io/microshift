@@ -11,6 +11,8 @@ if [ "$(id -u)" -ne 0 ] ; then
     exit 1
 fi
 
+exit_if_fail_marker_exists
+
 echo "STARTED"
 
 # Set the wait timeout for the current check based on the boot counter
