@@ -19,12 +19,9 @@ ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
 ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
 
-# Copy the scripts and the builder RPM repository
-COPY --chmod=755 ./src/create_repos.sh ${REPO_CONFIG_SCRIPT}
-COPY --chmod=755 ./src/image/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
-COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
-
 # Run repository configuration script, install MicroShift and cleanup
+COPY --chmod=755 ./src/create_repos.sh ${REPO_CONFIG_SCRIPT}
+COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
@@ -42,6 +39,7 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
 
 # Post-install MicroShift configuration
+COPY --chmod=755 ./src/image/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
 RUN ${USHIFT_POSTINSTALL_SCRIPT} && rm -vf "${USHIFT_POSTINSTALL_SCRIPT}"
 
 # If the EMBED_CONTAINER_IMAGES environment variable is set to 1:

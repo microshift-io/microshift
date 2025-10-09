@@ -62,5 +62,11 @@ if rpm -q microshift-kindnet &>/dev/null; then
     install_cni_plugins
 fi
 
+# Create a link to the default kubeconfig.
+# Note that the /root directory may be a symlink to /var/roothome and the target
+# directory may not exist, depending on the operating system.
+mkdir -p "$(readlink -f /root)/.kube"
+ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
+
 # Enable the MicroShift service
 systemctl enable microshift

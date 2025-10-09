@@ -21,7 +21,7 @@ To install all the prerequisites and generate the TopoLVM manifests,
 run the following command:
 
 ```bash
-./prepare_topolvm_manifests.sh
+./src/topolvm/prepare_topolvm_manifests.sh
 ```
 
 This script will:
@@ -41,10 +41,10 @@ The following manifest files will be generated:
 
 ## Integrating with MicroShift RPMs
 
-- Clone MicroShift `git clone https://github.com/openshift/microshift.git ~/microshift` 
-- Replace the content of ~/microshift/assets/optional/topolvm with the generated `manifests/`
-- Build the MicroShift RPMs using `cd ~/microshift && MICROSHIFT_VARIANT=community make rpm`
-
-## License
-
-This project follows the same license as the MicroShift project (Apache License 2.0).
+The `make rpm` command of the upstream repository builds the `microshift-topolvm`
+RPM in the second pass after applying the following changes downstream:
+- Replace the `microshift/packaging/spec/microshift.spec` file with
+  `src/topolvm/topolvm.spec` building only the TopoLVM RPM
+- Replace the content of `microshift/assets/optional/topolvm` with the generated manifests
+  from the `src/topolvm/assets` directory.
+- Build the TopoLVM RPM using `cd ~/microshift && MICROSHIFT_VARIANT=community make rpm`
