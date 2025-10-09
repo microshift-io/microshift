@@ -7,6 +7,7 @@ FROM ${BOOTC_IMAGE_URL}:${BOOTC_IMAGE_TAG}
 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
 ARG USHIFT_POSTINSTALL_SCRIPT=/tmp/postinstall.sh
+ARG USHIFT_EMBED_IMAGES_SCRIPT=/tmp/embed_images.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
 
 # Builder image related variables
@@ -42,25 +43,14 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
 COPY --chmod=755 ./src/image/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
 RUN ${USHIFT_POSTINSTALL_SCRIPT} && rm -vf "${USHIFT_POSTINSTALL_SCRIPT}"
 
-# If the EMBED_CONTAINER_IMAGES environment variable is set to 1:
-# 1. Temporarily configure user namespace UID and GID mappings by writing to /etc/subuid and  /etc/subgid and clean it later
-#    - This allows the skopeo command to operate properly which requires user namespace support.
-#    - Without it following error occur during image build
-#       - FATA[0129] copying system image from manifest list:[...]unpacking failed (error: exit status 1; output: potentially insufficient UIDs or GIDs available[...]
-# 2. Extract the list of image URLs from a JSON file (`release-$(uname -m).json`) while excluding the "lvms_operator" image.
-#    - `lvms_operator` image is excluded because it is not available upstream
+# If the EMBED_CONTAINER_IMAGES environment variable is set to 1, temporarily
+# configure user namespace UID and GID mappings. This allows the skopeo command
+# to operate without errors when copying the container images.
+COPY --chmod=755 ./src/image/embed_images.sh ${USHIFT_EMBED_IMAGES_SCRIPT}
 RUN if [ "${EMBED_CONTAINER_IMAGES}" = "1" ] ; then \
-        echo "root:100000:65536" > /etc/subuid ; \
-        echo "root:100000:65536" > /etc/subgid ; \
-        for i in $(jq -r '.images | to_entries | map(select(.key != "lvms_operator")) | .[].value' "/usr/share/microshift/release/release-$(uname -m).json") ; do \
-            skopeo copy --retry-times 3 --preserve-digests "docker://${i}" "containers-storage:${i}" ; \
-        done ; \
-        if [ "${WITH_KINDNET}" = "1" ] ; then \
-            kindnetImage=$(jq -r '.images.kindnet' "/usr/share/microshift/release/release-kindnet-$(uname -m).json") ; \
-            skopeo copy --retry-times 3 --preserve-digests "docker://${kindnetImage}" "containers-storage:${kindnetImage}" ; \
-            kubeproxyImage=$(jq -r '.images["kube-proxy"]' "/usr/share/microshift/release/release-kube-proxy-$(uname -m).json") ; \
-            skopeo copy --retry-times 3 --preserve-digests "docker://${kubeproxyImage}" "containers-storage:${kubeproxyImage}" ; \
-        fi && \
+        echo "root:100000:65536" > /etc/subuid && \
+        echo "root:100000:65536" > /etc/subgid && \
+        ${USHIFT_EMBED_IMAGES_SCRIPT} && rm -vf "${USHIFT_EMBED_IMAGES_SCRIPT}" && \
         rm -vf /etc/subuid /etc/subgid ; \
     fi
 
