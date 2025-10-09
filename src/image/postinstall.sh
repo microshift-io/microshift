@@ -62,5 +62,9 @@ if rpm -q microshift-kindnet &>/dev/null; then
     install_cni_plugins
 fi
 
+# Create a link to the default kubeconfig
+mkdir -p /root/.kube
+ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
+
 # Enable the MicroShift service
 systemctl enable microshift
