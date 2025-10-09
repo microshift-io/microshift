@@ -1,6 +1,8 @@
 name: Presubmit Pull Request Verification
 
 on:
+  workflow_dispatch:
+    branches: [ '*' ]
   pull_request:
     branches: [ main ]
 
@@ -81,6 +83,35 @@ jobs:
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
           bootc-image-tag: latest
           build: bootc-image
+
+  ubuntu-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          build: bootc-rpms
+
+      - name: Convert the MicroShift RPMs to Debian packages
+        run: |
+          make rpm-deb RPM_OUTDIR=/mnt/rpms
+
+      - name: Install the MicroShift Debian packages
+        run: |
+          sudo apt-get update -y
+          sudo DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
+            apt-get install -y systemd tzdata policycoreutils
+          sudo dpkg -i /mnt/rpms/deb/*.deb
+          sudo apt-get install -y -f
 
   quick-start-and-clean:
     runs-on: ubuntu-latest
