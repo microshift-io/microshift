@@ -53,6 +53,7 @@ RUN WITH_KINDNET="${WITH_KINDNET}" WITH_OLM="${WITH_OLM}" WITH_TOPOLVM=0 \
 COPY --chmod=644 ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
 COPY ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
 COPY ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
+COPY ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
 RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
 
 # Post-build MicroShift configuration
