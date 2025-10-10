@@ -1,4 +1,4 @@
-name: Build MicroShift RPMs and Container Images
+name: build-rpms-and-images
 description: Reusable action to build MicroShift RPMs and container images
 
 inputs:

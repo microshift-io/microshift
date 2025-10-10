@@ -1,4 +1,5 @@
-name: Presubmit Pull Request Verification
+name: presubmit-pr-check
+description: Presubmit Pull Request Verification
 
 on:
   pull_request:
