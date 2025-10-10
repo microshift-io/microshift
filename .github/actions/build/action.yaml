@@ -114,3 +114,31 @@ runs:
 
         # Stop the MicroShift container
         make stop
+
+    - name: Collect logs on failure
+      if: failure()
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        sudo podman ps -a
+        sudo podman images
+        sudo podman logs microshift-okd || true
+
+        # Collect sos report from the MicroShift container
+        if sudo podman ps --filter name=microshift-okd | grep -q . ; then
+          sudo podman exec -i microshift-okd microshift-sos-report
+          for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
+            sudo podman cp microshift-okd:${f} /mnt/tmp/
+            sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+          done
+        fi
+
+    - name: Upload sos report to the GitHub Actions artifact
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sosreport-microshift-okd
+        path: /mnt/tmp/sosreport-*
+        compression-level: 0
