@@ -1,0 +1,8 @@
+{
+  "images": {
+    "topolvm-with-sidecar": "ghcr.io/topolvm/topolvm-with-sidecar:0.36.2",
+    "cert-manager-cainjector": "quay.io/jetstack/cert-manager-cainjector:v1.16.1",
+    "cert-manager-controller": "quay.io/jetstack/cert-manager-controller:v1.16.1",
+    "cert-manager-webhook": "quay.io/jetstack/cert-manager-webhook:v1.16.1"
+  }
+}
