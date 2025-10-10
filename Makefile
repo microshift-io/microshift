@@ -115,8 +115,8 @@ run:
 
 .PHONY: run-ready
 run-ready:
-	@echo "Waiting 1m for the MicroShift service to be ready"
-	@for _ in $$(seq 60); do \
+	@echo "Waiting 5m for the MicroShift service to be ready"
+	@for _ in $$(seq 300); do \
 		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
