@@ -13,6 +13,13 @@ pull_images() {
     mkdir -p "${IMAGE_STORAGE_DIR}"
     for images in /usr/share/microshift/release/release-*"$(uname -m)".json ; do
         for img in $(jq -r ".images[]" "${images}") ; do
+            # Skip Red Hat images because they are not available upstream.
+            # For example, registry.redhat.io/lvms4 operator images.
+            if [[ "${img}" == registry.redhat.io/* ]]; then
+                echo "Skipping Red Hat image: ${img}"
+                continue
+            fi
+
             sha="$(echo "${img}" | sha256sum | awk '{print $1}')"
             skopeo copy --all --preserve-digests \
                 "docker://${img}" "dir:$IMAGE_STORAGE_DIR/${sha}"

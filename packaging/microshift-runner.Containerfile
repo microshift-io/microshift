@@ -26,10 +26,10 @@ COPY --from=builder ${BUILDER_RPM_REPO_PATH} ${USHIFT_RPM_REPO_PATH}
 RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
-        dnf install -y microshift-kindnet microshift-kindnet-release-info; \
+        dnf install -y microshift-kindnet microshift-kindnet-release-info ; \
     fi && \
     if [ "${WITH_TOPOLVM}" = "1" ] ; then \
-        dnf install -y microshift-topolvm ; \
+        dnf install -y microshift-topolvm microshift-topolvm-release-info ; \
     fi && \
     if [ "${WITH_OLM}" = "1" ] ; then \
         dnf install -y microshift-olm microshift-olm-release-info ; \
