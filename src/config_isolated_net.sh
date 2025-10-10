@@ -3,6 +3,7 @@ set -euo pipefail
 set -x
 
 configure_kindnet() {
+  # TODO: Add support for isolated network with MicroShift Kindnet
   echo "Error: Isolated network is not supported with MicroShift Kindnet"
   exit 1
 }
@@ -26,10 +27,14 @@ configure_ovn() {
 EOF
 }
 
-# TODO: Add support for isolated network with MicroShift Kindnet
-if rpm -q microshift-kindnet &>/dev/null; then
-  echo "Error: Isolated network is not supported with MicroShift Kindnet"
-  exit 1
+#
+# Main
+#
+
+# Check if the script is running as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
 fi
 
 # Wait until the NetworkManager is ready

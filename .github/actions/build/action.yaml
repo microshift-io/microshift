@@ -20,6 +20,16 @@ inputs:
     required: false
     default: stream9
     type: string
+  isolated-network:
+    description: Build and test the isolated network container image
+    required: false
+    default: 0
+    type: integer
+  ovnk-networking:
+    description: Use OVN-K networking
+    required: false
+    default: 0
+    type: integer
   build:
     type: choice
     description: Types of artifacts to build
@@ -73,9 +83,16 @@ runs:
 
         # Run the container image build process.
         cd ${GITHUB_WORKSPACE}/
+
+        # Adjust the make options based on the inputs
+        make_opts=()
+        [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
+        [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
+
         make image \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
-          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }}
+          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
+          ${make_opts[@]}
 
     - name: Run a test to verify that MicroShift is functioning properly
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
@@ -84,8 +101,12 @@ runs:
         # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
         # for more information about the run process.
 
+        # Adjust the make options based on the inputs
+        make_opts=()
+        [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("ISOLATED_NETWORK=1")
+
         # Run the MicroShift container
-        make run
+        make run ${make_opts[@]}
 
         # Wait until the MicroShift service is ready and healthy
         make run-ready
