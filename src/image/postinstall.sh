@@ -44,8 +44,9 @@ fi
 
 microshift_config
 
-# Firewall configuration
-dnf install -y firewalld
+# Configure network and add some useful utilities
+dnf install -y firewalld systemd-resolved \
+    jq bash-completion
 firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
 firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
 

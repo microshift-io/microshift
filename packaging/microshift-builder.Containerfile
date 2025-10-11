@@ -54,6 +54,7 @@ COPY --chmod=644 ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/mi
 COPY ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
 COPY ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
 COPY ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
+COPY ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
 RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
 
 # Post-build MicroShift configuration
