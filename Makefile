@@ -2,17 +2,21 @@
 # The following variables can be overriden from the command line
 # using NAME=value make arguments
 #
+
+# Options used in the 'rpm' target
 USHIFT_BRANCH ?= main
 OKD_VERSION_TAG ?= $$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
 RPM_OUTDIR ?=
+# Options used in the 'image' target
+BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
+BOOTC_IMAGE_TAG ?= stream9
 WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+# Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
 ISOLATED_NETWORK ?= 0
-BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
-BOOTC_IMAGE_TAG ?= stream9
 
 # Internal variables
 SHELL := /bin/bash
@@ -49,9 +53,6 @@ rpm:
         --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        --env WITH_KINDNET="${WITH_KINDNET}" \
-        --env WITH_TOPOLVM="${WITH_TOPOLVM}" \
-        --env WITH_OLM="${WITH_OLM}" \
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
