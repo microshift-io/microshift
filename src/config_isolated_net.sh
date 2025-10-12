@@ -2,20 +2,16 @@
 set -euo pipefail
 set -x
 
-configure_kindnet() {
-  # TODO: Add support for isolated network with MicroShift Kindnet
-  echo "Error: Isolated network is not supported with MicroShift Kindnet"
-  exit 1
-}
-
 # See the following for more information:
 # https://docs.redhat.com/en/documentation/red_hat_build_of_microshift/4.19/html/networking/microshift-disconnected-network-config
-configure_ovn() {
-  IP="10.44.0.1"
-  nmcli con add type loopback con-name stable-microshift ifname lo ip4 ${IP}/32
+configure_offline_network() {
+  local -r subnet=$1
+
+  IP="${subnet}.0.1"
+  nmcli con add type loopback con-name stable-microshift ifname lo ip4 "${IP}/32"
 
   nmcli conn modify stable-microshift ipv4.ignore-auto-dns yes
-  nmcli conn modify stable-microshift ipv4.dns "10.44.1.1"
+  nmcli conn modify stable-microshift ipv4.dns "${subnet}.1.1"
 
   NAME="$(hostnamectl hostname)"
   echo "${IP} ${NAME}" >> /etc/hosts
@@ -57,9 +53,9 @@ echo 1 | microshift-cleanup-data --all
 
 # Select the appropriate network configuration
 if rpm -q microshift-kindnet &>/dev/null; then
-  configure_kindnet
+  configure_offline_network "10.43"
 else
-  configure_ovn
+  configure_offline_network "10.44"
 fi
 
 # Restart system services and MicroShift
