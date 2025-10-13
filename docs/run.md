@@ -4,18 +4,6 @@ MicroShift can be run on the host or inside a Bootc container.
 
 ## MicroShift RPMs
 
-### Prerequisites
-
-MicroShift requires the `openvswitch` package. The installation instructions may
-vary depending on the current operating system.
-
-For example, on CentOS Stream, the following command should be run to enable the
-appropriate repository.
-
-```bash
-sudo dnf install -y centos-release-nfv-openvswitch
-```
-
 ### Install RPM Packages
 
 Run the following command to install MicroShift RPM package from the local
@@ -26,9 +14,20 @@ See [Build MicroShift RPMs](../docs/build.md#build-microshift-rpms) for more inf
 RPM_REPO_DIR=/tmp/microshift-rpms
 
 sudo ./src/create_repos.sh -create "${RPM_REPO_DIR}"
-
-sudo dnf install -y microshift
+sudo dnf install -y microshift microshift-kindnet
+sudo ./src/create_repos.sh -delete
 ```
+
+The following optional RPM packages are available in the repository. It is
+mandatory to install either `microshift-kindnet` or `microshift-networking`
+to enable the Kindnet or OVN-K networking support.
+
+| Package               | Description                | Comments |
+|-----------------------|----------------------------|----------|
+| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K
+| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K
+| microshift-topolvm    | TopoLVM CSI                |
+| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/)
 
 ### Start MicroShift Service
 
