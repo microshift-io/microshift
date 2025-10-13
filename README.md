@@ -15,6 +15,23 @@ The goal is to enable contributors and testers to work with an upstream build of
 set up using OKD components, making it easier to develop, verify, and iterate on features
 outside the downstream Red Hat payloads.
 
+# Operating System Support
+
+MicroShift and its main components are built in a CentOS Stream 9 Bootc container.
+The produced RPMs can be installed and run on the following operating systems.
+
+| OS        | Bootc| OVN-K | Kindnet | TopoLVM | Comments |
+|-----------|------|-------|---------|---------|----------|
+| CentOS 9  |  Y   |   Y   |    Y    |    Y    | Latest version in Stream 9
+| CentOS 10 |  Y   |   Y   |    Y    |    Y    | Latest version in Stream 10
+| Fedora    |  Y   |   N   |    Y    |    Y    | Latest released version (e.g. 42)
+
+Notes:
+- MicroShift is available on the `x86_64` architecture. The support for the
+  `aarch64` architecture depends on [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215).
+- MicroShift Bootc container images can be run on any operating system supported
+  by [Podman](https://podman.io/).
+
 ## Quick Start
 
 Prebuilt MicroShift artifacts are published at the
