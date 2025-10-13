@@ -1,4 +1,4 @@
-name: Release MicroShift RPMs and Container Images
+name: release-rpms-and-images
 description: Workflow to build and release MicroShift RPMs and container images
 
 on:
