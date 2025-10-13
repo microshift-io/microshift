@@ -1,4 +1,4 @@
-name: Build MicroShift RPMs and Container Images
+name: build-rpms-and-images
 description: Reusable action to build MicroShift RPMs and container images
 
 inputs:
@@ -20,6 +20,16 @@ inputs:
     required: false
     default: stream9
     type: string
+  isolated-network:
+    description: Build and test the isolated network container image
+    required: false
+    default: 0
+    type: integer
+  ovnk-networking:
+    description: Use OVN-K networking
+    required: false
+    default: 0
+    type: integer
   build:
     type: choice
     description: Types of artifacts to build
@@ -73,9 +83,16 @@ runs:
 
         # Run the container image build process.
         cd ${GITHUB_WORKSPACE}/
+
+        # Adjust the make options based on the inputs
+        make_opts=()
+        [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
+        [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
+
         make image \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
-          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }}
+          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
+          ${make_opts[@]}
 
     - name: Run a test to verify that MicroShift is functioning properly
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
@@ -84,8 +101,23 @@ runs:
         # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
         # for more information about the run process.
 
+        # Adjust the make options based on the inputs
+        make_opts=()
+        [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("ISOLATED_NETWORK=1")
+
         # Run the MicroShift container
-        make run
+        make run ${make_opts[@]}
+
+        # Verify that Internet access is not available in the container
+        # when the isolated network is enabled
+        if [ "${{ inputs.isolated-network }}" = "1" ]; then
+          for cmd in "ping -c1 8.8.8.8" "curl -I quay.io" "curl -I ghcr.io"; do
+            if sudo podman exec -i microshift-okd ${cmd} ; then
+              echo "Error: Internet access is available in the isolated network container"
+              exit 1
+            fi
+          done
+        fi
 
         # Wait until the MicroShift service is ready and healthy
         make run-ready
@@ -93,3 +125,31 @@ runs:
 
         # Stop the MicroShift container
         make stop
+
+    - name: Collect logs on failure
+      if: failure()
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        sudo podman ps -a
+        sudo podman images
+        sudo podman logs microshift-okd || true
+
+        # Collect sos report from the MicroShift container
+        if sudo podman ps --filter name=microshift-okd | grep -q . ; then
+          sudo podman exec -i microshift-okd microshift-sos-report
+          for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
+            sudo podman cp microshift-okd:${f} /mnt/tmp/
+            sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+          done
+        fi
+
+    - name: Upload sos report to the GitHub Actions artifact
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sosreport-microshift-okd
+        path: /mnt/tmp/sosreport-*
+        compression-level: 0

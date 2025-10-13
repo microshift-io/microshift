@@ -1,4 +1,4 @@
-name: Detect CPU Architecture
+name: detect-cpu-arch
 description: Reusable action to detect the CPU architecture
 
 outputs:

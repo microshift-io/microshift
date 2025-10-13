@@ -2,17 +2,21 @@
 # The following variables can be overriden from the command line
 # using NAME=value make arguments
 #
+
+# Options used in the 'rpm' target
 USHIFT_BRANCH ?= main
 OKD_VERSION_TAG ?= $$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
 RPM_OUTDIR ?=
+# Options used in the 'image' target
+BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
+BOOTC_IMAGE_TAG ?= stream9
 WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+# Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
-
-BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
-BOOTC_IMAGE_TAG ?= stream9
+ISOLATED_NETWORK ?= 0
 
 # Internal variables
 SHELL := /bin/bash
@@ -49,9 +53,6 @@ rpm:
         --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        --env WITH_KINDNET="${WITH_KINDNET}" \
-        --env WITH_TOPOLVM="${WITH_TOPOLVM}" \
-        --env WITH_OLM="${WITH_OLM}" \
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
@@ -83,30 +84,40 @@ image:
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/microshift-runner.Containerfile .
 
+# Notes:
+# - An isolated network is created if the ISOLATED_NETWORK environment variable is set
+# - The /dev directory is shared with the container to enable TopoLVM CSI driver,
+#   masking the devices that may conflict with the host
+# - The containers storage is mounted on a tmpfs to avoid usage of fuse-overlayfs,
+#   which is less efficient than the default driver
 .PHONY: run
 run:
 	@echo "Running the MicroShift container"
 	sudo modprobe openvswitch
 	$(MAKE) _topolvm_create
 
+	NETWORK_OPTS="" ; \
+	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
+		NETWORK_OPTS="--network none" ; \
+	fi ; \
 	VOL_OPTS="--tty --volume /dev:/dev" ; \
 	for device in input snd dri; do \
 		[ -d "/dev/$${device}" ] && VOL_OPTS="$${VOL_OPTS} --tmpfs /dev/$${device}" ; \
 	done ; \
-	# The containers storage is mounted on a tmpfs to avoid usage of fuse-overlayfs,
-	# which is less efficient than the default driver
 	sudo podman run --privileged --rm -d \
 		--replace \
+		$${NETWORK_OPTS} \
 		$${VOL_OPTS} \
 		--tmpfs /var/lib/containers \
 		--name "${USHIFT_IMAGE}" \
 		--hostname 127.0.0.1.nip.io \
-		"${USHIFT_IMAGE}"
+		"${USHIFT_IMAGE}" ; \
+	$(MAKE) _isolated_network_config
 
 .PHONY: run-ready
 run-ready:
-	@echo "Waiting 1m for the MicroShift service to be ready"
-	@for _ in $$(seq 60); do \
+	@echo "Waiting 5m for the MicroShift service to be ready"
+	@for _ in $$(seq 300); do \
 		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
@@ -156,6 +167,15 @@ check: _hadolint _shellcheck
 #
 # Define the private targets
 #
+# The configurations for the isolated network are done inside the container
+.PHONY: _isolated_network_config
+_isolated_network_config:
+	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
+		sudo podman cp ./src/config_isolated_net.sh "${USHIFT_IMAGE}:/tmp/config_isolated_net.sh" && \
+		sudo podman exec -i "${USHIFT_IMAGE}" /tmp/config_isolated_net.sh && \
+		sudo podman exec -i "${USHIFT_IMAGE}" rm -vf /tmp/config_isolated_net.sh ; \
+	fi
+
 .PHONY: _topolvm_create
 _topolvm_create:
 	if [ ! -f "${LVM_DISK}" ] ; then \

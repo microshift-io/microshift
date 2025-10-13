@@ -60,7 +60,14 @@ oc get pods -A
 
 ### Start the Container
 
-Run the following command to start MicroShift inside a Bootc container.
+Run `make run` to start MicroShift inside a Bootc container.
+
+The following options can be specified in the make command line using the `NAME=VAL` format.
+
+| Name              | Required | Default  | Comments
+|-------------------|----------|----------|---------
+| LVM_VOLUME_SIZE   | no       | 1G       | TopoLVM CSI backend volume
+| ISOLATED_NETWORK  | no       | 0        | Use `--network none` podman option
 
 This step includes:
 * Loading the `openvswitch` module required when OVN-K CNI driver is used
@@ -72,8 +79,16 @@ This step includes:
 make run
 ```
 
-Note: Use `LVM_VOLSIZE=<size>` make option to override the size of the created
-TopoLVM CSI backend (e.g. `LVM_VOLSIZE=10G`).
+> Specify the `ISOLATED_NETWORK=1` make option to run MicroShift inside a Bootc
+> container without Internet access.
+>
+> Such a setup requires a MicroShift Bootc image built with `make image EMBED_CONTAINER_IMAGES=1`.
+> This ensures all the required container image runtime dependencies are embedded
+> and the operating system network settings are adjusted to allow a successful
+> MicroShift operation.
+>
+> See the [config_isolated_net.sh](../src/config_isolated_net.sh) script for more
+> information.
 
 ### Container Login
 

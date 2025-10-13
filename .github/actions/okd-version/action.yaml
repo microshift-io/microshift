@@ -1,4 +1,4 @@
-name: Detect OKD Version Tag
+name: detect-okd-version-tag
 description: Reusable action to detect the OKD version tag
 
 outputs:
