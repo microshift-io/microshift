@@ -16,31 +16,21 @@ Install the software necessary for running the build process:
 sudo dnf install -y make podman
 ```
 
-### Build Options
-
-Building MicroShift artifacts is performed by running `make rpm` or `make image`
-commands.
-
-The following options can be specified in the make command line using the
-`NAME=VAL` format.
-
-| Name                   | Required | Default  | Comments
-|------------------------|----------|----------|---------
-| USHIFT_BRANCH          | no       | main     | MicroShift repository branch used in `make rpm` command<br>[List of branches](https://github.com/openshift/microshift/branches)
-| OKD_VERSION_TAG        | no       | latest   | OKD version tag used in `make rpm` command<br>[List of tags](https://quay.io/repository/okd/scos-release?tab=tags)
-| RPM_OUTDIR             | no       | /tmp/... | RPM repository output directory for `make rpm` command
-| WITH_KINDNET           | no       | 1        | OVK-K CNI is used when Kindnet is disabled
-| WITH_TOPOLVM           | no       | 1        | Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
-| WITH_OLM               | no       | 0        | Enable OLM support
-| EMBED_CONTAINER_IMAGES | no       | 0        | Embed all component container dependencies in Bootc images
-| BOOTC_IMAGE_URL        | no       | quay.io/centos-bootc/centos-bootc | Base Bootc image URL used in `make image` command
-| BOOTC_IMAGE_TAG        | no       | stream9  | Base Bootc image tag used in `make image` command
-
 ### Build MicroShift RPMs
 
-Run the following command to build MicroShift RPMs based on CentOS Stream 9
-operating system. The `main` MicroShift repository branch and the latest OKD
-version tag are used by default if unspecified.
+Building MicroShift RPMs is performed by running the `make rpm` command.
+
+The following options can be specified in the make command line using the `NAME=VAL` format.
+
+| Name            | Required | Default  | Comments
+|-----------------|----------|----------|---------
+| USHIFT_BRANCH   | no       | main     | [MicroShift repository branches](https://github.com/openshift/microshift/branches)
+| OKD_VERSION_TAG | no       | latest   | [OKD version tags](https://quay.io/repository/okd/scos-release?tab=tags)
+| RPM_OUTDIR      | no       | /tmp/... | RPM repository output directory
+
+Run `make rpm` to build MicroShift RPMs based on CentOS Stream 9 operating system.
+The `main` MicroShift repository branch and the latest OKD version tag are used by
+default if unspecified.
 
 ```
 make rpm
@@ -67,9 +57,22 @@ Notes:
 
 ### Build MicroShift Bootc Image
 
-Run the following command to build a MicroShift Bootc image based on CentOS
-Stream 9 operating system with the default options. The command uses artifacts
-from the `microshift-okd-builder` container image created by `make rpm`.
+Building a MicroShift Bootc image is performed by running the `make image` command.
+
+The following options can be specified in the make command line using the `NAME=VAL` format.
+
+| Name                   | Required | Default  | Comments
+|------------------------|----------|----------|---------
+| BOOTC_IMAGE_URL        | no       | quay.io/centos-bootc/centos-bootc | Base Bootc image URL
+| BOOTC_IMAGE_TAG        | no       | stream9  | Base Bootc image tag
+| WITH_KINDNET           | no       | 1        | OVK-K CNI is used when Kindnet is disabled
+| WITH_TOPOLVM           | no       | 1        | Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
+| WITH_OLM               | no       | 0        | Enable OLM support
+| EMBED_CONTAINER_IMAGES | no       | 0        | Embed all component container dependencies in Bootc images
+
+Run `make image` to build a MicroShift Bootc image based on CentOS Stream 9
+operating system with the default options. The command uses artifacts from
+the `microshift-okd-builder` container image created by `make rpm`.
 
 ```bash
 make image
@@ -77,6 +80,6 @@ make image
 
 If the build completes successfully, the `microshift-okd` image is created.
 
-Note: The base operating system image used to run MicroShift can be overriden by
-specifying `BOOTC_IMAGE_URL=value` and `BOOTC_IMAGE_TAG=value` make command line
-arguments.
+> The base operating system image used to run MicroShift can be overriden by
+> specifying `BOOTC_IMAGE_URL=value` and `BOOTC_IMAGE_TAG=value` make command line
+> arguments.
