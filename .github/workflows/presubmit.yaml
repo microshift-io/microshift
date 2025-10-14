@@ -105,15 +105,8 @@ jobs:
           make rpm-deb RPM_OUTDIR=/mnt/rpms
 
       - name: Install the MicroShift Debian packages
-        shell: bash
         run: |
-          set -euo pipefail
-          set -x
-          sudo apt-get update -y
-          sudo DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
-            apt-get install -y systemd tzdata policycoreutils
-          sudo dpkg -i /mnt/rpms/deb/*.deb
-          sudo apt-get install -y -f
+          sudo ./src/install_deb.sh /mnt/rpms
 
   isolated-network-kindnet-test:
     runs-on: ubuntu-latest

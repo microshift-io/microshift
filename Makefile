@@ -66,34 +66,13 @@ rpm:
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
 
-# Note that:
-# - The OVN-K and Greenboot packages are not supported on Ubuntu
-# - The source RPMs are ignored to avoid overwriting the binary RPMs
 .PHONY: rpm-deb
 rpm-deb:
-	if ! sudo podman image exists microshift-okd-builder ; then \
-		echo "Error: Run 'make rpm' to build the MicroShift RPMs"; \
-		exit 1; \
-	fi ; \
 	outdir="${RPM_OUTDIR}" && \
-	if ! find "$${outdir}" -type f -iname "microshift*.rpm" | grep -q "." ; then \
-		echo "Error: No MicroShift RPMs found in $${outdir} directory"; \
-		exit 1; \
-	fi && \
-	echo "Converting the MicroShift RPMs to Debian packages" && \
-	sudo podman run --rm -i \
-		--volume "$${outdir}:/mnt:Z" \
-		"${RPM2DEB_IMAGE}" bash -c '\
-			set -euo pipefail ; \
-			apt-get update -y -q && apt-get install -y -qq alien ; \
-			rm -rf /mnt/deb && mkdir -p /mnt/deb && cd /mnt/deb ; \
-			for rpm in $$(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm") ; do \
-				echo "Converting $${rpm} to Debian package" ; \
-				alien --to-deb --keep-version --scripts "$${rpm}" ; \
-			done ; \
-			rm -f /mnt/deb/microshift-networking*.deb ; \
-			rm -f /mnt/deb/microshift-greenboot*.deb ; \
-		'
+	sudo ./src/debian/convert.sh "$${outdir}" && \
+	echo "" && \
+	echo "Conversion completed successfully" && \
+	echo "Debian packages are available in '$${outdir}/deb'"
 
 .PHONY: image
 image:
