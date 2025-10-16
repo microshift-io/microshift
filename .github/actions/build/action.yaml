@@ -125,7 +125,6 @@ runs:
 
         # Wait until the MicroShift service is ready and healthy
         make run-ready
-        exit 1
         make run-healthy
 
         # Stop the MicroShift container
