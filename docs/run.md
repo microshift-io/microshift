@@ -71,9 +71,9 @@ The following options can be specified in the make command line using the `NAME=
 
 This step includes:
 * Loading the `openvswitch` module required when OVN-K CNI driver is used
-  when compiled with the non-default `WITH_KINDNET=0` build option.
+  when compiled with the non-default `WITH_KINDNET=0` image build option.
 * Preparing a 1GB TopoLVM CSI backend on the host to be used by MicroShift when
-  compiled with the default `WITH_TOPOLVM=1` build option.
+  compiled with the default `WITH_TOPOLVM=1` image build option.
 
 ```bash
 make run

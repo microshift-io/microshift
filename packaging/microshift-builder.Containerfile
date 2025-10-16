@@ -41,20 +41,17 @@ COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 # Building all MicroShift downstream RPMs and SRPMs
-# TODO: Stop using WITH_KINDNET=0 when Kindnet is removed from downstream
 # hadolint ignore=DL3059
-RUN WITH_KINDNET=0 MICROSHIFT_VARIANT="community" \
-        make -C "${HOME}/microshift" rpm srpm
+RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm srpm
 
 # Building Kindnet upstream RPM
-# TODO: Stop using WITH_KINDNET=0 when Kindnet is removed from downstream
 COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
 COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "${HOME}/microshift/assets/optional/"
 COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
 COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
 # Prepare and build Kindnet upstream RPM
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}" && \
-    WITH_KINDNET=0 MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
+    MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
 
 # Building TopoLVM upstream RPM
 COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
