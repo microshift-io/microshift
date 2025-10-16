@@ -23,6 +23,21 @@ configure_offline_network() {
 EOF
 }
 
+wait_for_network_manager() {
+  for _ in {1..30}; do
+    if systemctl is-active --quiet NetworkManager; then
+      echo "NetworkManager is running"
+      break
+    fi
+    echo "Waiting for NetworkManager..."
+    sleep 1
+  done
+  if ! systemctl is-active --quiet NetworkManager; then
+    echo "Error: NetworkManager is not running"
+    exit 1
+  fi
+}
+
 #
 # Main
 #
@@ -33,20 +48,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Wait until the NetworkManager is ready
-for _ in {1..30}; do
-    if systemctl is-active --quiet NetworkManager; then
-        echo "NetworkManager is running"
-        break
-    fi
-    echo "Waiting for NetworkManager..."
-    sleep 1
-done
-
-if ! systemctl is-active --quiet NetworkManager; then
-  echo "Error: NetworkManager is not running"
-  exit 1
-fi
+wait_for_network_manager
 
 # Cleanup the configuration and stop the MicroShift service
 echo 1 | microshift-cleanup-data --all
@@ -58,8 +60,12 @@ else
   configure_offline_network "10.44"
 fi
 
-# Restart system services and MicroShift
+# Restart the NetworkManager service to apply the new network configuration
+systemctl restart NetworkManager
+wait_for_network_manager
+
+# Restart the MicroShift and Greenboot services
 systemctl enable microshift
-for unit in NetworkManager microshift greenboot-healthcheck ; do
+for unit in microshift greenboot-healthcheck ; do
   systemctl restart --no-block ${unit}
 done
