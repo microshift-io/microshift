@@ -7,7 +7,7 @@ set -x
 configure_offline_network() {
   local -r subnet=$1
 
-  IP="${subnet}.0.1"
+  IP="${subnet}.0.2"
   nmcli con add type loopback con-name stable-microshift ifname lo ip4 "${IP}/32"
 
   nmcli conn modify stable-microshift ipv4.ignore-auto-dns yes
