@@ -1,5 +1,5 @@
 name: linters
-description: Presubmit static checks and linting
+# Presubmit static checks and linting
 
 on:
   pull_request:

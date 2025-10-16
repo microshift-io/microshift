@@ -1,5 +1,5 @@
 name: installers
-description: Presubmit prebuilt packages tests.
+# Presubmit prebuilt packages tests.
 
 on:
   pull_request:
