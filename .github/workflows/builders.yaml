@@ -1,0 +1,101 @@
+name: builders
+description: Presubmit build and deploy from sources tests
+
+on:
+  pull_request:
+
+jobs:
+  centos9-bootc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream9
+          build: bootc-image
+
+  centos10-bootc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream10
+          build: bootc-image
+
+  fedora-bootc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          bootc-image-url: registry.fedoraproject.org/fedora-bootc
+          bootc-image-tag: latest
+          build: bootc-image
+
+  isolated-network-kindnet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          isolated-network: 1
+          ovnk-networking: 0
+          build: bootc-image
+
+  isolated-network-ovnk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          isolated-network: 1
+          ovnk-networking: 1
+          build: bootc-image
