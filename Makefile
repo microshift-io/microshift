@@ -135,6 +135,7 @@ run-healthy:
 		fi ; \
 		echo -n "." && sleep 15 ; \
 	done ; \
+	printf "\nThe state of the greenboot-healthcheck service is '$${state}'" && \
 	printf "\nFAILED\n" && exit 1
 
 .PHONY: login
