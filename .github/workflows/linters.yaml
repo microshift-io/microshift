@@ -5,34 +5,7 @@ on:
   pull_request:
 
 jobs:
-  check-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      shell: ${{ steps.changed-files-sh.outputs.any_changed }}
-      docker: ${{ steps.changed-files-docker.outputs.any_changed }}
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get changed shell files
-        id: changed-files-sh
-        uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            **/*.sh
-
-      - name: Get changed container files
-        id: changed-files-docker
-        uses: tj-actions/changed-files@v44
-        with:
-          files: |
-            **/*Containerfile*
-
   shellcheck:
-    needs: check-changes
-    if: needs.check-changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out MicroShift upstream repository
@@ -43,8 +16,6 @@ jobs:
           make _shellcheck
 
   hadolint:
-    needs: check-changes
-    if: needs.check-changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out MicroShift upstream repository
