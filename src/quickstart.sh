@@ -68,10 +68,6 @@ function run_bootc_image() {
         fi
         sleep 1
     done
-
-    # Update kubeconfig in the container user home directory
-    podman exec microshift-okd /bin/mkdir -p /root/.kube
-    podman exec microshift-okd /bin/cp "${kubeconfig}" /root/.kube/config
 }
 
 # Check if the script is running as root
