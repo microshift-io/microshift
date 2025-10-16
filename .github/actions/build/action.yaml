@@ -42,6 +42,10 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Detect the CPU architecture
+      id: detect-cpu-arch
+      uses: ./.github/actions/arch
+
     - name: Prepare the build and run environment
       shell: bash
       run: |
@@ -150,6 +154,6 @@ runs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: sosreport-microshift-okd
+        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
         path: /mnt/tmp/sosreport-*
         compression-level: 0
