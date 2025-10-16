@@ -14,8 +14,8 @@ jobs:
       - name: Run the quick start script
         shell: bash
         run: |
-          set -x
-          cat ./src/quickstart.sh | sudo bash -x
+          set -xeuo pipefail
+          sudo bash -xeuo pipefail < ./src/quickstart.sh
 
           # Wait until the MicroShift service is ready and healthy
           make run-ready
@@ -24,8 +24,8 @@ jobs:
       - name: Run the quick clean script
         shell: bash
         run: |
-          set -x
-          cat ./src/quickclean.sh | sudo bash -x
+          set -xeuo pipefail
+          sudo bash -xeuo pipefail < ./src/quickstart.sh
 
           # Verify the container and its image are removed
           sudo podman ps -a  | grep microshift-okd && exit 1
