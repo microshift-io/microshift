@@ -117,23 +117,23 @@ run:
 .PHONY: run-ready
 run-ready:
 	@echo "Waiting 5m for the MicroShift service to be ready"
-	@for _ in $$(seq 300); do \
+	@for _ in $$(seq 60); do \
 		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 1 ; \
+		echo -n "." && sleep 5 ; \
 	done ; \
 	printf "\nFAILED\n" && exit 1
 
 .PHONY: run-healthy
 run-healthy:
-	@echo "Waiting 10m for the MicroShift service to be healthy"
+	@echo "Waiting 15m for the MicroShift service to be healthy"
 	@for _ in $$(seq 60); do \
 		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
 		if [ "$${state}" = "exited" ] ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 10 ; \
+		echo -n "." && sleep 15 ; \
 	done ; \
 	printf "\nFAILED\n" && exit 1
 

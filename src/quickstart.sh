@@ -37,10 +37,10 @@ function run_bootc_image() {
     local -r image_ref="$1"
 
     # Prerequisites for running the MicroShift container:
-    # - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default build option),
-    #   the `openvswitch` module must be loaded on the host.
-    # - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default build option),
-    #   the /dev/dm-* device must be shared with the container.
+    # - If the OVN-K CNI driver is used (`WITH_KINDNET=0` non-default image build
+    #   option), the `openvswitch` module must be loaded on the host.
+    # - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default image build
+    #   option), the /dev/dm-* device must be shared with the container.
     echo "Running '${image_ref}'"
     modprobe openvswitch || true
 

@@ -1,0 +1,5 @@
+{
+  "images": {
+    "kube-proxy": "quay.io/okd/scos-content@sha256:585cdfeab0f6b006bb9cca22dd0f543424c424959a0ebe355c233f0d41ee724f"
+  }
+}

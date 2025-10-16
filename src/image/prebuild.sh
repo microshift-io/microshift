@@ -4,7 +4,7 @@ set -euo pipefail
 MICROSHIFT_ROOT="/home/microshift/microshift"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
-verify(){
+verify() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
 
@@ -14,11 +14,11 @@ verify(){
     fi
 }
 
-replace_assets(){
+replace_base_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
     local -r arch=$(uname -m)
-    local -r temp_release_json=$(mktemp "/tmp/release-${arch}.XXXXX.json")
+    local -r temp_json=$(mktemp "/tmp/release-${arch}.XXXXX.json")
 
     # replace Microshift images with upstream (from OKD release)
     for op in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json")
@@ -27,40 +27,33 @@ replace_assets(){
         image=$(oc adm release info --image-for="${op}" "${okd_url}:${okd_releaseTag}" || true)
         if [ -n "${image}" ] ; then
             echo "${op} ${image}"
-            jq --arg a "${op}" --arg b "${image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json" >"${temp_release_json}"
-            mv "${temp_release_json}" "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json"
+            jq --arg a "${op}" --arg b "${image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json" >"${temp_json}"
+            mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json"
         fi
     done
 
     pod_image=$(oc adm release info --image-for=pod "${okd_url}:${okd_releaseTag}" || true)
     # update the infra pods for crio
     sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${arch}]}.conf"
+}
 
-    # kube proxy is required for kindnet
-    kube_proxy_okd_image_with_hash=$(oc adm release info --image-for="kube-proxy" "${okd_url}:${okd_releaseTag}")
-    echo "kube-proxy ${kube_proxy_okd_image_with_hash}"
-    # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
-    # where the image name and digest (hash) are combined in a single string.
-    # However, in the kustomization.${arch}.yaml file, we need the image name (newName) and
-    # the digest in separate fields. To achieve this, we first extract the image name and digest
-    # using parameter expansion, then use the yq command to insert these values into the
-    # appropriate places within the YAML file.
-    kube_proxy_okd_image_name="${kube_proxy_okd_image_with_hash%%@*}"
-    kube_proxy_okd_image_hash="${kube_proxy_okd_image_with_hash##*@}"
-    # install yq tool to update the image and hash
+replace_olm_assets() {
+    local -r okd_url=$1
+    local -r okd_releaseTag=$2
+    local -r arch=$(uname -m)
+    local -r temp_json=$(mktemp "/tmp/release-olm-${arch}.XXXXX.json")
+
+    # Install the yq tool
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
-    "${MICROSHIFT_ROOT}"/_output/bin/yq eval ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${kube_proxy_okd_image_name}\" | .digest = \"${kube_proxy_okd_image_hash}\")" -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${arch}.yaml"
-    jq --arg img "$kube_proxy_okd_image_with_hash" '.images["kube-proxy"] = $img' "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json" >"${temp_release_json}"
-    mv "${temp_release_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json"
 
-    # replace olm images with upstream (from OKD release)
+    # Replace olm images with upstream (from OKD release)
     # This is extracted from openshift/microshift/scripts/auto-rebase/rebase.sh and modified to work with OKD release
     local olm_image_refs_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/image-references"
     local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${arch}.yaml"
     local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${arch}.json"
 
     # Create the OLM release-${arch}.json file with base structure
-    jq -n '{"release": {"base": "unknown"}, "images": {}}' > "${olm_release_json}"
+    jq -n '{"release": {"base": "upstream"}, "images": {}}' > "${olm_release_json}"
 
     # Create extra kustomization for each arch in separate file
     cat <<EOF > "${kustomization_arch_file}"
@@ -92,8 +85,8 @@ EOF
 EOF
 
             # Update JSON file
-            jq --arg container "${container}" --arg img "${new_image}" '.images[$container] = $img' "${olm_release_json}" >"${temp_release_json}"
-            mv "${temp_release_json}" "${olm_release_json}"
+            jq --arg container "${container}" --arg img "${new_image}" '.images[$container] = $img' "${olm_release_json}" >"${temp_json}"
+            mv "${temp_json}" "${olm_release_json}"
         fi
     done
 
@@ -126,32 +119,71 @@ EOF
     fi
 }
 
-fix_rpm_spec(){
+replace_kindnet_assets() {
+    local -r okd_url=$1
+    local -r okd_releaseTag=$2
+    local -r arch=$(uname -m)
+    local -r temp_json=$(mktemp "/tmp/release-kindnet-${arch}.XXXXX.json")
+
+    # Install the yq tool
+    "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
+
+    # kube proxy is required for kindnet
+    local -r image_with_hash=$(oc adm release info --image-for="kube-proxy" "${okd_url}:${okd_releaseTag}")
+    echo "kube-proxy ${image_with_hash}"
+    # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
+    # where the image name and digest (hash) are combined in a single string.
+    # However, in the kustomization.${arch}.yaml file, we need the image name (newName) and
+    # the digest in separate fields. To achieve this, we first extract the image name and digest
+    # using parameter expansion, then use the yq command to insert these values into the
+    # appropriate places within the YAML file.
+    local -r image_name="${image_with_hash%%@*}"
+    local -r image_hash="${image_with_hash##*@}"
+
+    # Update the image and hash
+    "${MICROSHIFT_ROOT}"/_output/bin/yq eval \
+        ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${image_name}\" | .digest = \"${image_hash}\")" \
+        -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${arch}.yaml"
+    jq --arg img "$image_with_hash" '.images["kube-proxy"] = $img' \
+        "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json" >"${temp_json}"
+    mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json"
+}
+
+fix_rpm_spec() {
     # Fix the RPM spec by removing the microshift-networking package hard dependency
     sed -i 's/Requires: microshift-networking/Recommends: microshift-networking/' "${MICROSHIFT_ROOT}/packaging/rpm/microshift.spec"
 }
 
 usage() {
     echo "Usage:"
-    echo "$(basename "$0") --verify  OKD_URL RELEASE_TAG         verify upstream release"
-    echo "$(basename "$0") --replace OKD_URL RELEASE_TAG         replace microshift assets with upstream images"
+    echo "$(basename "$0") --verify          OKD_URL RELEASE_TAG    verify OKD upstream release"
+    echo "$(basename "$0") --replace         OKD_URL RELEASE_TAG    replace MicroShift assets with OKD upstream images"
+    echo "$(basename "$0") --replace-kindnet OKD_URL RELEASE_TAG    replace Kindnet assets with OKD upstream images"
     exit 1
 }
 
-if [ $# -eq 3 ] ; then
-    case "$1" in
-    --replace)
-        verify "$2" "$3"
-        replace_assets "$2" "$3"
-        fix_rpm_spec
-        ;;
-    --verify)
-        verify "$2" "$3"
-        ;;
-    *)
-        usage
-        ;;
-    esac
-else
+#
+# Main
+#
+if [ $# -ne 3 ] ; then
     usage
 fi
+
+case "$1" in
+--replace)
+    verify              "$2" "$3"
+    replace_base_assets "$2" "$3"
+    replace_olm_assets  "$2" "$3"
+    fix_rpm_spec
+    ;;
+--replace-kindnet)
+    verify                 "$2" "$3"
+    replace_kindnet_assets "$2" "$3"
+    ;;
+--verify)
+    verify "$2" "$3"
+    ;;
+*)
+    usage
+    ;;
+esac
