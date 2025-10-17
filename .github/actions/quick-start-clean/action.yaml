@@ -1,0 +1,39 @@
+name: quick-start-clean
+description: Reusable action to run the quick start and clean scripts
+
+inputs:
+  image-ref:
+    description: Image reference to use for the MicroShift container
+    required: false
+    default: ""
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run the quick start script
+      shell: bash
+      run: |
+        set -xeuo pipefail
+        sudo IMAGE_REF=${{ inputs.image-ref }} bash -xeuo pipefail < ./src/quickstart.sh
+
+        # Wait until the MicroShift service is ready and healthy
+        make run-ready
+        make run-healthy
+
+    - name: Run the quick clean script
+      shell: bash
+      run: |
+        set -xeuo pipefail
+        sudo bash -xeuo pipefail < ./src/quickclean.sh
+
+        # Verify the container and its image are removed
+        sudo podman ps -a  | grep microshift-okd && exit 1
+        sudo podman images | grep microshift-okd && exit 1
+
+        # Verify the LVM volume group and backing storage are removed
+        sudo vgs | grep myvg1 && exit 1
+        if [ -e /var/lib/microshift-okd ]; then
+          ls -la /var/lib/microshift-okd/
+          exit 1
+        fi

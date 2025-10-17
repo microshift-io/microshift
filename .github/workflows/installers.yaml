@@ -11,29 +11,7 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Run the quick start script
-        shell: bash
-        run: |
-          set -xeuo pipefail
-          sudo bash -xeuo pipefail < ./src/quickstart.sh
-
-          # Wait until the MicroShift service is ready and healthy
-          make run-ready
-          make run-healthy
-
-      - name: Run the quick clean script
-        shell: bash
-        run: |
-          set -xeuo pipefail
-          sudo bash -xeuo pipefail < ./src/quickstart.sh
-
-          # Verify the container and its image are removed
-          sudo podman ps -a  | grep microshift-okd && exit 1
-          sudo podman images | grep microshift-okd && exit 1
-
-          # Verify the LVM volume group and backing storage are removed
-          sudo vgs | grep myvg1 && exit 1
-          if [ -e /var/lib/microshift-okd ]; then
-            ls -la /var/lib/microshift-okd/
-            exit 1
-          fi
+      # Test the quick start and clean procedures with the latest published build
+      # of the MicroShift container image.
+      - name: Run the quick start script and clean scripts
+        uses: ./.github/actions/quick-start-clean
