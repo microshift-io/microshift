@@ -46,6 +46,7 @@ runs:
     - name: Install the MicroShift Debian packages
       shell: bash
       run: |
+        make _topolvm_create
         sudo ./src/debian/install.sh /mnt/rpms
 
     - name: Run a test to verify that MicroShift is functioning properly
@@ -80,7 +81,10 @@ runs:
       if: failure()
       shell: bash
       run: |
-        sudo microshift-sos-report --tmp-dir /mnt/tmp
+        # Exclude the microshift profile, which does not exist on Ubuntu
+        sudo microshift-sos-report \
+          --profiles network,security,storage \
+          --tmp-dir /mnt/tmp
 
     - name: Upload sos report to the GitHub Actions artifact
       if: failure()
