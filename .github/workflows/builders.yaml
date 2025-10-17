@@ -85,7 +85,7 @@ jobs:
 
       - name: Install the MicroShift Debian packages
         run: |
-          sudo ./src/install_deb.sh /mnt/rpms
+          sudo ./src/debian/install.sh /mnt/rpms
 
   isolated-network-kindnet:
     runs-on: ubuntu-latest

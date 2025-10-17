@@ -23,10 +23,10 @@ run on the following operating systems.
 
 | OS        | Bootc| OVN-K | Kindnet | TopoLVM | Greenboot | Comments |
 |-----------|------|-------|---------|---------|-----------|----------|
-| CentOS 9  |  Y   |   Y   |    Y    |    Y    |     Y     | Latest version in Stream 9
-| CentOS 10 |  Y   |   Y   |    Y    |    Y    |     Y     | Latest version in Stream 10
-| Fedora    |  Y   |   N   |    Y    |    Y    |     Y     | Latest released version (e.g. 42)
-| Ubuntu    |  N   |   N   |    Y    |    Y    |     N     | Latest released version (e.g. 24.04)
+| CentOS 9  |  Y   |   Y   |    Y    |    Y    |     Y     | Latest version in Stream 9 |
+| CentOS 10 |  Y   |   Y   |    Y    |    Y    |     Y     | Latest version in Stream 10 |
+| Fedora    |  Y   |   N   |    Y    |    Y    |     Y     | Latest released version (e.g. 42) |
+| Ubuntu    |  N   |   N   |    Y    |    Y    |     N     | Latest released version (e.g. 24.04) |
 
 Notes:
 - MicroShift Bootc container images can be run on any operating system supported

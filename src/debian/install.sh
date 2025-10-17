@@ -9,7 +9,6 @@ function usage() {
 # Instructions for installing CRI-O:
 # https://computingforgeeks.com/install-cri-o-container-runtime-on-ubuntu-linux/
 function install_crio() {
-    source /etc/os-release
     local -r os_id="xUbuntu_20.04"
     local -r crio_version=1.28
 
