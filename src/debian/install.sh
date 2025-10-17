@@ -26,6 +26,14 @@ function install_crio() {
     apt-get install -y -q cri-o cri-tools cri-o-runc
 }
 
+function configure_firewall() {
+    firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
+    firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
+
+    systemctl enable firewalld
+    systemctl restart firewalld
+}
+
 #
 # Main
 #
@@ -50,8 +58,9 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=Etc/UTC
 
 apt-get update  -y -q
-apt-get install -y -q tzdata curl gnupg1 systemd policycoreutils sosreport
+apt-get install -y -q tzdata curl gnupg1 systemd policycoreutils sosreport firewalld
 
+configure_firewall
 install_crio
 
 # Install the MicroShift Debian packages and fix the dependencies
