@@ -50,7 +50,7 @@ export DEBIAN_FRONTEND=noninteractive
 export TZ=Etc/UTC
 
 apt-get update  -y -q
-apt-get install -y -q tzdata curl gnupg1 systemd policycoreutils
+apt-get install -y -q tzdata curl gnupg1 systemd policycoreutils sosreport
 
 install_crio
 

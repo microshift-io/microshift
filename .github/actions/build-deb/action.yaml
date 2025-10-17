@@ -94,3 +94,17 @@ runs:
     - name: Collect debug information after the build
       if: always()
       uses: ./.github/actions/debug-info
+
+    - name: Collect sos report for MicroShift
+      if: failure()
+      shell: bash
+      run: |
+        sudo microshift-sos-report --tmp-dir /mnt/tmp
+
+    - name: Upload sos report to the GitHub Actions artifact
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
+        path: /mnt/tmp/sosreport-*
+        compression-level: 0
