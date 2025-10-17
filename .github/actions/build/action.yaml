@@ -46,9 +46,16 @@ runs:
       id: detect-cpu-arch
       uses: ./.github/actions/arch
 
+    - name: Collect debug information before the build
+      if: always()
+      uses: ./.github/actions/debug-info
+
     - name: Prepare the build and run environment
       shell: bash
       run: |
+        set -euo pipefail
+        set -x
+
         # The /dev/sdb1 partition is mounted as /mnt.
         sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
         sudo chmod 1777 /mnt/tmp
@@ -130,25 +137,29 @@ runs:
         # Stop the MicroShift container
         make stop
 
-    - name: Collect logs on failure
+    - name: Collect debug information after the build
+      if: always()
+      uses: ./.github/actions/debug-info
+
+    - name: Collect MicroShift container sosreport on failure
       if: failure()
       shell: bash
       run: |
         set -euo pipefail
         set -x
 
-        sudo podman ps -a
-        sudo podman images
-        sudo podman logs microshift-okd || true
+        # Check if the MicroShift container is running
+        if ! sudo podman ps --format "{{.Names}}" | grep -q '^microshift-okd$' ; then
+          echo "Warning: MicroShift container is not running - cannot collect sos report"
+          exit 0
+        fi
 
         # Collect sos report from the MicroShift container
-        if sudo podman ps --filter name=microshift-okd | grep -q . ; then
-          sudo podman exec -i microshift-okd microshift-sos-report
-          for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
-            sudo podman cp microshift-okd:${f} /mnt/tmp/
-            sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
-          done
-        fi
+        sudo podman exec -i microshift-okd microshift-sos-report
+        for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
+          sudo podman cp microshift-okd:${f} /mnt/tmp/
+          sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+        done
 
     - name: Upload sos report to the GitHub Actions artifact
       if: failure()
