@@ -41,6 +41,14 @@ jobs:
           okd-version-tag: ${{ inputs.okd-version-tag }}
           build: ${{ inputs.build }}
 
+      # Test the local container image with the quick start and clean procedures
+      # before releasing the artifacts.
+      - name: Run the quick start script and clean scripts
+        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+        uses: ./.github/actions/quick-start-clean
+        with:
+          image-ref: localhost/microshift-okd:latest
+
         # The release process consumes the RPMs and the container image
         # prepared by the build action.
       - name: Prepare the RPM archives

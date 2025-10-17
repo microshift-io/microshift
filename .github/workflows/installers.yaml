@@ -1,0 +1,17 @@
+name: installers
+# Presubmit prebuilt packages tests.
+
+on:
+  pull_request:
+
+jobs:
+  quick-start-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      # Test the quick start and clean procedures with the latest published build
+      # of the MicroShift container image.
+      - name: Run the quick start script and clean scripts
+        uses: ./.github/actions/quick-start-clean

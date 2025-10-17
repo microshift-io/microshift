@@ -1,0 +1,34 @@
+name: debug-info
+description: Reusable action to collect debug information
+
+runs:
+  using: "composite"
+  steps:
+    - name: Collect debug information
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # Collect partition, volume and disk usage information
+        sudo fdisk -l
+        sudo lsblk -a
+        sudo df -h
+        sudo vgs || true
+        sudo lvs || true
+        sudo pvs || true
+
+        # Collect container and image information from the host
+        sudo podman system df        
+        sudo podman ps -a
+        sudo podman images
+
+        # Collect logs from all running containers
+        for container in $(sudo podman ps -a --format "{{.Names}}") ; do        
+          sudo podman logs "${container}" || true
+        done
+
+        # List the contents of the /mnt directory to debug any issues
+        # with the disk space
+        sudo ls -lah /mnt
+        sudo du -h -d1 /mnt
