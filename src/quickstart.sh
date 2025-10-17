@@ -4,7 +4,7 @@ set -euo pipefail
 OWNER=${OWNER:-microshift-io}
 REPO=${REPO:-microshift}
 TAG=${TAG:-latest}
-IMAGE_REF="ghcr.io/${OWNER}/${REPO}:${TAG}"
+IMAGE_REF=${IMAGE_REF:-"ghcr.io/${OWNER}/${REPO}:${TAG}"}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
@@ -12,6 +12,11 @@ VG_NAME="myvg1"
 function pull_bootc_image() {
     local -r image_ref="$1"
 
+    # Skip pulling the local container images
+    if [[ "${image_ref}" == localhost/* ]]; then
+        echo "Skipping pull of local container image: ${image_ref}"
+        return 0
+    fi
     echo "Pulling '${image_ref}'"
     podman pull "${image_ref}"
 }
