@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -xeuo pipefail
-          sudo bash -xeuo pipefail < ./src/quickstart.sh
+          sudo bash -xeuo pipefail < ./src/quickclean.sh
 
           # Verify the container and its image are removed
           sudo podman ps -a  | grep microshift-okd && exit 1
