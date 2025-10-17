@@ -59,3 +59,7 @@ find "${RPM_DIR}" -type f -iname "microshift*.deb" | sort | while read -r deb_pa
     dpkg -i "${deb_package}"
 done
 apt-get install -y -q -f
+
+# Enable and start the MicroShift services
+systemctl enable microshift
+systemctl start --no-block microshift

@@ -73,19 +73,10 @@ jobs:
         uses: ./.github/actions/okd-version
 
       - name: Run the build action
-        uses: ./.github/actions/build
+        uses: ./.github/actions/build-deb
         with:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
-          build: rpms
-
-      - name: Convert the MicroShift RPMs to Debian packages
-        run: |
-          make rpm-deb RPM_OUTDIR=/mnt/rpms
-
-      - name: Install the MicroShift Debian packages
-        run: |
-          sudo ./src/debian/install.sh /mnt/rpms
 
   isolated-network-kindnet:
     runs-on: ubuntu-latest
