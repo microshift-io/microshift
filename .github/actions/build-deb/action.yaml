@@ -67,13 +67,29 @@ runs:
       run: |
         sudo ./src/debian/install.sh /mnt/rpms
 
-
     - name: Run a test to verify that MicroShift is functioning properly
       shell: bash
       run: |
-        # Wait until the MicroShift service is ready and healthy
-        make run-ready
-        make run-healthy
+        echo "Waiting 5m for the MicroShift service to be ready"
+        for _ in $$(seq 60); do
+            if sudo systemctl -q is-active microshift.service ; then
+                printf "\nOK\n"
+                break
+            fi
+            echo -n "." && sleep 5
+        done
+        if ! sudo systemctl -q is-active microshift.service ; then
+            printf "\nFAILED\n" && exit 1
+        fi
+
+        # Storage deployments and daemonsets are last to become ready, so it is
+        # a good indicator of the MicroShift service being healthy
+        echo "Waiting 15m for the MicroShift service to be healthy"
+        if ! sudo microshift healthcheck -v=2 --timeout="900s" --custom \
+              '{"topolvm-system":{"deployments": ["topolvm-controller"], "daemonsets": ["topolvm-node"]}}'; then
+          echo "Failed to verify that the MicroShift service is healthy"
+          exit 1
+        fi
 
     - name: Collect debug information after the build
       if: always()
