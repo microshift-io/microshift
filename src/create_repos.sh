@@ -41,6 +41,12 @@ if [ $# -lt 1 ] ; then
     usage
 fi
 
+# Check if the script is running as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "ERROR: This script must be run as root (use sudo)"
+    exit 1
+fi
+
 case $1 in
 -create)
     repo_path="$2"

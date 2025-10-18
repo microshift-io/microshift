@@ -6,7 +6,7 @@
 # Options used in the 'rpm' target
 USHIFT_BRANCH ?= main
 OKD_VERSION_TAG ?= $$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
-RPM_OUTDIR ?=
+RPM_OUTDIR ?= $$(mktemp -d /tmp/microshift-rpms-XXXXXX)
 # Options used in the 'image' target
 BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
 BOOTC_IMAGE_TAG ?= stream9
@@ -22,6 +22,7 @@ ISOLATED_NETWORK ?= 0
 SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
+RPM2DEB_IMAGE ?= docker.io/library/ubuntu:latest
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
@@ -40,6 +41,7 @@ all:
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
+	@echo "   rpm-deb:   	convert the MicroShift RPMs to Debian packages"
 	@echo "   run-ready: 	wait until the MicroShift service is ready"
 	@echo "   run-healthy:	wait until the MicroShift service is healthy"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
@@ -56,13 +58,21 @@ rpm:
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
-	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
+	outdir="${RPM_OUTDIR}" && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
 	sudo podman image umount "${BUILDER_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
+
+.PHONY: rpm-deb
+rpm-deb:
+	outdir="${RPM_OUTDIR}" && \
+	sudo ./src/debian/convert.sh "$${outdir}" && \
+	echo "" && \
+	echo "Conversion completed successfully" && \
+	echo "Debian packages are available in '$${outdir}/deb'"
 
 .PHONY: image
 image:

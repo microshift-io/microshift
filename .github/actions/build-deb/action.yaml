@@ -1,0 +1,95 @@
+name: build-deb-packages
+description: Reusable action to build MicroShift Debian packages
+
+inputs:
+  ushift-branch:
+    description: MicroShift branch from https://github.com/openshift/microshift/branches
+    required: true
+    type: string
+  okd-version-tag:
+    description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect the CPU architecture
+      id: detect-cpu-arch
+      uses: ./.github/actions/arch
+
+    - name: Collect debug information before the build
+      if: always()
+      uses: ./.github/actions/debug-info
+
+    - name: Prepare the build and run environment
+      uses: ./.github/actions/prebuild
+
+    - name: Build MicroShift RPMs
+      shell: bash
+      run: |
+        # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
+        # for more information about the build process.
+
+        # Run the RPM build process.
+        cd ${GITHUB_WORKSPACE}/
+        make rpm \
+          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+          OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+          RPM_OUTDIR=/mnt/rpms
+
+    - name: Convert the MicroShift RPMs to Debian packages
+      shell: bash
+      run: |
+        make rpm-deb RPM_OUTDIR=/mnt/rpms
+
+    - name: Install the MicroShift Debian packages
+      shell: bash
+      run: |
+        make _topolvm_create
+        sudo ./src/debian/install.sh /mnt/rpms
+
+    - name: Run a test to verify that MicroShift is functioning properly
+      shell: bash
+      run: |
+        echo "Waiting 5m for the MicroShift service to be ready"
+        for _ in $(seq 60); do
+            if sudo systemctl -q is-active microshift.service ; then
+                printf "\nOK\n"
+                break
+            fi
+            echo -n "." && sleep 5
+        done
+        if ! sudo systemctl -q is-active microshift.service ; then
+            printf "\nFAILED\n" && exit 1
+        fi
+
+        # Storage deployments and daemonsets are last to become ready, so it is
+        # a good indicator of the MicroShift service being healthy
+        echo "Waiting 15m for the MicroShift service to be healthy"
+        if ! sudo microshift healthcheck -v=2 --timeout="900s" --custom \
+              '{"topolvm-system":{"deployments": ["topolvm-controller"], "daemonsets": ["topolvm-node"]}}'; then
+          echo "Failed to verify that the MicroShift service is healthy"
+          exit 1
+        fi
+
+    - name: Collect debug information after the build
+      if: always()
+      uses: ./.github/actions/debug-info
+
+    - name: Collect sos report for MicroShift
+      if: failure()
+      shell: bash
+      run: |
+        # Exclude the microshift profile, which does not exist on Ubuntu
+        sudo microshift-sos-report \
+          --profiles network,security,storage \
+          --tmp-dir /mnt/tmp
+
+    - name: Upload sos report to the GitHub Actions artifact
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
+        path: /mnt/tmp/sosreport-*
+        compression-level: 0
