@@ -43,6 +43,9 @@ for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm") ; do
     echo "Converting ${rpm} to Debian package"
     # Omit the --scripts option because some of them do not work on Ubuntu
     alien --to-deb --keep-version "${rpm}"
+    # Save cri-o dependency to a file
+    crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -u | head -1 | cut -d. -f1,2)"
+    [ -n "${crio_ver}" ] && echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"
 done
 
 rm -f /mnt/deb/microshift-networking*.deb

@@ -27,23 +27,41 @@ function configure_firewall() {
 }
 
 # Instructions for installing CRI-O:
-# https://computingforgeeks.com/install-cri-o-container-runtime-on-ubuntu-linux/
+# https://kubernetes.io/blog/2023/10/10/cri-o-community-package-infrastructure/#deb-based-distributions
 function install_crio() {
-    local -r os_id="xUbuntu_20.04"
-    local -r crio_version=1.28
+    source "${RPM_DIR}/deb/dependencies.txt"
+    local crio_version="${CRIO_VERSION}"
+    local relkey
 
-    echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$os_id/ /" > \
-        /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-    echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/$crio_version/$os_id/ /" > \
-        "/etc/apt/sources.list.d/devel:kubic:libcontainers:stable:cri-o:${crio_version}.list"
+    # Find the desired CRI-O package in the repository.
+    # Fall back to the previous version if not found.
+    local crio_found=false
+    for _ in 1 2 3 ; do
+        relkey="https://pkgs.k8s.io/addons:/cri-o:/stable:/v${crio_version}/deb/Release.key"
+        if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
+            echo "Warning: The CRI-O package version '${crio_version}' not found in the repository. Trying the previous version."
+            crio_version="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$crio_version")"
+        else
+            echo "Installing CRI-O package version '${crio_version}'"
+            crio_found=true
+            break
+        fi
+    done
+    if ! "${crio_found}" ; then
+        echo "Error: Failed to find the CRI-O package in the repository"
+        exit 1
+    fi
 
-    curl -L https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:$crio_version/$os_id/Release.key | \
-        apt-key add -
-    curl -L https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/$os_id/Release.key | \
-        apt-key add -
+    # Set up the CRI-O repository
+    local -r gpgkey="/etc/apt/keyrings/cri-o-${crio_version}-apt-keyring.gpg"
+    rm -f "${gpgkey}"
+    curl -fsSL "${relkey}" | gpg --batch --dearmor -o "${gpgkey}"
+    echo "deb [signed-by=${gpgkey}] $(dirname "${relkey}") /" > \
+        "/etc/apt/sources.list.d/cri-o-${crio_version}.list"
 
+    # Install the CRI-O package and dependencies
     apt-get update  -y -q
-    apt-get install -y -q cri-o cri-tools cri-o-runc containernetworking-plugins
+    apt-get install -y -q cri-o crun containernetworking-plugins
 
     # The containernetworking-plugins package is installed at /opt/cni/bin
     cat > /etc/crio/crio.conf.d/14-microshift-cni.conf <<EOF
