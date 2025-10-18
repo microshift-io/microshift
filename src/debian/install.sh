@@ -6,6 +6,26 @@ function usage() {
     exit 1
 }
 
+function install_prereqs() {
+    # Pre-install the required packages
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=Etc/UTC
+
+    apt-get update  -y -q
+    apt-get install -y -q tzdata curl gnupg1 policycoreutils sosreport
+}
+
+function configure_firewall() {
+    apt-get install -y -q ufw
+
+    ufw allow from 10.42.0.0/16
+    ufw allow from 169.254.169.1
+
+    # The 'enable' command may prompt for a confirmation
+    echo y | ufw enable
+    ufw reload
+}
+
 # Instructions for installing CRI-O:
 # https://computingforgeeks.com/install-cri-o-container-runtime-on-ubuntu-linux/
 function install_crio() {
@@ -23,15 +43,31 @@ function install_crio() {
         apt-key add -
 
     apt-get update  -y -q
-    apt-get install -y -q cri-o cri-tools cri-o-runc
+    apt-get install -y -q cri-o cri-tools cri-o-runc containernetworking-plugins
+
+    # The containernetworking-plugins package is installed at /opt/cni/bin
+    cat > /etc/crio/crio.conf.d/14-microshift-cni.conf <<EOF
+[crio.network]
+plugin_dirs = [
+    "/opt/cni/bin",
+]
+EOF
+    # Enable and start the CRI-O service
+    systemctl daemon-reload
+    systemctl enable crio
+    systemctl restart crio
 }
 
-function configure_firewall() {
-    firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
-    firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
+function install_microshift() {
+    # Install the MicroShift Debian packages and fix the dependencies
+    find "${RPM_DIR}" -type f -iname "microshift*.deb" | sort | while read -r deb_package; do
+        dpkg -i "${deb_package}"
+    done
+    apt-get install -y -q -f
 
-    systemctl enable firewalld
-    systemctl restart firewalld
+    # Enable and start the MicroShift services
+    systemctl enable microshift
+    systemctl restart --no-block microshift
 }
 
 #
@@ -53,22 +89,7 @@ if ! find "${RPM_DIR}" -type f -iname "microshift*.deb" | grep -q "." ; then
     exit 1
 fi
 
-# Pre-install the required packages
-export DEBIAN_FRONTEND=noninteractive
-export TZ=Etc/UTC
-
-apt-get update  -y -q
-apt-get install -y -q tzdata curl gnupg1 systemd policycoreutils sosreport firewalld
-
+install_prereqs
 configure_firewall
 install_crio
-
-# Install the MicroShift Debian packages and fix the dependencies
-find "${RPM_DIR}" -type f -iname "microshift*.deb" | sort | while read -r deb_package; do
-    dpkg -i "${deb_package}"
-done
-apt-get install -y -q -f
-
-# Enable and start the MicroShift services
-systemctl enable microshift
-systemctl start --no-block microshift
+install_microshift
