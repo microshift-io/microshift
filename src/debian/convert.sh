@@ -29,19 +29,22 @@ fi
 
 # Note that:
 # - The OVN-K and Greenboot packages are not supported on Ubuntu
-# - The source RPMs are ignored to avoid overwriting the binary RPMs
+# - The MicroShift source RPM is ignored to avoid overwriting the binary RPM
 echo "Converting the MicroShift RPMs to Debian packages"
 podman run --rm -i \
     --volume "${RPM_DIR}:/mnt:Z" \
     "${RPM2DEB_IMAGE}" bash <<'EOF'
 set -euo pipefail
+
 apt-get update -y -q && apt-get install -y -qq alien
+
 rm -rf /mnt/deb && mkdir -p /mnt/deb && cd /mnt/deb
 for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm") ; do
     echo "Converting ${rpm} to Debian package"
-    # --scripts
+    # Omit the --scripts option because some of them do not work on Ubuntu
     alien --to-deb --keep-version "${rpm}"
 done
+
 rm -f /mnt/deb/microshift-networking*.deb
 rm -f /mnt/deb/microshift-greenboot*.deb
 EOF
