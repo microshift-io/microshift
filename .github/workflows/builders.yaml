@@ -62,6 +62,22 @@ jobs:
           bootc-image-tag: latest
           build: bootc-image
 
+  ubuntu-rpm2deb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the build action
+        uses: ./.github/actions/build-deb
+        with:
+          ushift-branch: main
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+
   isolated-network-kindnet:
     runs-on: ubuntu-latest
     steps:
