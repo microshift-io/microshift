@@ -26,13 +26,6 @@ install_cni_plugins() {
     rm -f "/tmp/${CNP_PKG}"
 }
 
-microshift_config() {
-    cat > "/etc/microshift/config.yaml" <<EOF
-storage:
-    driver: "none"
-EOF
-}
-
 #
 # Main
 #
@@ -41,8 +34,6 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "ERROR: This script must be run as root (use sudo)"
     exit 1
 fi
-
-microshift_config
 
 # Configure network and add some useful utilities
 dnf install -y firewalld systemd-resolved \
@@ -66,8 +57,10 @@ fi
 # Create a link to the default kubeconfig.
 # Note that the /root directory may be a symlink to /var/roothome and the target
 # directory may not exist, depending on the operating system.
-mkdir -p "$(readlink -f /root)/.kube"
-ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
+if [ ! -f /root/.kube/config ] ; then
+    mkdir -p "$(readlink -f /root)/.kube"
+    ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
+fi
 
 # Enable the MicroShift service
 systemctl enable microshift
