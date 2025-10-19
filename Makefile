@@ -22,6 +22,7 @@ ISOLATED_NETWORK ?= 0
 SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
+RPM2DEB_IMAGE ?= docker.io/library/ubuntu:latest
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
@@ -40,6 +41,7 @@ all:
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
+	@echo "   rpm-deb:   	convert the MicroShift RPMs to Debian packages"
 	@echo "   run-ready: 	wait until the MicroShift service is ready"
 	@echo "   run-healthy:	wait until the MicroShift service is healthy"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
@@ -64,11 +66,22 @@ rpm:
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
 
+.PHONY: rpm-deb
+rpm-deb:
+	if [ -z "${RPM_OUTDIR}" ] ; then \
+		echo "Error: RPM_OUTDIR is not set" ; \
+		exit 1 ; \
+	fi && \
+	sudo ./src/debian/convert.sh "${RPM_OUTDIR}" && \
+	echo "" && \
+	echo "Conversion completed successfully" && \
+	echo "Debian packages are available in '${RPM_OUTDIR}/deb'"
+
 .PHONY: image
 image:
 	@if ! sudo podman image exists microshift-okd-builder ; then \
-		echo "Error: Run 'make rpm' to build the MicroShift RPMs"; \
-		exit 1; \
+		echo "Error: Run 'make rpm' to build the MicroShift RPMs" ; \
+		exit 1 ; \
 	fi
 
 	@echo "Building the MicroShift bootc container image"
