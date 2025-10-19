@@ -32,7 +32,7 @@ The `make rpm` command builds MicroShift RPMs based on CentOS Stream 9 operating
 system. The `main` MicroShift repository branch and the latest OKD version tag
 are used by default if unspecified.
 
-```
+```bash
 make rpm
 ```
 
@@ -69,9 +69,9 @@ The `make rpm-deb` command converts MicroShift RPMs to Debian packages. The path
 to an existing RPM repository must be specified using the mandatory `RPM_OUTDIR`
 make command line.
 
-```
+```bash
 RPM_OUTDIR=/tmp/microshift-rpms
-make rpm-deb RPM_OUTDIR="${RPM_OUTIDIR}"
+make rpm-deb RPM_OUTDIR="${RPM_OUTDIR}"
 ```
 
 If the conversion completes successfully, the Debian packages are copied to the

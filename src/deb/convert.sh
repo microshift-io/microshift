@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-RPM2DEB_IMAGE="docker.io/library/ubuntu:latest"
+RPM2DEB_IMAGE="docker.io/library/ubuntu:24.04"
 
 function usage() {
     echo "Usage: $(basename "$0") <rpm_dir>"
@@ -23,7 +23,7 @@ fi
 
 RPM_DIR="$1"
 if ! find "${RPM_DIR}" -type f -iname "microshift*.rpm" | grep -q "." ; then
-    echo "Error: No MicroShift RPMs found in '${RPM_DIR}' directory"
+    echo "ERROR: No MicroShift RPMs found in '${RPM_DIR}' directory"
     exit 1
 fi
 
@@ -39,10 +39,13 @@ set -euo pipefail
 apt-get update -y -q && apt-get install -y -qq alien
 
 rm -rf /mnt/deb && mkdir -p /mnt/deb && cd /mnt/deb
-for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm") ; do
-    echo "Converting ${rpm} to Debian package"
+for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm" | sort -u) ; do
+    echo "Converting '${rpm}' to Debian package..."
     # Omit the --scripts option because some of them do not work on Ubuntu
-    alien --to-deb --keep-version "${rpm}"
+    if ! alien --to-deb --keep-version "${rpm}" ; then
+        echo "ERROR: Failed to convert '${rpm}' to Debian package"
+        exit 1
+    fi
     # Save cri-o dependency to a file
     crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -u | head -1 | cut -d. -f1,2)"
     [ -n "${crio_ver}" ] && echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"

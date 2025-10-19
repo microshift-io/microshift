@@ -105,7 +105,7 @@ runs:
         if [ "${{ inputs.isolated-network }}" = "1" ]; then
           for cmd in "ping -c1 8.8.8.8" "curl -I quay.io" "curl -I ghcr.io"; do
             if sudo podman exec -i microshift-okd ${cmd} ; then
-              echo "Error: Internet access is available in the isolated network container"
+              echo "ERROR: Internet access is available in the isolated network container"
               exit 1
             fi
           done
@@ -117,6 +117,11 @@ runs:
 
         # Stop the MicroShift container
         make stop
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
 
     - name: Collect debug information after the build
       if: always()
@@ -131,7 +136,7 @@ runs:
 
         # Check if the MicroShift container is running
         if ! sudo podman ps --format "{{.Names}}" | grep -q '^microshift-okd$' ; then
-          echo "Warning: MicroShift container is not running - cannot collect sos report"
+          echo "WARNING: MicroShift container is not running - cannot collect sos report"
           exit 0
         fi
 

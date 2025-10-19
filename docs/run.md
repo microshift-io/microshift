@@ -24,10 +24,10 @@ to enable the Kindnet or OVN-K networking support.
 
 | Package               | Description                | Comments |
 |-----------------------|----------------------------|----------|
-| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K
-| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K
-| microshift-topolvm    | TopoLVM CSI                |
-| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/)
+| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K |
+| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K |
+| microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
+| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
 
 ### Start MicroShift Service
 
@@ -65,14 +65,14 @@ The following optional DEB packages are available in the repository.
 
 | Package            | Description                | Comments |
 |--------------------|----------------------------|----------|
-| microshift-topolvm | TopoLVM CSI                |
-| microshift-olm     | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/)
+| microshift-topolvm | TopoLVM CSI                | Install to enable storage support |
+| microshift-olm     | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
 
-> Note: All of these optional packages are installed by default.
+> Note: All of the optional packages are installed by default.
 
 ### Start MicroShift Service
 
-Run the following command start the MicroShift service. All the necessary system
+Run the following command to start the MicroShift service. All the necessary system
 configuration was performed during the installation step.
 
 ```bash

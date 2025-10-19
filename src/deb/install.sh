@@ -2,7 +2,7 @@
 set -euo pipefail
 
 function usage() {
-    echo "Usage: $(basename "$0") <rpm_dir>"
+    echo "Usage: $(basename "$0") <deb_dir>"
     exit 1
 }
 
@@ -31,7 +31,7 @@ function install_firewall() {
 # https://kubernetes.io/blog/2023/10/10/cri-o-community-package-infrastructure/#deb-based-distributions
 function install_crio() {
     # shellcheck source=/dev/null
-    source "${RPM_DIR}/deb/dependencies.txt"
+    source "${DEB_DIR}/dependencies.txt"
     local criver="${CRIO_VERSION}"
     local relkey
 
@@ -41,7 +41,7 @@ function install_crio() {
     for _ in 1 2 3 ; do
         relkey="https://pkgs.k8s.io/addons:/cri-o:/stable:/v${criver}/deb/Release.key"
         if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
-            echo "Warning: The CRI-O package version '${criver}' not found in the repository. Trying the previous version."
+            echo "WARNING: The CRI-O package version '${criver}' not found in the repository. Trying the previous version."
             criver="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$criver")"
         else
             echo "Installing CRI-O package version '${criver}'"
@@ -49,8 +49,8 @@ function install_crio() {
             break
         fi
     done
-    if ! "${crio_found}" ; then
-        echo "Error: Failed to find the CRI-O package in the repository"
+    if [ "${crio_found}" != "true" ] ; then
+        echo "ERROR: Failed to find the CRI-O package in the repository"
         exit 1
     fi
 
@@ -67,7 +67,7 @@ function install_crio() {
 
     # Query the containernetworking-plugins package installation directory
     # and update the CRI-O configuration file to use it
-    local -r cni_dir="$(dpkg -L containernetworking-plugins | grep -E '/portmap$' | xargs dirname)"
+    local -r cni_dir="$(dpkg -L containernetworking-plugins | grep -E '/portmap$' | tail -1 | xargs dirname)"
     cat > /etc/crio/crio.conf.d/14-microshift-cni.conf <<EOF
 [crio.network]
 plugin_dirs = [
@@ -82,7 +82,7 @@ EOF
 
 function install_kubectl() {
     # shellcheck source=/dev/null
-    source "${RPM_DIR}/deb/dependencies.txt"
+    source "${DEB_DIR}/dependencies.txt"
     local kubever="${CRIO_VERSION}"
     local relkey
 
@@ -92,7 +92,7 @@ function install_kubectl() {
     for _ in 1 2 3 ; do
         relkey="https://pkgs.k8s.io/core:/stable:/v${kubever}/deb/Release.key"
         if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
-            echo "Warning: The kubectl package version '${kubever}' not found in the repository. Trying the previous version."
+            echo "WARNING: The kubectl package version '${kubever}' not found in the repository. Trying the previous version."
             kubever="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$kubever")"
         else
             echo "Installing kubectl package version '${kubever}'"
@@ -101,8 +101,8 @@ function install_kubectl() {
         fi
     done
 
-    if ! "${kubectl_found}" ; then
-        echo "Error: Failed to find the kubectl package in the repository"
+    if [ "${kubectl_found}" != "true" ] ; then
+        echo "ERROR: Failed to find the kubectl package in the repository"
         exit 1
     fi
 
@@ -131,14 +131,13 @@ function install_kubectl() {
 
 function install_microshift() {
     # Install the MicroShift Debian packages and fix the dependencies
-    find "${RPM_DIR}" -type f -iname "microshift*.deb" | sort | while read -r deb_package; do
+    find "${DEB_DIR}" -maxdepth 1 -name 'microshift*.deb' -print 2>/dev/null | sort | while read -r deb_package; do
         dpkg -i "${deb_package}"
     done
     apt-get install -y -q -f
 
-   # Enable and start the MicroShift service
+   # Enable the MicroShift service
    systemctl enable microshift
-   systemctl restart --no-block microshift
 }
 
 #
@@ -154,9 +153,13 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-RPM_DIR="$1"
-if ! find "${RPM_DIR}" -type f -iname "microshift*.deb" | grep -q "." ; then
-    echo "Error: No MicroShift Debian packages found in '${RPM_DIR}' directory"
+DEB_DIR="$1"
+if ! find "${DEB_DIR}" -maxdepth 1 -name 'microshift*.deb' -print 2>/dev/null | grep -q . ; then
+    echo "ERROR: No MicroShift Debian packages found in '${DEB_DIR}' directory"
+    exit 1
+fi
+if ! [ -f "${DEB_DIR}/dependencies.txt" ] ; then
+    echo "ERROR: No dependencies.txt file found in '${DEB_DIR}' directory"
     exit 1
 fi
 

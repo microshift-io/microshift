@@ -46,8 +46,13 @@ runs:
     - name: Install the MicroShift Debian packages
       shell: bash
       run: |
+        sudo ./src/deb/install.sh /mnt/rpms/deb
+
+    - name: Start the MicroShift service
+      shell: bash
+      run: |
         make _topolvm_create
-        sudo ./src/debian/install.sh /mnt/rpms
+        sudo systemctl start --no-block microshift.service
 
     - name: Run a test to verify that MicroShift is functioning properly
       shell: bash
@@ -69,9 +74,14 @@ runs:
         echo "Waiting 15m for the MicroShift service to be healthy"
         if ! sudo microshift healthcheck -v=2 --timeout="900s" --custom \
               '{"topolvm-system":{"deployments": ["topolvm-controller"], "daemonsets": ["topolvm-node"]}}'; then
-          echo "Failed to verify that the MicroShift service is healthy"
+          echo "ERROR: Failed to verify that the MicroShift service is healthy"
           exit 1
         fi
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
 
     - name: Collect debug information after the build
       if: always()
@@ -81,10 +91,18 @@ runs:
       if: failure()
       shell: bash
       run: |
-        # Exclude the microshift profile, which does not exist on Ubuntu
+        # Change the default profiles and plugins to adapt to the Debian environment
+        # Profiles:
+        #  - Remove microshift
+        #  - Add storage
+        # Plugins:
+        #  - Remove firewalld, rpmostree, rpm
+        #  - Add ufw, apt
         sudo microshift-sos-report \
           --profiles network,security,storage \
+          --plugins container_log,crio,logs,ufw,apt \
           --tmp-dir /mnt/tmp
+        sudo chmod 644 /mnt/tmp/sosreport-*
 
     - name: Upload sos report to the GitHub Actions artifact
       if: failure()

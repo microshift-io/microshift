@@ -17,7 +17,7 @@ runs:
         # Get the latest OKD version tag
         okd_version_tag="$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)"
         if [ -z "${okd_version_tag}" ]; then
-          echo "Error: No OKD version tag found"
+          echo "ERROR: No OKD version tag found"
           exit 1
         fi
         echo "okd_version_tag=${okd_version_tag}" >> $GITHUB_OUTPUT

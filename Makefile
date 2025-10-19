@@ -69,10 +69,10 @@ rpm:
 .PHONY: rpm-deb
 rpm-deb:
 	if [ -z "${RPM_OUTDIR}" ] ; then \
-		echo "Error: RPM_OUTDIR is not set" ; \
+		echo "ERROR: RPM_OUTDIR is not set" ; \
 		exit 1 ; \
 	fi && \
-	sudo ./src/debian/convert.sh "${RPM_OUTDIR}" && \
+	sudo ./src/deb/convert.sh "${RPM_OUTDIR}" && \
 	echo "" && \
 	echo "Conversion completed successfully" && \
 	echo "Debian packages are available in '${RPM_OUTDIR}/deb'"
@@ -80,13 +80,14 @@ rpm-deb:
 .PHONY: image
 image:
 	@if ! sudo podman image exists microshift-okd-builder ; then \
-		echo "Error: Run 'make rpm' to build the MicroShift RPMs" ; \
+		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
 		exit 1 ; \
 	fi
 
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
+        --ulimit nofile=524288:524288 \
      	--label microshift.branch="${USHIFT_BRANCH}" \
      	--label okd.version="${OKD_VERSION_TAG}" \
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
