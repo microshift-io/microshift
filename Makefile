@@ -22,7 +22,6 @@ ISOLATED_NETWORK ?= 0
 SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
-RPM2DEB_IMAGE ?= docker.io/library/ubuntu:latest
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
@@ -155,7 +154,7 @@ run-healthy:
 .PHONY: login
 login:
 	@echo "Logging into the MicroShift container"
-	sudo podman exec -it "${USHIFT_IMAGE}" bash
+	sudo podman exec -it "${USHIFT_IMAGE}" bash -l
 
 .PHONY: stop
 stop:

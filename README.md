@@ -26,7 +26,7 @@ following operating systems.
 | CentOS 9  |  RPM  |  Y  |  Y  |   Y   |   Y   |    Y    | Latest version in Stream 9 |
 | CentOS 10 |  RPM  |  Y  |  Y  |   Y   |   Y   |    Y    | Latest version in Stream 10 |
 | Fedora    |  RPM  |  Y  |  N  |   Y   |   Y   |    Y    | Latest released version (e.g. 42) |
-| Ubuntu    |  DEB  |  N  |  N  |   Y   |   Y   |    N    | Latest released version (e.g. 24.04) |
+| Ubuntu    |  DEB  |  N  |  N  |   Y   |   Y   |    N    | Latest LTS version (e.g. 24.04) |
 
 Notes:
 - MicroShift Bootc container images can be run on any operating system supported
