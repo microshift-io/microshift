@@ -61,6 +61,11 @@ COPY --chown=${USER}:${USER} ./src/topolvm/greenboot/ "${HOME}/microshift/packag
 COPY --chown=${USER}:${USER} ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
 RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
 
+# Building Multinode upstream RPM
+COPY --chown=${USER}:${USER} ./src/multinode/multinode.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
+COPY --chown=${USER}:${USER} ./src/multinode/dropins/ "${HOME}/microshift/packaging/multinode/"
+RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
+
 # Post-build MicroShift configuration
 COPY --chmod=755 ./src/image/postbuild.sh ${USHIFT_POSTBUILD_SCRIPT}
 RUN "${USHIFT_POSTBUILD_SCRIPT}" "${BUILDER_RPM_REPO_PATH}"
