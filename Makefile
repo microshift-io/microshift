@@ -94,6 +94,7 @@ image:
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
+		--env WITH_MULTINODE="${WITH_MULTINODE}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/microshift-runner.Containerfile .
 
