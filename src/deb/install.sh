@@ -65,6 +65,11 @@ function install_crio() {
     apt-get update  -y -q
     apt-get install -y -q cri-o crun containernetworking-plugins
 
+    # Disable all CNI plugin configuration files to allow Kindnet override
+    find /etc/cni/net.d -name '*.conflist' -print 2>/dev/null | while read -r cl ; do
+        mv "${cl}" "${cl}.disabled"
+    done
+
     # Query the containernetworking-plugins package installation directory
     # and update the CRI-O configuration file to use it
     local -r cni_dir="$(dpkg -L containernetworking-plugins | grep -E '/portmap$' | tail -1 | xargs dirname)"
@@ -136,8 +141,8 @@ function install_microshift() {
     done
     apt-get install -y -q -f
 
-   # Enable the MicroShift service
-   systemctl enable microshift
+    # Enable the MicroShift service
+    systemctl enable microshift
 }
 
 #
