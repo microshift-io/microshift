@@ -164,6 +164,37 @@ cmd_init() {
     done
 }
 
+cmd_add_node() {
+    local -r count="${1:-1}"
+    if ! [[ "${count}" =~ ^[0-9]+$ ]] || [ "${count}" -lt 1 ]; then
+        echo "ERROR: COUNT must be a positive integer greater than 0" >&2
+        exit 1
+    fi
+
+    local last_id=0
+    local node
+    for node in $(sudo podman ps -a --format '{{.Names}}' | grep -E "^${NODE_BASE_NAME}[0-9]+$" | sed "s/${NODE_BASE_NAME}//"); do
+        if [[ "$node" =~ ^[0-9]+$ ]] && [ "$node" -gt "$last_id" ]; then
+            last_id="$node"
+        fi
+    done
+
+    for i in $(seq 1 "$count"); do
+        node_id=$((last_id + i))
+        node_name="${NODE_BASE_NAME}${node_id}"
+        echo "Creating node: $node_name"
+        if ! add_node "${node_name}" "${USHIFT_MULTINODE_CLUSTER}"; then
+            echo "ERROR: failed to create node: $node_name" >&2
+            exit 1
+        fi
+        echo "Joining node to the cluster: $node_name"
+        if ! join_node "${node_name}"; then
+            echo "ERROR: failed to join node to the cluster: $node_name" >&2
+            exit 1
+        fi
+    done
+}
+
 cmd_cleanup() {
     containers=$(sudo podman ps -a --format '{{.Names}}' | grep "^${NODE_BASE_NAME}[0-9]\+") || true
     for container in ${containers}; do
@@ -193,16 +224,17 @@ usage() {
 Usage: $0 <command> [args]
 
 Commands:
-  init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3)
-  cleanup              Cleanup the cluster
+  init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3).
+  add-node [COUNT]     Create COUNT new nodes (default 1) and add them to the cluster.
+  cleanup              Cleanup the cluster.
 EOF
 }
 
 main() {
-
     local cmd="${1:-}"; shift || true
     case "${cmd}" in
         init) cmd_init "${1:-${DEFAULT_NODE_COUNT}}" ;;
+        add-node) cmd_add_node "${1:-1}" ;;
         cleanup) cmd_cleanup ;;
         *) usage ;;
     esac
