@@ -49,6 +49,7 @@ copy_kubeconfig() {
 add_node() {
     local -r name="${1}"
     local -r network_name="${2}"
+    local -r ip_address="${3}"
 
     vol_opts="--tty --volume /dev:/dev"
 	for device in input snd dri; do
@@ -60,6 +61,7 @@ add_node() {
         ${vol_opts} \
         --tmpfs /var/lib/containers \
         --network "${network_name}" \
+        --ip "${ip_address}" \
         --name "${name}" \
         --hostname "${name}" \
         "${USHIFT_IMAGE}"
@@ -111,7 +113,27 @@ create_podman_network() {
 }
 
 is_cluster_created() {
+    if sudo podman container exists "${NODE_BASE_NAME}1"; then
+        return 0
+    fi
     return 1
+}
+
+get_subnet() {
+    # shellcheck disable=SC2016
+    local -r subnet_with_mask=$(sudo podman network inspect "${USHIFT_MULTINODE_CLUSTER}" --format '{{range .}}{{range .Subnets}}{{.Subnet}}{{end}}{{end}}')
+    if [ -z "$subnet_with_mask" ]; then
+        echo "ERROR: Could not determine subnet for network '${USHIFT_MULTINODE_CLUSTER}'." >&2
+        exit 1
+    fi
+    local -r subnet="${subnet_with_mask%%/*}"
+    echo "$subnet"
+}
+
+get_ip_address() {
+    local -r subnet="${1}"
+    local -r node_id="${2}"
+    echo "$(echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}')"
 }
 
 cmd_init() {
@@ -129,11 +151,14 @@ cmd_init() {
     sudo modprobe openvswitch || true
     create_podman_network "${USHIFT_MULTINODE_CLUSTER}"
     create_topolvm_backend
+    local -r subnet=$(get_subnet)
+    echo "Subnet for '${USHIFT_MULTINODE_CLUSTER}': $subnet"
 
     for i in $(seq 1 "$count"); do
         node_name="${NODE_BASE_NAME}${i}"
+        ip_address=$(get_ip_address "$subnet" "$i")
         echo "Creating node: $node_name"
-        if ! add_node "${node_name}" "${USHIFT_MULTINODE_CLUSTER}"; then
+        if ! add_node "${node_name}" "${USHIFT_MULTINODE_CLUSTER}" "${ip_address}"; then
             echo "ERROR: failed to create node: $node_name" >&2
             exit 1
         fi
@@ -178,11 +203,14 @@ cmd_add_node() {
         fi
     done
 
+    local -r subnet=$(get_subnet)
+
     for i in $(seq 1 "$count"); do
         node_id=$((last_id + i))
         node_name="${NODE_BASE_NAME}${node_id}"
+        ip_address=$(get_ip_address "$subnet" "$node_id")
         echo "Creating node: $node_name"
-        if ! add_node "${node_name}" "${USHIFT_MULTINODE_CLUSTER}"; then
+        if ! add_node "${node_name}" "${USHIFT_MULTINODE_CLUSTER}" "${ip_address}"; then
             echo "ERROR: failed to create node: $node_name" >&2
             exit 1
         fi
