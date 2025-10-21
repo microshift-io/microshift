@@ -150,12 +150,22 @@ make stop
 
 ### RPM
 
-Run the following command to delete all the MicroShift data and uninstall the
+Run the following commands to delete all the MicroShift data and uninstall the
 MicroShift RPM packages.
 
 ```bash
 echo y | sudo microshift-cleanup-data --all
-sudo dnf remove -y microshift*
+sudo dnf remove -y 'microshift*'
+```
+
+### DEB
+
+Run the following commands to delete all the MicroShift data and uninstall the
+MicroShift DEB packages.
+
+```bash
+echo y | sudo microshift-cleanup-data --all
+sudo apt purge -y 'microshift*'
 ```
 
 ### Bootc Containers

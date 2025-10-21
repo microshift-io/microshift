@@ -6,6 +6,78 @@ function usage() {
     exit 1
 }
 
+# Helper function to determine the latest available version of a DEB package
+# by trying descending patch/minor versions from an initial version.
+#
+# Inspired by:
+# https://kubernetes.io/blog/2023/10/10/cri-o-community-package-infrastructure/#deb-based-distributions
+#
+# Arguments:
+#   - debpkg (for reporting, e.g., "cri-o" or "kubectl")
+#   - version (initial full version string, e.g., "1.28")
+#   - relkey_base (base URL, e.g., "https://pkgs.k8s.io/addons:/cri-o:/stable:")
+# Returns:
+#   - Echoes the found version to stdout
+#   - Exits with an error if the package is not found
+function find_debpkg_version() {
+    local debpkg="$1"
+    local version="$2"
+    local relkey_base="$3"
+
+    for _ in 1 2 3 ; do
+        local relkey
+        relkey="${relkey_base}/v${version}/deb/Release.key"
+        if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
+            echo "WARNING: The ${debpkg} package version '${version}' not found in the repository. Trying the previous version." >&2
+            # Decrement the minor version component
+            version="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$version")"
+            relkey="${relkey_base}/v${version}/deb/Release.key"
+        else
+            echo "Found '${debpkg}' package version '${version}'" >&2
+            echo "${version}"
+            return
+        fi
+    done
+
+    echo "ERROR: Failed to find the '${debpkg}' package in the repository" >&2
+    exit 1
+}
+
+# Generic function for installing a DEB package from a repository.
+#
+# Inspired by:
+# https://kubernetes.io/blog/2023/10/10/cri-o-community-package-infrastructure/#deb-based-distributions
+#
+# Arguments:
+#   - debpkg: Name of the main package to install (single package)
+#   - version: Version string of the package (e.g., "1.28")
+#   - relkey: URL to the repository Release.key (GPG key)
+#   - extra_packages: Additional package names to pass to apt-get install (optional)
+# Returns:
+#   - None
+function install_debpkg() {
+    local debpkg="$1"
+    local version="$2"
+    local relkey="$3"
+    local extra_packages="${4:-}"
+
+    local -r outname="${debpkg}-${version}"
+    local -r gpgkey="/etc/apt/keyrings/${outname}-apt-keyring.gpg"
+
+    # Download the GPG key and add it to the keyring
+    rm -f "${gpgkey}"
+    curl -fsSL "${relkey}" | gpg --batch --dearmor -o "${gpgkey}"
+
+    # Add the repository to the sources.list.d directory
+    echo "deb [signed-by=${gpgkey}] $(dirname "${relkey}") /" > \
+        "/etc/apt/sources.list.d/${outname}.list"
+
+    # Install the package and its dependencies
+    apt-get update  -y -q
+    # shellcheck disable=SC2086
+    apt-get install -y -q "${debpkg}=${version}*" ${extra_packages}
+}
+
 function install_prereqs() {
     # Pre-install the required packages
     export DEBIAN_FRONTEND=noninteractive
@@ -27,43 +99,15 @@ function install_firewall() {
     ufw reload
 }
 
-# Instructions for installing CRI-O:
-# https://kubernetes.io/blog/2023/10/10/cri-o-community-package-infrastructure/#deb-based-distributions
 function install_crio() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
-    local criver="${CRIO_VERSION}"
-    local relkey
 
-    # Find the desired CRI-O package in the repository.
-    # Fall back to the previous version if not found.
-    local crio_found=false
-    for _ in 1 2 3 ; do
-        relkey="https://pkgs.k8s.io/addons:/cri-o:/stable:/v${criver}/deb/Release.key"
-        if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
-            echo "WARNING: The CRI-O package version '${criver}' not found in the repository. Trying the previous version."
-            criver="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$criver")"
-        else
-            echo "Installing CRI-O package version '${criver}'"
-            crio_found=true
-            break
-        fi
-    done
-    if [ "${crio_found}" != "true" ] ; then
-        echo "ERROR: Failed to find the CRI-O package in the repository"
-        exit 1
-    fi
-
-    # Set up the CRI-O repository
-    local -r gpgkey="/etc/apt/keyrings/cri-o-${criver}-apt-keyring.gpg"
-    rm -f "${gpgkey}"
-    curl -fsSL "${relkey}" | gpg --batch --dearmor -o "${gpgkey}"
-    echo "deb [signed-by=${gpgkey}] $(dirname "${relkey}") /" > \
-        "/etc/apt/sources.list.d/cri-o-${criver}.list"
-
-    # Install the CRI-O package and dependencies
-    apt-get update  -y -q
-    apt-get install -y -q cri-o crun containernetworking-plugins
+    # Find the desired CRI-O package in the repository
+    local -r pkgver="$(find_debpkg_version "cri-o" "${CRIO_VERSION}" "https://pkgs.k8s.io/addons:/cri-o:/stable:")"
+    # Install the package of the found version and its dependencies
+    local -r relkey="https://pkgs.k8s.io/addons:/cri-o:/stable:/v${pkgver}/deb/Release.key"
+    install_debpkg "cri-o" "${pkgver}" "${relkey}" "crun containernetworking-plugins"
 
     # Disable all CNI plugin configuration files to allow Kindnet override
     find /etc/cni/net.d -name '*.conflist' -print 2>/dev/null | while read -r cl ; do
@@ -85,42 +129,15 @@ EOF
     systemctl restart crio
 }
 
-function install_kubectl() {
+function install_ctl_tools() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
-    local kubever="${CRIO_VERSION}"
-    local relkey
 
-    # Find the desired Kubectl package in the repository.
-    # Fall back to the previous version if not found.
-    local kubectl_found=false
-    for _ in 1 2 3 ; do
-        relkey="https://pkgs.k8s.io/core:/stable:/v${kubever}/deb/Release.key"
-        if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
-            echo "WARNING: The kubectl package version '${kubever}' not found in the repository. Trying the previous version."
-            kubever="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$kubever")"
-        else
-            echo "Installing kubectl package version '${kubever}'"
-            kubectl_found=true
-            break
-        fi
-    done
-
-    if [ "${kubectl_found}" != "true" ] ; then
-        echo "ERROR: Failed to find the kubectl package in the repository"
-        exit 1
-    fi
-
-    # Set up the Kubernetes repository
-    local -r gpgkey="/etc/apt/keyrings/kubernetes-${kubever}-apt-keyring.gpg"
-    rm -f "${gpgkey}"
-    curl -fsSL "${relkey}" | gpg --batch --dearmor -o "${gpgkey}"
-    echo "deb [signed-by=${gpgkey}] $(dirname "${relkey}") /" > \
-        "/etc/apt/sources.list.d/kubernetes-${kubever}.list"
-
-    # Install the Kubectl package and dependencies
-    apt-get update  -y -q
-    apt-get install -y -q kubectl
+    # Find the desired kubectl package in the repository
+    local -r pkgver="$(find_debpkg_version "kubectl" "${CRIO_VERSION}" "https://pkgs.k8s.io/core:/stable:")"
+    # Install the package of the found version and its dependencies
+    local -r relkey="https://pkgs.k8s.io/core:/stable:/v${pkgver}/deb/Release.key"
+    install_debpkg "kubectl" "${pkgver}" "${relkey}" cri-tools
 
     # Create a symlink to the kubectl command as 'oc'
     if [ ! -f /usr/bin/oc ] ; then
@@ -128,7 +145,7 @@ function install_kubectl() {
     fi
 
     # Set the kubectl configuration
-    if [ ! -f ~/.kube/config ] ; then
+    if [ ! -e ~/.kube/config ] && [ ! -L ~/.kube/config ] ; then
         mkdir -p ~/.kube
         ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig ~/.kube/config
     fi
@@ -173,6 +190,6 @@ install_prereqs
 install_firewall
 # Prerequisites
 install_crio
-install_kubectl
+install_ctl_tools
 # MicroShift
 install_microshift
