@@ -55,8 +55,7 @@ add_node() {
 		[ -d "/dev/$${device}" ] && vol_opts="${vol_opts} --tmpfs /dev/${device}"
 	done
 
-    sudo podman run --privileged --rm -d \
-        --replace \
+    sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
         ${vol_opts} \
         --tmpfs /var/lib/containers \
@@ -195,6 +194,22 @@ cmd_add_node() {
     done
 }
 
+cmd_start() {
+    local -r containers=$(sudo podman ps -a --format '{{.Names}}' | grep -E "^${NODE_BASE_NAME}[0-9]+$" || true)
+    for container in ${containers}; do
+        echo "Starting container: ${container}"
+        sudo podman start "${container}" || true
+    done
+}
+
+cmd_stop() {
+    local -r containers=$(sudo podman ps --format '{{.Names}}' | grep -E "^${NODE_BASE_NAME}[0-9]+$" || true)
+    for container in ${containers}; do
+        echo "Stopping container: ${container}"
+        sudo podman stop --time 0 "${container}" || true
+    done
+}
+
 cmd_status() {
     if ! sudo podman container exists "${NODE_BASE_NAME}1"; then
         echo "Cluster is not initialized."
@@ -245,6 +260,8 @@ Usage: $0 <command> [args]
 Commands:
   init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3).
   add-node [COUNT]     Create COUNT new nodes (default 1) and add them to the cluster.
+  start                Start all nodes.
+  stop                 Stop all nodes.
   status               Show the status of the cluster.
   cleanup              Cleanup the cluster.
 EOF
@@ -255,6 +272,8 @@ main() {
     case "${cmd}" in
         init) cmd_init "${1:-${DEFAULT_NODE_COUNT}}" ;;
         add-node) cmd_add_node "${1:-1}" ;;
+        start) cmd_start ;;
+        stop) cmd_stop ;;
         status) cmd_status ;;
         cleanup) cmd_cleanup ;;
         *) usage ;;
