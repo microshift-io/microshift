@@ -57,7 +57,7 @@ Notes:
 
 ### Create DEB Packages
 
-Create the MicroShift DEB packages by running the `make rpm-deb` command.
+Create the MicroShift DEB packages by running the `make rpm-to-deb` command.
 
 The following options can be specified in the make command line using the `NAME=VAL` format.
 
@@ -65,13 +65,13 @@ The following options can be specified in the make command line using the `NAME=
 |------------|----------|----------|----------|
 | RPM_OUTDIR | yes      | none     | RPM repository directory to convert |
 
-The `make rpm-deb` command converts MicroShift RPMs to Debian packages. The path
-to an existing RPM repository must be specified using the mandatory `RPM_OUTDIR`
-make command line.
+The `make rpm-to-deb` command converts MicroShift RPMs to Debian packages.
+The path to an existing RPM repository must be specified using the mandatory
+`RPM_OUTDIR` make command line.
 
 ```bash
 RPM_OUTDIR=/tmp/microshift-rpms
-make rpm-deb RPM_OUTDIR="${RPM_OUTDIR}"
+make rpm-to-deb RPM_OUTDIR="${RPM_OUTDIR}"
 ```
 
 If the conversion completes successfully, the Debian packages are copied to the

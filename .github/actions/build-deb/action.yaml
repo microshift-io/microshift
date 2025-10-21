@@ -41,7 +41,7 @@ runs:
     - name: Convert the MicroShift RPMs to Debian packages
       shell: bash
       run: |
-        make rpm-deb RPM_OUTDIR=/mnt/rpms
+        make rpm-to-deb RPM_OUTDIR=/mnt/rpms
 
     - name: Install the MicroShift Debian packages
       shell: bash
@@ -93,10 +93,11 @@ runs:
       run: |
         # Change the default profiles and plugins to adapt to the Debian environment
         # Profiles:
-        #  - Remove microshift
+        #  - Remove non-existent microshift
         #  - Add storage
         # Plugins:
-        #  - Remove firewalld, rpmostree, rpm
+        #  - Remove unused firewalld and rpm
+        #  - Remove non-existent rpmostree
         #  - Add ufw, apt
         sudo microshift-sos-report \
           --profiles network,security,storage \
