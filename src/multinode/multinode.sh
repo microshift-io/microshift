@@ -145,12 +145,21 @@ cmd_init() {
                 echo "ERROR: Time out waiting for kubeconfig: $node_name" >&2
                 exit 1
             fi
-            copy_kubeconfig "${node_name}"
+            if ! copy_kubeconfig "${node_name}"; then
+                echo "ERROR: failed to copy kubeconfig: $node_name" >&2
+                exit 1
+            fi
             echo "Waiting for node to be ready: $node_name"
-            wait_node_ready "${node_name}"
+            if ! wait_node_ready "${node_name}"; then
+                echo "ERROR: Time out waiting for node to be ready: $node_name" >&2
+                exit 1
+            fi
         else
             echo "Joining node to the cluster: $node_name"
-            join_node "${node_name}"
+            if ! join_node "${node_name}"; then
+                echo "ERROR: failed to join node to the cluster: $node_name" >&2
+                exit 1
+            fi
         fi
     done
 }
