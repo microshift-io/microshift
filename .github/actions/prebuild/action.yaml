@@ -10,10 +10,16 @@ runs:
         set -euo pipefail
         set -x
 
-        # The /dev/sdb1 partition is mounted as /mnt.
+        # Attempt to clean up any pre-existing files on the /mnt partition to
+        # conserve disk space. Note that this is a best-effort approach and
+        # not all files may be removed (e.g. swapfile, etc.).
+        sudo rm -rvf /mnt/* || true
+
+        # Create the necessary directories on the /mnt partition
         sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
         sudo chmod 1777 /mnt/tmp
 
+        # Install the pre-requisites for the build and run environment
         sudo apt-get update  -y -q
         sudo apt-get install -y -q make lvm2 podman jq curl
 
