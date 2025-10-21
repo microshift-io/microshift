@@ -81,7 +81,7 @@ runs:
     - name: Cleanup the MicroShift data and packages
       shell: bash
       run: |
-        sudo microshift-cleanup-data --all
+        echo y | sudo microshift-cleanup-data --all
         sudo apt purge -y 'microshift*'
 
         if sudo apt list | grep -Eq ^microshift ; then
