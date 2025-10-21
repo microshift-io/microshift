@@ -195,6 +195,25 @@ cmd_add_node() {
     done
 }
 
+cmd_status() {
+    if ! sudo podman container exists "${NODE_BASE_NAME}1"; then
+        echo "Cluster is not initialized."
+        exit 1
+    fi
+
+    local -r running_containers=$(sudo podman ps --format '{{.Names}}' | grep -E "^${NODE_BASE_NAME}[0-9]+$" || true)
+
+    if [ -z "${running_containers}" ]; then
+        echo "Cluster is down. No cluster containers are currently running."
+        return 0
+    fi
+
+    local -r first_container=$(echo "${running_containers}" | head -n1)
+    echo "Cluster is running."
+    sudo podman exec -i "${first_container}" oc --kubeconfig=/var/lib/microshift/resources/kubeadmin/kubeconfig get nodes -o wide
+    exit $?
+}
+
 cmd_cleanup() {
     containers=$(sudo podman ps -a --format '{{.Names}}' | grep "^${NODE_BASE_NAME}[0-9]\+") || true
     for container in ${containers}; do
@@ -226,6 +245,7 @@ Usage: $0 <command> [args]
 Commands:
   init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3).
   add-node [COUNT]     Create COUNT new nodes (default 1) and add them to the cluster.
+  status               Show the status of the cluster.
   cleanup              Cleanup the cluster.
 EOF
 }
@@ -235,6 +255,7 @@ main() {
     case "${cmd}" in
         init) cmd_init "${1:-${DEFAULT_NODE_COUNT}}" ;;
         add-node) cmd_add_node "${1:-1}" ;;
+        status) cmd_status ;;
         cleanup) cmd_cleanup ;;
         *) usage ;;
     esac
