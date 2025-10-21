@@ -51,26 +51,7 @@ runs:
       uses: ./.github/actions/debug-info
 
     - name: Prepare the build and run environment
-      shell: bash
-      run: |
-        set -euo pipefail
-        set -x
-
-        # The /dev/sdb1 partition is mounted as /mnt.
-        sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
-        sudo chmod 1777 /mnt/tmp
-
-        sudo apt-get install -y make lvm2 podman
-
-        # Redirect the container build directories to /mnt/ to avoid running out of disk space.
-        sudo mv /var/tmp /var/tmp.orig
-        sudo mv /var/lib/containers /mnt/containers
-        sudo ln -s /mnt/tmp /var/tmp
-        sudo ln -s /mnt/containers /var/lib/containers
-
-        # Raise open file limits to avoid "too many open files" errors
-        echo '* soft nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
-        echo '* hard nofile 524288' | sudo tee -a /etc/security/limits.conf &>/dev/null
+      uses: ./.github/actions/prebuild
 
     - name: Build MicroShift RPMs
       shell: bash
@@ -124,7 +105,7 @@ runs:
         if [ "${{ inputs.isolated-network }}" = "1" ]; then
           for cmd in "ping -c1 8.8.8.8" "curl -I quay.io" "curl -I ghcr.io"; do
             if sudo podman exec -i microshift-okd ${cmd} ; then
-              echo "Error: Internet access is available in the isolated network container"
+              echo "ERROR: Internet access is available in the isolated network container"
               exit 1
             fi
           done
@@ -136,6 +117,11 @@ runs:
 
         # Stop the MicroShift container
         make stop
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
 
     - name: Collect debug information after the build
       if: always()
@@ -150,7 +136,7 @@ runs:
 
         # Check if the MicroShift container is running
         if ! sudo podman ps --format "{{.Names}}" | grep -q '^microshift-okd$' ; then
-          echo "Warning: MicroShift container is not running - cannot collect sos report"
+          echo "WARNING: MicroShift container is not running - cannot collect sos report"
           exit 0
         fi
 

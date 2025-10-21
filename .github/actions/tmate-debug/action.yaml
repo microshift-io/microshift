@@ -1,0 +1,19 @@
+#
+# Copy the following code to an action or a workflow to open a tmate debug
+# session on failure.
+# Change the if condition to 'always()' to open the session unconditionally.
+#
+# - name: Pause and open tmate debug session
+#   if: failure()
+#   uses: ./.github/actions/tmate-debug
+#
+name: tmate-debug
+description: Reusable action to open a tmate debug session
+
+runs:
+  using: "composite"
+  steps:
+    - name: Pause and open tmate debug session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-actor: false

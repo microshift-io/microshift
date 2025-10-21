@@ -40,6 +40,7 @@ all:
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
+	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
 	@echo "   run-ready: 	wait until the MicroShift service is ready"
 	@echo "   run-healthy:	wait until the MicroShift service is healthy"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
@@ -64,16 +65,28 @@ rpm:
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
 
+.PHONY: rpm-to-deb
+rpm-to-deb:
+	if [ -z "${RPM_OUTDIR}" ] ; then \
+		echo "ERROR: RPM_OUTDIR is not set" ; \
+		exit 1 ; \
+	fi && \
+	sudo ./src/deb/convert.sh "${RPM_OUTDIR}" && \
+	echo "" && \
+	echo "Conversion completed successfully" && \
+	echo "Debian packages are available in '${RPM_OUTDIR}/deb'"
+
 .PHONY: image
 image:
 	@if ! sudo podman image exists microshift-okd-builder ; then \
-		echo "Error: Run 'make rpm' to build the MicroShift RPMs"; \
-		exit 1; \
+		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
+		exit 1 ; \
 	fi
 
 	@echo "Building the MicroShift bootc container image"
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
+        --ulimit nofile=524288:524288 \
      	--label microshift.branch="${USHIFT_BRANCH}" \
      	--label okd.version="${OKD_VERSION_TAG}" \
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
@@ -141,7 +154,7 @@ run-healthy:
 .PHONY: login
 login:
 	@echo "Logging into the MicroShift container"
-	sudo podman exec -it "${USHIFT_IMAGE}" bash
+	sudo podman exec -it "${USHIFT_IMAGE}" bash -l
 
 .PHONY: stop
 stop:

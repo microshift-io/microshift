@@ -18,14 +18,15 @@ outside the downstream Red Hat payloads.
 # Operating System Support
 
 MicroShift and its main components are available on the `x86_64` architecture.
-RPM packages built in a CentOS Stream 9 Bootc container can be installed and
-run on the following operating systems.
+RPM and DEB packages built in a container can be installed and run on the
+following operating systems.
 
-| OS        | Bootc| OVN-K | Kindnet | TopoLVM | Comments |
-|-----------|------|-------|---------|---------|----------|
-| CentOS 9  |  Y   |   Y   |    Y    |    Y    | Latest version in Stream 9
-| CentOS 10 |  Y   |   Y   |    Y    |    Y    | Latest version in Stream 10
-| Fedora    |  Y   |   N   |    Y    |    Y    | Latest released version (e.g. 42)
+| OS        |Package|Bootc|OVN-K|Kindnet|TopoLVM|Greenboot|Comments|
+|-----------|-------|-----|-----|-------|-------|---------|--------|
+| CentOS 9  |  RPM  |  Y  |  Y  |   Y   |   Y   |    Y    | Latest version in Stream 9 |
+| CentOS 10 |  RPM  |  Y  |  Y  |   Y   |   Y   |    Y    | Latest version in Stream 10 |
+| Fedora    |  RPM  |  Y  |  N  |   Y   |   Y   |    Y    | Latest released version (e.g. 42) |
+| Ubuntu    |  DEB  |  N  |  N  |   Y   |   Y   |    N    | Latest LTS version (e.g. 24.04) |
 
 Notes:
 - MicroShift Bootc container images can be run on any operating system supported

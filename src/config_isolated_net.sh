@@ -33,7 +33,7 @@ wait_for_network_manager() {
     sleep 1
   done
   if ! systemctl is-active --quiet NetworkManager; then
-    echo "Error: NetworkManager is not running"
+    echo "ERROR: NetworkManager is not running"
     exit 1
   fi
 }

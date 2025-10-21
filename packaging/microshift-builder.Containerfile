@@ -15,7 +15,7 @@ ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
-        echo "Error: OKD_VERSION_TAG is not set"; \
+        echo "ERROR: OKD_VERSION_TAG is not set"; \
         echo "See quay.io/okd/scos-release for a list of tags"; \
         exit 1; \
     fi

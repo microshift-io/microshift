@@ -1,0 +1,24 @@
+name: prebuild-environment-setup
+description: Reusable action to configure the build environment for MicroShift
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare the build and run environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # The /dev/sdb1 partition is mounted as /mnt.
+        sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
+        sudo chmod 1777 /mnt/tmp
+
+        sudo apt-get update  -y -q
+        sudo apt-get install -y -q make lvm2 podman jq curl
+
+        # Redirect the container build directories to /mnt/ to avoid running out of disk space.
+        sudo mv /var/tmp /var/tmp.orig
+        sudo mv /var/lib/containers /mnt/containers
+        sudo ln -s /mnt/tmp /var/tmp
+        sudo ln -s /mnt/containers /var/lib/containers
