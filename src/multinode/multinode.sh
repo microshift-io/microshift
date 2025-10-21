@@ -11,21 +11,18 @@ USHIFT_IMAGE="microshift-okd"
 NODE_BASE_NAME="microshift-okd-"
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 LVM_VOLSIZE=1G
+VG_NAME="vg-${USHIFT_MULTINODE_CLUSTER}"
 
 create_topolvm_backend() {
-    local -r name="${USHIFT_MULTINODE_CLUSTER}"
-    local -r vg_name="vg-${name}"
-
     if [ -f "${LVM_DISK}" ]; then
         echo "INFO: '${LVM_DISK}' exists, reusing"
         return 0
     fi
 
-    local -r device_name="$(sudo losetup --find --show --nooverlap "${LVM_DISK}")"
-
     sudo mkdir -p "$(dirname "${LVM_DISK}")"
     sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}"
-    sudo vgcreate -f -y "${vg_name}" "${device_name}"
+    local -r device_name="$(sudo losetup --find --show --nooverlap "${LVM_DISK}")"
+    sudo vgcreate -f -y "${VG_NAME}" "${device_name}"
 }
 
 wait_for_kubeconfig() {
@@ -132,7 +129,7 @@ cmd_init() {
 
     sudo modprobe openvswitch || true
     create_podman_network "${USHIFT_MULTINODE_CLUSTER}"
-    create_topolvm_backend "${USHIFT_MULTINODE_CLUSTER}"
+    create_topolvm_backend
 
     for i in $(seq 1 "$count"); do
         node_name="${NODE_BASE_NAME}${i}"
@@ -158,13 +155,37 @@ cmd_init() {
     done
 }
 
+cmd_cleanup() {
+    containers=$(sudo podman ps -a --format '{{.Names}}' | grep "^${NODE_BASE_NAME}[0-9]\+") || true
+    for container in ${containers}; do
+        echo "Stopping container: ${container}"
+        sudo podman stop --time 0 "${container}" || true
+        echo "Removing container: ${container}"
+        sudo podman rm -f "${container}" || true
+    done
+
+    # Remove podman network for the multinode cluster
+    if sudo podman network exists "${USHIFT_MULTINODE_CLUSTER}" ; then
+        echo "Removing podman network: ${USHIFT_MULTINODE_CLUSTER}"
+        sudo podman network rm "${USHIFT_MULTINODE_CLUSTER}" || true
+    fi
+    if [ -f "${LVM_DISK}" ]; then
+        echo "Deleting LVM disk: ${LVM_DISK}"
+        sudo lvremove -y "${VG_NAME}" || true
+		sudo vgremove -y "${VG_NAME}" || true
+		local -r device_name="$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)"
+		[ -n "${device_name}" ] && sudo losetup -d "${device_name}" || true
+        sudo rm -rf "$(dirname "${LVM_DISK}")"
+    fi
+}
+
 usage() {
     cat <<EOF
 Usage: $0 <command> [args]
 
 Commands:
   init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3)
-
+  cleanup              Cleanup the cluster
 EOF
 }
 
@@ -173,6 +194,7 @@ main() {
     local cmd="${1:-}"; shift || true
     case "${cmd}" in
         init) cmd_init "${1:-${DEFAULT_NODE_COUNT}}" ;;
+        cleanup) cmd_cleanup ;;
         *) usage ;;
     esac
 }
