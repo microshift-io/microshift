@@ -40,6 +40,7 @@ dnf install -y firewalld systemd-resolved \
     jq bash-completion
 firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
 firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
+firewall-offline-cmd --zone=public --add-port=6443/tcp
 
 # With kindnet present:
 # - No need for openvswitch service which is enabled by default once MicroShift
