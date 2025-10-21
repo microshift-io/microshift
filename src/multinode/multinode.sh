@@ -90,7 +90,7 @@ join_node() {
 wait_node_ready() {
     local -r name="${1}"
 
-    for i in $(seq 1 36); do
+    for _ in $(seq 100); do
         state=$(sudo podman exec -i "${name}" systemctl show --property=SubState --value greenboot-healthcheck 2>/dev/null || echo "unknown")
         if [ "${state}" = "exited" ]; then
             return 0
