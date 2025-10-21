@@ -15,7 +15,7 @@ runs:
         sudo chmod 1777 /mnt/tmp
 
         sudo apt-get update  -y -q
-        sudo apt-get install -y -q make lvm2 podman jq curl alien
+        sudo apt-get install -y -q make lvm2 podman jq curl
 
         # Redirect the container build directories to /mnt/ to avoid running out of disk space.
         sudo mv /var/tmp /var/tmp.orig

@@ -40,7 +40,7 @@ all:
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
-	@echo "   rpm-deb:   	convert the MicroShift RPMs to Debian packages"
+	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
 	@echo "   run-ready: 	wait until the MicroShift service is ready"
 	@echo "   run-healthy:	wait until the MicroShift service is healthy"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
@@ -65,8 +65,8 @@ rpm:
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
 
-.PHONY: rpm-deb
-rpm-deb:
+.PHONY: rpm-to-deb
+rpm-to-deb:
 	if [ -z "${RPM_OUTDIR}" ] ; then \
 		echo "ERROR: RPM_OUTDIR is not set" ; \
 		exit 1 ; \
