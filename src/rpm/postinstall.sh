@@ -40,7 +40,16 @@ dnf install -y firewalld systemd-resolved \
     jq bash-completion
 firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
 firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
+# Multinode clusters require connectivity on both apiserver and etcd
 firewall-offline-cmd --zone=public --add-port=6443/tcp
+firewall-offline-cmd --zone=public --add-port=2379/tcp
+firewall-offline-cmd --zone=public --add-port=2380/tcp
+
+# Configure limits for cAdvisor and kubelet
+cat > /etc/sysctl.d/99-microshift.conf <<EOF
+fs.inotify.max_user_watches = 524288
+fs.inotify.max_user_instances = 16384
+EOF
 
 # With kindnet present:
 # - No need for openvswitch service which is enabled by default once MicroShift
