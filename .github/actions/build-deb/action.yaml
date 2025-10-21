@@ -78,6 +78,17 @@ runs:
           exit 1
         fi
 
+    - name: Cleanup the MicroShift data and packages
+      shell: bash
+      run: |
+        sudo microshift-cleanup-data --all
+        sudo apt purge -y 'microshift*'
+
+        if sudo apt list | grep -Eq ^microshift ; then
+          echo "ERROR: Failed to purge the MicroShift packages"
+          exit 1
+        fi
+
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
     #   if: failure()
