@@ -136,7 +136,7 @@ get_ip_address() {
     echo "$(echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}')"
 }
 
-cmd_init() {
+cmd_create() {
     local count="${1}"
     if ! [[ "${count}" =~ ^[0-9]+$ ]] || [ "${count}" -lt 3 ]; then
         echo "ERROR: number of nodes must be >= 3" >&2
@@ -257,7 +257,7 @@ cmd_status() {
     exit $?
 }
 
-cmd_cleanup() {
+cmd_delete() {
     containers=$(sudo podman ps -a --format '{{.Names}}' | grep "^${NODE_BASE_NAME}[0-9]\+") || true
     for container in ${containers}; do
         echo "Stopping container: ${container}"
@@ -286,24 +286,24 @@ usage() {
 Usage: $0 <command> [args]
 
 Commands:
-  init [COUNT]         Create control-plane and COUNT-1 nodes (default 3, min 3).
-  add-node [COUNT]     Create COUNT new nodes (default 1) and add them to the cluster.
+  create [COUNT]       Create cluster with COUNT nodes (default 3, min 3).
+  add-node [COUNT]     Add COUNT new nodes (default 1) to the cluster.
   start                Start all nodes.
   stop                 Stop all nodes.
   status               Show the status of the cluster.
-  cleanup              Cleanup the cluster.
+  delete               Delete the cluster.
 EOF
 }
 
 main() {
     local cmd="${1:-}"; shift || true
     case "${cmd}" in
-        init) cmd_init "${1:-${DEFAULT_NODE_COUNT}}" ;;
+        create) cmd_create "${1:-${DEFAULT_NODE_COUNT}}" ;;
         add-node) cmd_add_node "${1:-1}" ;;
         start) cmd_start ;;
         stop) cmd_stop ;;
         status) cmd_status ;;
-        cleanup) cmd_cleanup ;;
+        delete) cmd_delete ;;
         *) usage ;;
     esac
 }
