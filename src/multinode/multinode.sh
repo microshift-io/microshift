@@ -164,15 +164,6 @@ cmd_create() {
         fi
 
         if [ $i -eq 1 ]; then
-            echo "Waiting for kubeconfig: $node_name"
-            if ! wait_for_kubeconfig "${node_name}"; then
-                echo "ERROR: Time out waiting for kubeconfig: $node_name" >&2
-                exit 1
-            fi
-            if ! copy_kubeconfig "${node_name}"; then
-                echo "ERROR: failed to copy kubeconfig: $node_name" >&2
-                exit 1
-            fi
             echo "Waiting for node to be ready: $node_name"
             if ! wait_node_ready "${node_name}"; then
                 echo "ERROR: Time out waiting for node to be ready: $node_name" >&2
