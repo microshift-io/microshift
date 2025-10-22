@@ -80,9 +80,9 @@ join_node() {
     sudo podman cp "${tmp_kubeconfig}" "${name}:${dest_kubeconfig}"
     sudo rm -f "${tmp_kubeconfig}"
 
-    sudo podman exec -i "${name}" systemctl stop microshift kubepods.slice crio
-    #TODO log this elsewhere. dont pollute the output.
-    sudo podman exec -i "${name}" microshift add-node --kubeconfig="${dest_kubeconfig}" --learner=false
+    sudo podman exec -i "${name}" bash -c "\
+        systemctl stop microshift kubepods.slice crio; \
+        microshift add-node --kubeconfig=${dest_kubeconfig} --learner=false > add-node.log 2>&1"
 
     return $?
 }
@@ -170,9 +170,9 @@ cmd_create() {
                 exit 1
             fi
         else
-            echo "Joining node to the cluster: $node_name"
+            echo "Adding node to the cluster: $node_name"
             if ! join_node "${node_name}"; then
-                echo "ERROR: failed to join node to the cluster: $node_name" >&2
+                echo "ERROR: failed to join node to the cluster: $node_name. Check logs with 'sudo podman exec ${node_name} cat add-node.log'" >&2
                 exit 1
             fi
         fi
@@ -207,7 +207,7 @@ cmd_add_node() {
         fi
         echo "Joining node to the cluster: $node_name"
         if ! join_node "${node_name}"; then
-            echo "ERROR: failed to join node to the cluster: $node_name" >&2
+            echo "ERROR: failed to join node to the cluster: $node_name. Check logs with 'sudo podman exec ${node_name} cat add-node.log'" >&2
             exit 1
         fi
     done
