@@ -94,6 +94,7 @@ image:
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
+		--env WITH_MULTINODE="${WITH_MULTINODE}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/microshift-runner.Containerfile .
 
@@ -150,6 +151,16 @@ run-healthy:
 	done ; \
 	printf "\nThe state of the greenboot-healthcheck service is '$${state}'" && \
 	printf "\nFAILED\n" && exit 1
+
+
+.PHONY: multinode-create
+multinode-create:
+	@USHIFT_IMAGE="${USHIFT_IMAGE}" LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/multinode/multinode.sh create
+	@echo "A cluster has been created. Use src/multinode/multinode.sh to operate the cluster"
+
+.PHONY: multinode-delete
+multinode-delete:
+	@USHIFT_IMAGE="${USHIFT_IMAGE}" LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/multinode/multinode.sh delete
 
 .PHONY: login
 login:
