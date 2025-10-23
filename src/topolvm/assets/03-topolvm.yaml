@@ -842,11 +842,18 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
               port: healthz
-            initialDelaySeconds: 10
+              path: /healthz
             timeoutSeconds: 3
+            failureThreshold: 3
             periodSeconds: 60
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 2
+            timeoutSeconds: 3
+            httpGet:
+              port: healthz
+              path: /healthz
           env:
             - name: NODE_NAME
               valueFrom:
@@ -979,17 +986,19 @@ spec:
             - containerPort: 8080
               name: metrics
               protocol: TCP
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: readyz
-              scheme: HTTP
           livenessProbe:
             httpGet:
-              path: /healthz
               port: healthz
-            initialDelaySeconds: 10
+              path: /healthz
             timeoutSeconds: 3
+            failureThreshold: 3
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              port: readyz
+              path: /readyz
+            timeoutSeconds: 3
+            failureThreshold: 3
             periodSeconds: 60
           volumeMounts:
             - name: socket-dir
