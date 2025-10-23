@@ -51,14 +51,14 @@ add_node() {
     local -r network_name="${2}"
     local -r ip_address="${3}"
 
-    vol_opts="--tty --volume /dev:/dev"
+    local vol_opts="--tty --volume /dev:/dev"
 	for device in input snd dri; do
-		[ -d "/dev/$${device}" ] && vol_opts="${vol_opts} --tmpfs /dev/${device}"
+		[ -d "/dev/${device}" ] && vol_opts="${vol_opts} --tmpfs /dev/${device}"
 	done
 
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
-        ${vol_opts} \
+        "${vol_opts}" \
         --tmpfs /var/lib/containers \
         --network "${network_name}" \
         --ip "${ip_address}" \
@@ -133,7 +133,7 @@ get_subnet() {
 get_ip_address() {
     local -r subnet="${1}"
     local -r node_id="${2}"
-    echo "$(echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}')"
+    echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}'
 }
 
 cmd_create() {
@@ -163,7 +163,7 @@ cmd_create() {
             exit 1
         fi
 
-        if [ $i -eq 1 ]; then
+        if [ "${i}" -eq 1 ]; then
             echo "Waiting for node to be ready: $node_name"
             if ! wait_node_ready "${node_name}"; then
                 echo "ERROR: Time out waiting for node to be ready: $node_name" >&2
@@ -270,6 +270,7 @@ cmd_delete() {
 		[ -n "${device_name}" ] && sudo losetup -d "${device_name}" || true
         sudo rm -rf "$(dirname "${LVM_DISK}")"
     fi
+    echo "Cluster deleted successfully"
 }
 
 usage() {
