@@ -6,12 +6,12 @@ set -euo pipefail
 #
 
 DEFAULT_NODE_COUNT=3
-USHIFT_MULTINODE_CLUSTER="microshift-okd-multinode"
-USHIFT_IMAGE="microshift-okd"
-NODE_BASE_NAME="microshift-okd-"
-LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
-LVM_VOLSIZE=1G
-VG_NAME="vg-${USHIFT_MULTINODE_CLUSTER}"
+USHIFT_MULTINODE_CLUSTER="${USHIFT_MULTINODE_CLUSTER:-microshift-okd-multinode}"
+NODE_BASE_NAME="${NODE_BASE_NAME:-microshift-okd-}"
+USHIFT_IMAGE="${USHIFT_IMAGE:-microshift-okd}"
+LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
+LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
+VG_NAME="${VG_NAME:-vg-${USHIFT_MULTINODE_CLUSTER}}"
 
 create_topolvm_backend() {
     if [ -f "${LVM_DISK}" ]; then
@@ -283,11 +283,28 @@ Commands:
   stop                 Stop all nodes.
   status               Show the status of the cluster.
   delete               Delete the cluster.
+
+Environment:
+    USHIFT_IMAGE                MicroShift image (default: microshift-okd)
+    USHIFT_MULTINODE_CLUSTER    Cluster name (default: microshift-okd-multinode)
+    NODE_BASE_NAME              Node base name (default: microshift-okd-)
+    LVM_DISK                    TopoLVM disk image (default: /var/lib/microshift-okd/lvmdisk.image)
+    LVM_VOLSIZE                 TopoLVM volume size (default: 1G)
+    VG_NAME                     TopoLVM volume group name (default: vg-microshift-okd)
 EOF
 }
 
 main() {
     local cmd="${1:-}"; shift || true
+
+    echo "Multinode Cluster Environment Summary:"
+    echo "  LVM_DISK                 = ${LVM_DISK}"
+    echo "  LVM_VOLSIZE              = ${LVM_VOLSIZE}"
+    echo "  VG_NAME                  = ${VG_NAME}"
+    echo "  USHIFT_MULTINODE_CLUSTER = ${USHIFT_MULTINODE_CLUSTER}"
+    echo "  NODE_BASE_NAME           = ${NODE_BASE_NAME}"
+    echo "  USHIFT_IMAGE             = ${USHIFT_IMAGE}"
+
     case "${cmd}" in
         create) cmd_create "${1:-${DEFAULT_NODE_COUNT}}" ;;
         add-node) cmd_add_node "${1:-1}" ;;
