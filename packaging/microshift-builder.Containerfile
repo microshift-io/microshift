@@ -41,8 +41,22 @@ COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 # Building all MicroShift downstream RPMs and SRPMs
-# hadolint ignore=DL3059
-RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm srpm
+RUN cd "${HOME}/microshift" && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh rpm local \
+    && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh srpm local
 
 # Building Kindnet upstream RPM
 COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
@@ -50,8 +64,23 @@ COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "${HOME}/microshift/assets/o
 COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
 COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
 # Prepare and build Kindnet upstream RPM
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}" && \
-    MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm srpm
+RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}"
+RUN cd "${HOME}/microshift" && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh rpm local \
+    && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh srpm local
 
 # Building TopoLVM upstream RPM
 COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
@@ -59,7 +88,22 @@ COPY --chown=${USER}:${USER} ./src/topolvm/assets/  "${HOME}/microshift/assets/o
 COPY --chown=${USER}:${USER} ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
 COPY --chown=${USER}:${USER} ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
 COPY --chown=${USER}:${USER} ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
-RUN MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm srpm
+RUN cd "${HOME}/microshift" && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh rpm local \
+    && \
+    MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}" \
+    RPM_RELEASE="1" \
+    SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo 'v0.0.0-unknown-$(SOURCE_GIT_COMMIT)')" \
+    SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')" \
+    SOURCE_GIT_TREE_STATE=clean \
+    MICROSHIFT_VARIANT=community \
+    ./packaging/rpm/make-rpm.sh srpm local
 
 # Post-build MicroShift configuration
 COPY --chmod=755 ./src/image/postbuild.sh ${USHIFT_POSTBUILD_SCRIPT}
