@@ -30,6 +30,11 @@ inputs:
     required: false
     default: 0
     type: integer
+  multinode:
+    description: Build and test the multinode container image
+    required: false
+    default: 0
+    type: integer
   build:
     type: choice
     description: Types of artifacts to build
@@ -80,6 +85,7 @@ runs:
         make_opts=()
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
+        [ "${{ inputs.multinode }}" = "1" ] && make_opts+=("WITH_MULTINODE=1")
 
         make image \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
@@ -111,12 +117,15 @@ runs:
           done
         fi
 
-        # Wait until the MicroShift service is ready and healthy
-        make run-ready
-        make run-healthy
-
-        # Stop the MicroShift container
-        make stop
+        # Start-stop test with readiness check
+        if [ "${{ inputs.multinode }}" = "1" ]; then
+          make multinode-create
+          make multinode-delete
+        else
+          make run-ready
+          make run-healthy
+          make stop
+        fi
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
