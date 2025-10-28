@@ -118,14 +118,12 @@ runs:
         fi
 
         # Start-stop test with readiness check
+        make run-ready
         if [ "${{ inputs.multinode }}" = "1" ]; then
-          make multinode-create
-          make multinode-delete
-        else
-          make run-ready
-          make run-healthy
-          make stop
+          make add-node
         fi
+        make run-healthy
+        make stop
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
