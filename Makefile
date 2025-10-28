@@ -21,6 +21,7 @@ ISOLATED_NETWORK ?= 0
 # Internal variables
 SHELL := /bin/bash
 BUILDER_IMAGE := microshift-okd-builder
+SRPM_BUILDER_IMAGE := microshift-srpm-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
@@ -66,6 +67,23 @@ rpm:
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
+
+.PHONY: srpm
+srpm:
+	@echo "Building the MicroShift SRPMs"
+	outdir="$${SRPM_OUTDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
+	sudo podman build \
+        -t "${SRPM_BUILDER_IMAGE}" \
+		-v "$${outdir}:/output:z" \
+        --ulimit nofile=524288:524288 \
+        --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
+        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+		--build-arg CACHE_BUST="$$(date +%s)" \
+        -f packaging/microshift-srpm-builder.Containerfile . && \
+	sudo chown -R "$$(id -u):$$(id -g)" "$${outdir}" && \
+	echo "" && \
+	echo "Build completed successfully" && \
+	echo "SRPMs are available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
 rpm-to-deb:
