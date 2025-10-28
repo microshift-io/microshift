@@ -105,36 +105,32 @@ image:
 #   which is less efficient than the default driver
 .PHONY: run
 run:
-	@echo "Running the MicroShift container"
-	sudo modprobe openvswitch
-	$(MAKE) _topolvm_create
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh create
 
-	NETWORK_OPTS="" ; \
-	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
-		NETWORK_OPTS="--network none" ; \
-	fi ; \
-	VOL_OPTS="--tty --volume /dev:/dev" ; \
-	for device in input snd dri; do \
-		[ -d "/dev/$${device}" ] && VOL_OPTS="$${VOL_OPTS} --tmpfs /dev/$${device}" ; \
-	done ; \
-	sudo podman run --privileged --rm -d \
-		--replace \
-		$${NETWORK_OPTS} \
-		$${VOL_OPTS} \
-		--tmpfs /var/lib/containers \
-		--name "${USHIFT_IMAGE}" \
-		--hostname 127.0.0.1.nip.io \
-		"${USHIFT_IMAGE}" ; \
-	$(MAKE) _isolated_network_config
+.PHONY: add-node
+add-node:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh add-node
+
+.PHONY: start
+start:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh start
+
+.PHONY: stop
+stop:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh stop
+
+.PHONY: delete
+delete:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh delete
 
 .PHONY: run-ready
 run-ready:
 	@echo "Waiting 5m for the MicroShift service to be ready"
 	@for _ in $$(seq 60); do \
-		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
+		if USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh ready ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 5 ; \
+		sleep 5 ; \
 	done ; \
 	printf "\nFAILED\n" && exit 1
 
@@ -142,31 +138,19 @@ run-ready:
 run-healthy:
 	@echo "Waiting 15m for the MicroShift service to be healthy"
 	@for _ in $$(seq 60); do \
-		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
-		if [ "$${state}" = "exited" ] ; then \
+		if USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh healthy ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 15 ; \
+		sleep 5 ; \
 	done ; \
-	printf "\nThe state of the greenboot-healthcheck service is '$${state}'" && \
 	printf "\nFAILED\n" && exit 1
 
-.PHONY: login
-login:
-	@echo "Logging into the MicroShift container"
-	sudo podman exec -it "${USHIFT_IMAGE}" bash -l
-
-.PHONY: stop
-stop:
-	@echo "Stopping the MicroShift container"
-	sudo podman stop --time 0 "${USHIFT_IMAGE}" || true
+.PHONY: run-status
+run-status:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh status
 
 .PHONY: clean
-clean:
-	@echo "Cleaning up the MicroShift container and the TopoLVM CSI backend"
-	$(MAKE) stop
-	sudo rmmod openvswitch || true
-	$(MAKE) _topolvm_delete
+clean: delete
 
 .PHONY: clean-all
 clean-all:
