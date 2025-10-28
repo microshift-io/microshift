@@ -128,19 +128,6 @@ _join_node() {
 }
 
 
-_wait_node_ready() {
-    local -r name="${1}"
-    for _ in $(seq 100); do
-        state=$(sudo podman exec -i "${name}" systemctl show --property=SubState --value greenboot-healthcheck 2>/dev/null || echo "unknown")
-        if [ "${state}" = "exited" ]; then
-            return 0
-        fi
-        sleep 5
-    done
-    return 1
-}
-
-
 _get_cluster_containers() {
     sudo podman ps -a --format '{{.Names}}' | grep -E "^${NODE_BASE_NAME}[0-9]+$" || true
 }
@@ -177,12 +164,12 @@ cluster_create() {
         exit 1
     fi
 
-    if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
+    if [ "${ISOLATED_NETWORK}" = "1" ] ; then
         echo "Configuring isolated network for node: ${node_name}"
-		sudo podman cp ./src/config_isolated_net.sh "${node_name}:/tmp/config_isolated_net.sh" && \
-		sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh && \
-		sudo podman exec -i "${node_name}" rm -vf /tmp/config_isolated_net.sh ; \
-	fi
+        sudo podman cp ./src/config_isolated_net.sh "${node_name}:/tmp/config_isolated_net.sh"
+        sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh
+        sudo podman exec -i "${node_name}" rm -vf /tmp/config_isolated_net.sh
+    fi
 
     echo "Cluster created successfully"
 }
@@ -302,7 +289,18 @@ cluster_ready() {
 }
 
 cluster_healthy() {
+    if ! _is_cluster_created ; then
+        echo "Cluster is not initialized"
+        exit 1
+    fi
+
     local -r containers=$(_get_running_containers)
+
+    if [ -z "${containers}" ]; then
+        echo "Cluster is down. No cluster nodes are running."
+        return 0
+    fi
+
     for container in ${containers}; do
         echo "Checking health of container: ${container}"
         state=$(sudo podman exec -i "${container}" systemctl show --property=SubState --value greenboot-healthcheck 2>/dev/null || echo "unknown")
@@ -316,7 +314,7 @@ cluster_healthy() {
 
 
 cluster_status() {
-    if ! _is_cluster_created && ! _container_exists "${USHIFT_IMAGE}"; then
+    if ! _is_cluster_created ; then
         echo "Cluster is not initialized"
         exit 1
     fi
