@@ -37,6 +37,22 @@ EOF
   # Patch replicas to 1
   # shellcheck disable=SC2016
   yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/03-topolvm.yaml"
+  
+  # Patch topolvm-controller manifest with longer startup delay to allow dns to start
+  yq 'select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[0] |= (
+  .livenessProbe.failureThreshold = 3 | 
+  .readinessProbe.timeoutSeconds = 3 |
+  .readinessProbe.failureThreshold = 3 |
+  .readinessProbe.periodSeconds = 60 |
+  .startupProbe = {
+      "failureThreshold": 3,
+      "periodSeconds": 60,
+      "timeoutSeconds": 3,
+      "httpGet": {
+        "port": "healthz",
+        "path": "/healthz"}
+      }
+  )' -i "${ASSETS_DIR}/03-topolvm.yaml"
 
   # Generate kustomize
   cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
