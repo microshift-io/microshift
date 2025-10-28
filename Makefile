@@ -165,15 +165,6 @@ check: _hadolint _shellcheck
 #
 # Define the private targets
 #
-# The configurations for the isolated network are done inside the container
-.PHONY: _isolated_network_config
-_isolated_network_config:
-	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
-		sudo podman cp ./src/config_isolated_net.sh "${USHIFT_IMAGE}:/tmp/config_isolated_net.sh" && \
-		sudo podman exec -i "${USHIFT_IMAGE}" /tmp/config_isolated_net.sh && \
-		sudo podman exec -i "${USHIFT_IMAGE}" rm -vf /tmp/config_isolated_net.sh ; \
-	fi
-
 .PHONY: _topolvm_create
 _topolvm_create:
 	if [ ! -f "${LVM_DISK}" ] ; then \
@@ -184,16 +175,7 @@ _topolvm_create:
 		sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}" ; \
 	fi
 
-.PHONY: _topolvm_delete
-_topolvm_delete:
-	if [ -f "${LVM_DISK}" ] ; then \
-		echo "Deleting the TopoLVM CSI backend" ; \
-		sudo lvremove -y "${VG_NAME}" || true ; \
-		sudo vgremove -y "${VG_NAME}" || true ; \
-		DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" ; \
-		[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true ; \
-		sudo rm -rf "$$(dirname "${LVM_DISK}")" ; \
-	fi
+
 
 # When run inside a container, the file contents are redirected via stdin and
 # the output of errors does not contain the file path. Work around this issue
