@@ -30,8 +30,8 @@ inputs:
     required: false
     default: 0
     type: integer
-  multinode:
-    description: Build and test the multinode container image
+  multi-node:
+    description: Include a second node in the test cluster
     required: false
     default: 0
     type: integer
@@ -85,7 +85,6 @@ runs:
         make_opts=()
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
-        [ "${{ inputs.multinode }}" = "1" ] && make_opts+=("WITH_MULTINODE=1")
 
         make image \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
@@ -119,7 +118,8 @@ runs:
 
         # Start-stop test with readiness check
         make run-ready
-        if [ "${{ inputs.multinode }}" = "1" ]; then
+        make run-healthy
+        if [ "${{ inputs.multi-node }}" = "1" ]; then
           make add-node
         fi
         make run-healthy

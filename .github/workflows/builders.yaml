@@ -116,7 +116,7 @@ jobs:
           ovnk-networking: 1
           build: bootc-image
 
-  multinode-bootc:
+  multi-node-bootc:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -131,5 +131,5 @@ jobs:
         with:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
-          multinode: 1
+          multi-node: 1
           build: bootc-image
