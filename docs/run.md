@@ -98,14 +98,17 @@ The following options can be specified in the make command line using the `NAME=
 
 | Name              | Required | Default  | Comments
 |-------------------|----------|----------|---------
-| LVM_VOLUME_SIZE   | no       | 1G       | TopoLVM CSI backend volume
+| LVM_VOLSIZE       | no       | 1G       | TopoLVM CSI backend volume
 | ISOLATED_NETWORK  | no       | 0        | Use `--network none` podman option
+
+This step creates a single-node MicroShift cluster. The cluster can be extended using `make add-node` to add one node at a time.
 
 This step includes:
 * Loading the `openvswitch` module required when OVN-K CNI driver is used
   when compiled with the non-default `WITH_KINDNET=0` image build option.
-* Preparing a 1GB TopoLVM CSI backend on the host to be used by MicroShift when
+* Preparing a TopoLVM CSI backend (default 1GB, configurable via `LVM_VOLSIZE`) on the host to be used by MicroShift when
   compiled with the default `WITH_TOPOLVM=1` image build option.
+* Creating a podman network for easier multi-node cluster support with name resolution.
 
 ```bash
 make run
@@ -124,18 +127,27 @@ make run
 
 ### Container Login
 
-Log into the container by running the following command.
+Log into the container by running the following command. The commands for doing so are displayed as
+part of the summary from `make run` and `make add-node`.
 
+For example, the first node in a cluster is named `microshift-okd-1`:
 ```bash
-make login
+sudo podman exec -it microshift-okd-1 /bin/bash -l
 ```
 
 Verify that all the MicroShift services are up and running successfully.
-
 ```bash
 export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig
 oc get nodes
 oc get pods -A
+```
+
+### Start the Container
+
+If you have stopped the MicroShift cluster, you can start it again using the following command.
+
+```bash
+make start
 ```
 
 ### Stop the Container
@@ -144,6 +156,31 @@ Run the following command to stop the MicroShift Bootc container.
 
 ```bash
 make stop
+```
+
+### Add Node to Cluster
+
+To create a multi-node cluster, you can add additional nodes after creating the initial cluster with `make run`.
+
+```bash
+make add-node
+```
+
+> Note: The `add-node` target requires a non-isolated network (`ISOLATED_NETWORK=0`). Each additional node will be automatically joined to the cluster.
+
+### Check Cluster Status
+
+Run the following commands to check the status of your MicroShift cluster.
+
+```bash
+# Wait until the MicroShift service is ready (checks all nodes)
+make run-ready
+
+# Wait until the MicroShift service is healthy (checks all nodes)
+make run-healthy
+
+# Show current cluster status including nodes and pods
+make run-status
 ```
 
 ## Cleanup
