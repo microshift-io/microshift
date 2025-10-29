@@ -12,6 +12,7 @@ ARG BUILDER_RPM_REPO_PATH=${HOME}/microshift/_output/rpmbuild/RPMS
 ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
+ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
@@ -27,7 +28,7 @@ RUN ARCH=amd64 ; if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi && \
     mv /tmp/oc /usr/local/bin/oc && \
     rm -rf /tmp/okd-client.tar.gz
 
-RUN dnf install -y git rpm-build jq && dnf clean all
+RUN dnf install -y git rpm-build jq python3-pip && dnf clean all
 
 WORKDIR ${HOME}
 
@@ -38,7 +39,12 @@ COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
-RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm
+COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
+RUN cd "${HOME}/microshift/" && \
+    sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
+    python3 -m pip install specfile && \
+    python3 ${USHIFT_MODIFY_SPEC_SCRIPT} && \
+    "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
 # Building Kindnet upstream RPM
 COPY ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
