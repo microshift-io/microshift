@@ -39,7 +39,7 @@ EOF
   yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/03-topolvm.yaml"
   
   # Patch topolvm-controller manifest with longer startup delay to allow dns to start
- yq 'with(select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[] | select(.name == "topolvm-controller");
+  yq 'with(select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[] | select(.name == "topolvm-controller");
   .livenessProbe.failureThreshold = 3 |
   .readinessProbe.timeoutSeconds = 3 |
   .readinessProbe.failureThreshold = 3 |
@@ -68,15 +68,6 @@ EOF
     })' -i "${ASSETS_DIR}/03-topolvm.yaml"
 
   # Generate kustomize
-  cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - 01-namespace.yaml
-  - 02-cert-manager.yaml
-  - 03-topolvm.yaml
-EOF
-
   cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
