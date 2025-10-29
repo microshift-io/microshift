@@ -30,10 +30,10 @@ inputs:
     required: false
     default: 0
     type: integer
-  multi-node:
-    description: Include a second node in the test cluster
+  node-count:
+    description: Number of nodes in the MicroShift cluster
     required: false
-    default: 0
+    default: 1
     type: integer
   build:
     type: choice
@@ -119,9 +119,11 @@ runs:
         # Start-stop test with readiness check
         make run-ready
         make run-healthy
-        if [ "${{ inputs.multi-node }}" = "1" ]; then
+
+        for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
-        fi
+        done
+
         make run-healthy
         make stop
 
