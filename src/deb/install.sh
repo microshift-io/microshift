@@ -30,8 +30,13 @@ function find_debpkg_version() {
         if ! curl -fsSL "${relkey}" -o /dev/null 2>/dev/null ; then
             echo "WARNING: The ${debpkg} package version '${version}' not found in the repository. Trying the previous version." >&2
             # Decrement the minor version component
-            version="$(awk -F. '{printf "%d.%d", $1, $2-1}' <<<"$version")"
-            relkey="${relkey_base}/v${version}/deb/Release.key"
+            local xver="${version%%.*}"
+            local yver="${version#*.}"
+            if [ "${yver}" -lt 1 ] ; then
+                echo "ERROR: The minor version component cannot be decremented below 0" >&2
+                break
+            fi
+            version="${xver}.$(( yver - 1 ))"
         else
             echo "Found '${debpkg}' package version '${version}'" >&2
             echo "${version}"
