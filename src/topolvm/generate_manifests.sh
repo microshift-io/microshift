@@ -39,8 +39,8 @@ EOF
   yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/03-topolvm.yaml"
   
   # Patch topolvm-controller manifest with longer startup delay to allow dns to start
-  yq 'select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[0] |= (
-  .livenessProbe.failureThreshold = 3 | 
+ yq 'with(select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[] | select(.name == "topolvm-controller");
+  .livenessProbe.failureThreshold = 3 |
   .readinessProbe.timeoutSeconds = 3 |
   .readinessProbe.failureThreshold = 3 |
   .readinessProbe.periodSeconds = 60 |
@@ -53,6 +53,19 @@ EOF
         "path": "/healthz"}
       }
   )' -i "${ASSETS_DIR}/03-topolvm.yaml"
+
+  # Patch topolvm-node DaemonSet with probes
+  # echo 'Patching topolvm-node DaemonSet with longer startup delay to allow dns to start'
+  yq 'with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-node").spec.template.spec.containers[] | select(.name == "topolvm-node");
+  .startupProbe = {
+      "failureThreshold": 60,
+      "periodSeconds": 2,
+      "timeoutSeconds": 3,
+      "httpGet": {
+        "port": "healthz",
+        "path": "/healthz"
+      }
+    })' -i "${ASSETS_DIR}/03-topolvm.yaml"
 
   # Generate kustomize
   cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
