@@ -171,7 +171,8 @@ cluster_create() {
         sudo podman exec -i "${node_name}" rm -vf /tmp/config_isolated_net.sh
     fi
 
-    echo "Cluster created successfully"
+    echo "Cluster created successfully. To access the node container, run:"
+    echo "  sudo podman exec -it ${node_name} /bin/bash"
 }
 
 
@@ -208,11 +209,18 @@ cluster_add_node() {
     fi
     echo "Joining node to the cluster: ${node_name}"
     if ! _join_node "${node_name}"; then
-        echo "ERROR: failed to join node to the cluster: ${node_name}. Check logs with 'sudo podman exec ${node_name} cat add-node.log'" >&2
+        echo "ERROR: failed to join node to the cluster: ${node_name}" >&2
+        echo "=== Add-node log content ===" >&2
+        if sudo podman exec -i "${node_name}" test -f add-node.log; then
+            sudo podman exec -i "${node_name}" cat add-node.log >&2
+        else
+            echo "WARNING: add-node.log not found in ${node_name}" >&2
+        fi
         exit 1
     fi
 
-    echo "Node added successfully"
+    echo "Node added successfully. To access the new node container, run:"
+    echo "  sudo podman exec -it ${node_name} /bin/bash"
     return 0
 }
 
