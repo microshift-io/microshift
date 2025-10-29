@@ -164,17 +164,6 @@ check: _hadolint _shellcheck
 #
 # Define the private targets
 #
-.PHONY: _topolvm_create
-_topolvm_create:
-	if [ ! -f "${LVM_DISK}" ] ; then \
-		echo "Creating the TopoLVM CSI backend" ; \
-		sudo mkdir -p "$$(dirname "${LVM_DISK}")" ; \
-		sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}" ; \
-		DEVICE_NAME="$$(sudo losetup --find --show --nooverlap "${LVM_DISK}")" && \
-		sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}" ; \
-	fi
-
-
 
 # When run inside a container, the file contents are redirected via stdin and
 # the output of errors does not contain the file path. Work around this issue

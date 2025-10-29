@@ -29,7 +29,7 @@ _is_container_created() {
     return 1
 }
 
-_create_topolvm_backend() {
+create_topolvm_backend() {
     if [ -f "${LVM_DISK}" ]; then
         echo "INFO: '${LVM_DISK}' exists, reusing"
         return 0
@@ -42,7 +42,7 @@ _create_topolvm_backend() {
 }
 
 # Delete TopoLVM backend
-_delete_topolvm_backend() {
+delete_topolvm_backend() {
     if [ -f "${LVM_DISK}" ]; then
         echo "Deleting TopoLVM backend: ${LVM_DISK}"
         sudo lvremove -y "${VG_NAME}" || true
@@ -148,7 +148,7 @@ cluster_create() {
     fi
 
     sudo modprobe openvswitch || true
-    _create_topolvm_backend
+    create_topolvm_backend
     _create_podman_network "${USHIFT_MULTINODE_CLUSTER}"
 
     local -r subnet=$(_get_subnet "${USHIFT_MULTINODE_CLUSTER}")
@@ -273,7 +273,7 @@ cluster_destroy() {
     fi
 
     sudo rmmod openvswitch || true
-    _delete_topolvm_backend
+    delete_topolvm_backend
 
     echo "Cluster destroyed successfully"
 }
@@ -381,8 +381,16 @@ main() {
             shift
             cluster_status
             ;;
+        topolvm-create)
+            shift
+            create_topolvm_backend
+            ;;
+        topolvm-delete)
+            shift
+            delete_topolvm_backend
+            ;;
         *)
-            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status}"
+            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|topolvm-create|topolvm-delete}"
             exit 1
             ;;
     esac
