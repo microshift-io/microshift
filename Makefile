@@ -30,19 +30,21 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | login | stop | clean | check>"
+	@echo "make <rpm | image | run | add-node | start | stop | clean | check>"
 	@echo "   rpm:       	build the MicroShift RPMs"
 	@echo "   image:     	build the MicroShift bootc container image"
-	@echo "   run:       	run the MicroShift bootc container"
-	@echo "   login:     	login to the MicroShift bootc container"
-	@echo "   stop:      	stop the MicroShift bootc container"
-	@echo "   clean:     	clean up the MicroShift container and the LVM backend"
+	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
+	@echo "   add-node:  	add a new node to the MicroShift cluster in a bootc container"
+	@echo "   start:     	start the MicroShift cluster that was already created"
+	@echo "   stop:      	stop the MicroShift cluster"
+	@echo "   clean:     	clean up the MicroShift cluster and the LVM backend"
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
-	@echo "   run-ready: 	wait until the MicroShift service is ready"
-	@echo "   run-healthy:	wait until the MicroShift service is healthy"
+	@echo "   run-ready: 	wait until the MicroShift service is ready across the cluster"
+	@echo "   run-healthy:	wait until the MicroShift service is healthy across the cluster"
+	@echo "   run-status:	show the status of the MicroShift cluster"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
 
