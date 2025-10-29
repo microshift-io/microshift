@@ -1,6 +1,6 @@
 #!/bin/bash
 # MicroShift Cluster Manager
-# Primitive functions for managing MicroShift clusters
+# Basic functions for managing MicroShift clusters
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ NODE_BASE_NAME="${NODE_BASE_NAME:-microshift-okd-}"
 USHIFT_IMAGE="${USHIFT_IMAGE:-microshift-okd}"
 LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
-VG_NAME="${VG_NAME:-vg-${USHIFT_MULTINODE_CLUSTER}}"
+VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
 
 _is_cluster_created() {
@@ -172,7 +172,7 @@ cluster_create() {
     fi
 
     echo "Cluster created successfully. To access the node container, run:"
-    echo "  sudo podman exec -it ${node_name} /bin/bash"
+    echo "  sudo podman exec -it ${node_name} /bin/bash -l"
 }
 
 
@@ -186,15 +186,7 @@ cluster_add_node() {
         exit 1
     fi
 
-    local last_id=0
-
-    for node in $(_get_cluster_containers); do
-        node_num="${node##*"${NODE_BASE_NAME}"}"
-        if [[ "${node_num}" =~ ^[0-9]+$ ]] && [ "${node_num}" -gt "${last_id}" ]; then
-            last_id="${node_num}"
-        fi
-    done
-
+    local -r last_id=$(_get_cluster_containers | wc -l)
     local -r subnet=$(_get_subnet "${USHIFT_MULTINODE_CLUSTER}")
     local -r node_id=$((last_id + 1))
     local -r node_name="${NODE_BASE_NAME}${node_id}"
@@ -220,7 +212,7 @@ cluster_add_node() {
     fi
 
     echo "Node added successfully. To access the new node container, run:"
-    echo "  sudo podman exec -it ${node_name} /bin/bash"
+    echo "  sudo podman exec -it ${node_name} /bin/bash -l"
     return 0
 }
 
@@ -286,7 +278,7 @@ cluster_ready() {
         exit 1
     fi
     for container in ${containers}; do
-        echo "Checking readiness of container: ${container}"
+        echo "Checking readiness of node: ${container}"
         state=$(sudo podman exec -i "${container}" systemctl show --property=SubState --value microshift.service 2>/dev/null || echo "unknown")
         if [ "${state}" != "running" ]; then
             echo "Node ${container} is not ready."
@@ -306,11 +298,11 @@ cluster_healthy() {
 
     if [ -z "${containers}" ]; then
         echo "Cluster is down. No cluster nodes are running."
-        return 0
+        exit 1
     fi
 
     for container in ${containers}; do
-        echo "Checking health of container: ${container}"
+        echo "Checking health of node: ${container}"
         state=$(sudo podman exec -i "${container}" systemctl show --property=SubState --value greenboot-healthcheck 2>/dev/null || echo "unknown")
         if [ "${state}" != "exited" ]; then
             echo "Node ${container} is not healthy."
@@ -343,7 +335,7 @@ cluster_status() {
 
     local -r first_container=$(echo "${running_containers}" | head -n1)
     echo "Cluster is running."
-    sudo podman exec -i "${first_container}" oc --kubeconfig=/var/lib/microshift/resources/kubeadmin/kubeconfig get nodes,pods -A -o wide 2>/dev/null || echo "Unable to retrieve cluster status"
+    sudo podman exec -i "${first_container}" oc get nodes,pods -A -o wide 2>/dev/null || echo "Unable to retrieve cluster status"
     return 0
 }
 
