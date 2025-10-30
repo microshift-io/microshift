@@ -120,7 +120,7 @@ runs:
           --all-logs \
           --tmp-dir /mnt/tmp \
           --profiles network,security,storage \
-          --plugins container_log,crio,logs,ufw,apt \
+          --plugins container_log,crio,logs,ufw,apt
         sudo chmod 644 /mnt/tmp/sosreport-*
 
     - name: Upload sos report to the GitHub Actions artifact
