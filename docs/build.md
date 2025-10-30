@@ -1,4 +1,4 @@
-## Build MicroShift Upstream
+## Build MicroShift
 
 ### Overview
 

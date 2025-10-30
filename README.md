@@ -68,6 +68,7 @@ To uninstall MicroShift, run the following command:
 
 ## Documentation
 
-* [Build MicroShift Upstream](./docs/build.md)
-* [Run MicroShift Upstream](./docs/run.md)
+* [Build MicroShift](./docs/build.md)
+* [MicroShift Host Deployment](./docs/run.md)
+* [MicroShift Bootc Deployment](./docs/run-bootc.md)
 * [GitHub Workflows](./docs/workflows.md)
