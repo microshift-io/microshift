@@ -18,8 +18,14 @@ runs:
         sudo IMAGE_REF=${{ inputs.image-ref }} bash -xeuo pipefail < ./src/quickstart.sh
 
         # Wait until the MicroShift service is ready and healthy
-        make run-ready
-        make run-healthy
+        for _ in $(seq 100); do
+          state=$(sudo podman exec -i microshift-okd systemctl show --property=SubState --value greenboot-healthcheck 2>/dev/null || echo "unknown")
+          if [ "${state}" = "exited" ]; then
+            exit 0
+          fi
+          sleep 10
+        done
+        exit 1
 
     - name: Run the quick clean script
       shell: bash

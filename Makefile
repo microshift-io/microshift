@@ -30,19 +30,21 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | login | stop | clean | check>"
+	@echo "make <rpm | image | run | add-node | start | stop | clean | check>"
 	@echo "   rpm:       	build the MicroShift RPMs"
 	@echo "   image:     	build the MicroShift bootc container image"
-	@echo "   run:       	run the MicroShift bootc container"
-	@echo "   login:     	login to the MicroShift bootc container"
-	@echo "   stop:      	stop the MicroShift bootc container"
-	@echo "   clean:     	clean up the MicroShift container and the LVM backend"
+	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
+	@echo "   add-node:  	add a new node to the MicroShift cluster in a bootc container"
+	@echo "   start:     	start the MicroShift cluster that was already created"
+	@echo "   stop:      	stop the MicroShift cluster"
+	@echo "   clean:     	clean up the MicroShift cluster and the LVM backend"
 	@echo "   check:     	run the presubmit checks"
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
-	@echo "   run-ready: 	wait until the MicroShift service is ready"
-	@echo "   run-healthy:	wait until the MicroShift service is healthy"
+	@echo "   run-ready: 	wait until the MicroShift service is ready across the cluster"
+	@echo "   run-healthy:	wait until the MicroShift service is healthy across the cluster"
+	@echo "   run-status:	show the status of the MicroShift cluster"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
 
@@ -105,36 +107,28 @@ image:
 #   which is less efficient than the default driver
 .PHONY: run
 run:
-	@echo "Running the MicroShift container"
-	sudo modprobe openvswitch
-	$(MAKE) _topolvm_create
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh create
 
-	NETWORK_OPTS="" ; \
-	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
-		NETWORK_OPTS="--network none" ; \
-	fi ; \
-	VOL_OPTS="--tty --volume /dev:/dev" ; \
-	for device in input snd dri; do \
-		[ -d "/dev/$${device}" ] && VOL_OPTS="$${VOL_OPTS} --tmpfs /dev/$${device}" ; \
-	done ; \
-	sudo podman run --privileged --rm -d \
-		--replace \
-		$${NETWORK_OPTS} \
-		$${VOL_OPTS} \
-		--tmpfs /var/lib/containers \
-		--name "${USHIFT_IMAGE}" \
-		--hostname 127.0.0.1.nip.io \
-		"${USHIFT_IMAGE}" ; \
-	$(MAKE) _isolated_network_config
+.PHONY: add-node
+add-node:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh add-node
+
+.PHONY: start
+start:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh start
+
+.PHONY: stop
+stop:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh stop
 
 .PHONY: run-ready
 run-ready:
 	@echo "Waiting 5m for the MicroShift service to be ready"
 	@for _ in $$(seq 60); do \
-		if sudo podman exec -i "${USHIFT_IMAGE}" systemctl -q is-active microshift.service ; then \
+		if USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh ready ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 5 ; \
+		sleep 5 ; \
 	done ; \
 	printf "\nFAILED\n" && exit 1
 
@@ -142,31 +136,20 @@ run-ready:
 run-healthy:
 	@echo "Waiting 15m for the MicroShift service to be healthy"
 	@for _ in $$(seq 60); do \
-		state=$$(sudo podman exec -i "${USHIFT_IMAGE}" systemctl show --property=SubState --value greenboot-healthcheck) ; \
-		if [ "$${state}" = "exited" ] ; then \
+		if USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh healthy ; then \
 			printf "\nOK\n" && exit 0; \
 		fi ; \
-		echo -n "." && sleep 15 ; \
+		sleep 5 ; \
 	done ; \
-	printf "\nThe state of the greenboot-healthcheck service is '$${state}'" && \
 	printf "\nFAILED\n" && exit 1
 
-.PHONY: login
-login:
-	@echo "Logging into the MicroShift container"
-	sudo podman exec -it "${USHIFT_IMAGE}" bash -l
-
-.PHONY: stop
-stop:
-	@echo "Stopping the MicroShift container"
-	sudo podman stop --time 0 "${USHIFT_IMAGE}" || true
+.PHONY: run-status
+run-status:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh status
 
 .PHONY: clean
 clean:
-	@echo "Cleaning up the MicroShift container and the TopoLVM CSI backend"
-	$(MAKE) stop
-	sudo rmmod openvswitch || true
-	$(MAKE) _topolvm_delete
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh delete
 
 .PHONY: clean-all
 clean-all:
@@ -181,35 +164,6 @@ check: _hadolint _shellcheck
 #
 # Define the private targets
 #
-# The configurations for the isolated network are done inside the container
-.PHONY: _isolated_network_config
-_isolated_network_config:
-	if [ "${ISOLATED_NETWORK}" = "1" ] ; then \
-		sudo podman cp ./src/config_isolated_net.sh "${USHIFT_IMAGE}:/tmp/config_isolated_net.sh" && \
-		sudo podman exec -i "${USHIFT_IMAGE}" /tmp/config_isolated_net.sh && \
-		sudo podman exec -i "${USHIFT_IMAGE}" rm -vf /tmp/config_isolated_net.sh ; \
-	fi
-
-.PHONY: _topolvm_create
-_topolvm_create:
-	if [ ! -f "${LVM_DISK}" ] ; then \
-		echo "Creating the TopoLVM CSI backend" ; \
-		sudo mkdir -p "$$(dirname "${LVM_DISK}")" ; \
-		sudo truncate --size="${LVM_VOLSIZE}" "${LVM_DISK}" ; \
-		DEVICE_NAME="$$(sudo losetup --find --show --nooverlap "${LVM_DISK}")" && \
-		sudo vgcreate -f -y "${VG_NAME}" "$${DEVICE_NAME}" ; \
-	fi
-
-.PHONY: _topolvm_delete
-_topolvm_delete:
-	if [ -f "${LVM_DISK}" ] ; then \
-		echo "Deleting the TopoLVM CSI backend" ; \
-		sudo lvremove -y "${VG_NAME}" || true ; \
-		sudo vgremove -y "${VG_NAME}" || true ; \
-		DEVICE_NAME="$$(sudo losetup -j "${LVM_DISK}" | cut -d: -f1)" ; \
-		[ -n "$${DEVICE_NAME}" ] && sudo losetup -d $${DEVICE_NAME} || true ; \
-		sudo rm -rf "$$(dirname "${LVM_DISK}")" ; \
-	fi
 
 # When run inside a container, the file contents are redirected via stdin and
 # the output of errors does not contain the file path. Work around this issue

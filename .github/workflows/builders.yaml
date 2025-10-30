@@ -23,6 +23,7 @@ jobs:
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream9
           build: bootc-image
+          node-count: 2
 
   centos10-bootc:
     runs-on: ubuntu-24.04
@@ -42,6 +43,7 @@ jobs:
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream10
           build: bootc-image
+          node-count: 2
 
   fedora-bootc:
     runs-on: ubuntu-24.04
@@ -61,6 +63,7 @@ jobs:
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
           bootc-image-tag: latest
           build: bootc-image
+          node-count: 2
 
   ubuntu-rpm2deb:
     runs-on: ubuntu-24.04

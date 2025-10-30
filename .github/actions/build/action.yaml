@@ -30,6 +30,11 @@ inputs:
     required: false
     default: 0
     type: integer
+  node-count:
+    description: Number of nodes in the MicroShift cluster
+    required: false
+    default: 1
+    type: integer
   build:
     type: choice
     description: Types of artifacts to build
@@ -111,11 +116,15 @@ runs:
           done
         fi
 
-        # Wait until the MicroShift service is ready and healthy
+        # Start-stop test with readiness check
         make run-ready
         make run-healthy
 
-        # Stop the MicroShift container
+        for i in $(seq 2 ${{ inputs.node-count }}); do
+          make add-node
+        done
+
+        make run-healthy
         make stop
 
     # Uncomment this to enable tmate-debug on failure

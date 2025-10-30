@@ -51,7 +51,7 @@ runs:
     - name: Start the MicroShift service
       shell: bash
       run: |
-        make _topolvm_create
+        ./src/cluster_manager.sh topolvm-create || exit 1
         sudo systemctl start --no-block microshift.service
 
     - name: Run a test to verify that MicroShift is functioning properly
