@@ -24,6 +24,9 @@
     tag: "{{ _gh_tag }}"
   register: _microshift_release_info
   delegate_to: localhost
+- name: debug
+  ansible.builtin.debug:
+    var: _microshift_release_info
 
 - name: Extract MicroShift asset download URL
   ansible.builtin.set_fact:
@@ -34,4 +37,5 @@
     url: "{{ _microshift_asset_url }}"
     dest: "{{ _microshift_download_dest_path }}"
     mode: '0644'  # Permissions for the downloaded file (e.g., a zip file)
+    force: true   # Force download and replace existing file
   when: _microshift_asset_url is not none
