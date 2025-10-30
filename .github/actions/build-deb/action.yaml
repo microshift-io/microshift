@@ -102,7 +102,11 @@ runs:
       if: failure()
       shell: bash
       run: |
-        # Change the default profiles and plugins to adapt to the Debian environment
+        # Cannot use the microshift-sos-report script because it was uninstalled.
+        # Use the sos command directly instead.
+        #
+        # Change the default profiles and plugins used in microshift-sos-report
+        # to adapt to the Debian environment.
         # Profiles:
         #  - Remove non-existent microshift
         #  - Add storage
@@ -110,10 +114,13 @@ runs:
         #  - Remove unused firewalld and rpm
         #  - Remove non-existent rpmostree
         #  - Add ufw, apt
-        sudo microshift-sos-report \
+        sudo sos report \
+          --quiet \
+          --batch \
+          --all-logs \
+          --tmp-dir /mnt/tmp \
           --profiles network,security,storage \
           --plugins container_log,crio,logs,ufw,apt \
-          --tmp-dir /mnt/tmp
         sudo chmod 644 /mnt/tmp/sosreport-*
 
     - name: Upload sos report to the GitHub Actions artifact
