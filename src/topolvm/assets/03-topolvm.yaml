@@ -865,6 +865,13 @@ spec:
               mountPropagation: "Bidirectional"
             - name: devices-dir
               mountPath: /dev
+          startupProbe:
+            failureThreshold: 60
+            periodSeconds: 2
+            timeoutSeconds: 3
+            httpGet:
+              port: healthz
+              path: /healthz
         - name: csi-registrar
           image: "ghcr.io/topolvm/topolvm-with-sidecar:0.36.2"
           command:
@@ -984,6 +991,9 @@ spec:
               path: /readyz
               port: readyz
               scheme: HTTP
+            timeoutSeconds: 3
+            failureThreshold: 3
+            periodSeconds: 60
           livenessProbe:
             httpGet:
               path: /healthz
@@ -991,11 +1001,19 @@ spec:
             initialDelaySeconds: 10
             timeoutSeconds: 3
             periodSeconds: 60
+            failureThreshold: 3
           volumeMounts:
             - name: socket-dir
               mountPath: /run/topolvm
             - name: certs
               mountPath: /certs
+          startupProbe:
+            failureThreshold: 3
+            periodSeconds: 60
+            timeoutSeconds: 3
+            httpGet:
+              port: healthz
+              path: /healthz
         - name: csi-provisioner
           image: "ghcr.io/topolvm/topolvm-with-sidecar:0.36.2"
           command:
