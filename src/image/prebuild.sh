@@ -2,14 +2,33 @@
 set -euo pipefail
 
 MICROSHIFT_ROOT="/home/microshift/microshift"
+UNAME_M="$(uname -m)"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
-verify() {
+oc_release_info() {
+    local -r okd_url=$1
+    local -r okd_releaseTag=$2
+    local -r image=${3:-}
+
+    if [ -z "${image}" ] ; then
+        oc adm release info "${okd_url}:${okd_releaseTag}"
+        return
+    fi
+
+    local -r okd_image="$(oc adm release info --image-for="${image}" "${okd_url}:${okd_releaseTag}")"
+    if [ -z "${okd_image}" ] ; then
+        echo "ERROR: No OKD image found for '${image}'"
+        exit 1
+    fi
+    echo "${okd_image}"
+}
+
+verify_okd_release() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
 
-    if ! stdout=$(oc adm release info "${okd_url}:${okd_releaseTag}" 2>&1)  ; then
-        echo -e "error verifying okd release (URL: ${okd_url} , TAG: ${okd_releaseTag}) \nERROR: ${stdout}"
+    if ! oc_release_info "${okd_url}" "${okd_releaseTag}" >/dev/null ; then
+        echo "ERROR: No OKD release found at '${okd_url}:${okd_releaseTag}'"
         exit 1
     fi
 }
@@ -17,89 +36,84 @@ verify() {
 replace_base_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r arch=$(uname -m)
-    local -r temp_json=$(mktemp "/tmp/release-${arch}.XXXXX.json")
+    local -r temp_json="$(mktemp "/tmp/release-${UNAME_M}.XXXXX.json")"
 
-    # replace Microshift images with upstream (from OKD release)
-    for op in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json")
-    do
-        local image
-        image=$(oc adm release info --image-for="${op}" "${okd_url}:${okd_releaseTag}" || true)
-        if [ -n "${image}" ] ; then
-            echo "${op} ${image}"
-            jq --arg a "${op}" --arg b "${image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json" >"${temp_json}"
-            mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json"
+    # Replace MicroShift images with OKD upstream images
+    for cur_image in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json") ; do
+        # LVMS operator is not part of the OKD release
+        if [ "${cur_image}" = "lvms_operator" ] ; then
+            echo "Skipping '${cur_image}'"
+            continue
         fi
+
+        local new_image
+        new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${cur_image}")
+
+        echo "Replacing '${cur_image}' with '${new_image}'"
+        jq --arg a "${cur_image}" --arg b "${new_image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json" >"${temp_json}"
+        mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json"
     done
 
-    pod_image=$(oc adm release info --image-for=pod "${okd_url}:${okd_releaseTag}" || true)
-    # update the infra pods for crio
-    sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${arch}]}.conf"
+    # Update the infra pods for crio
+    local -r pod_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "pod")
+    sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${UNAME_M}]}.conf"
 }
 
+# This code is extracted from openshift/microshift/scripts/auto-rebase/rebase.sh
+# and modified to work with OKD release
 replace_olm_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r arch=$(uname -m)
-    local -r temp_json=$(mktemp "/tmp/release-olm-${arch}.XXXXX.json")
+    local -r temp_json=$(mktemp "/tmp/release-olm-${UNAME_M}.XXXXX.json")
 
     # Install the yq tool
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
 
-    # Replace olm images with upstream (from OKD release)
-    # This is extracted from openshift/microshift/scripts/auto-rebase/rebase.sh and modified to work with OKD release
+    # Replace OLM images with OKD upstream images
     local olm_image_refs_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/image-references"
-    local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${arch}.yaml"
-    local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${arch}.json"
+    local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${UNAME_M}.yaml"
+    local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${UNAME_M}.json"
 
-    # Create the OLM release-${arch}.json file with base structure
+    # Create the OLM release json file with base structure
     jq -n '{"release": {"base": "upstream"}, "images": {}}' > "${olm_release_json}"
 
-    # Create extra kustomization for each arch in separate file
+    # Create extra kustomization file for each architecture
     cat <<EOF > "${kustomization_arch_file}"
-
 images:
 EOF
 
     # Read from the image-references file to find the images we need to update
     local -r containers=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r '.spec.tags[].name' "${olm_image_refs_file}")
-    for container in "${containers[@]}" ; do
+    # shellcheck disable=SC2068
+    for container in ${containers[@]} ; do
         # Get image (registry.com/image) without the tag or digest from image-references
         local orig_image_name
         orig_image_name=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r ".spec.tags[] | select(.name == \"${container}\") | .from.name" "${olm_image_refs_file}" | awk -F '[@:]' '{ print $1; }')
 
         # Get the new image from OKD release
         local new_image
-        new_image=$(oc adm release info --image-for="${container}" "${okd_url}:${okd_releaseTag}" || true)
+        new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${container}")
+        echo "Replacing '${container}' with '${new_image}'"
+        local new_image_name="${new_image%@*}"
+        local new_image_digest="${new_image#*@}"
 
-        if [ -n "${new_image}" ] ; then
-            echo "${container} ${new_image}"
-            local new_image_name="${new_image%@*}"
-            local new_image_digest="${new_image#*@}"
-
-            # Update kustomization file with image mapping
-            cat <<EOF >> "${kustomization_arch_file}"
+        # Update kustomization file with image mapping
+        cat <<EOF >> "${kustomization_arch_file}"
   - name: ${orig_image_name}
     newName: ${new_image_name}
     digest: ${new_image_digest}
 EOF
-
-            # Update JSON file
-            jq --arg container "${container}" --arg img "${new_image}" '.images[$container] = $img' "${olm_release_json}" >"${temp_json}"
-            mv "${temp_json}" "${olm_release_json}"
-        fi
+        # Update JSON file
+        jq --arg container "${container}" --arg img "${new_image}" '.images[$container] = $img' "${olm_release_json}" >"${temp_json}"
+        mv "${temp_json}" "${olm_release_json}"
     done
 
     # Add patches section for environment variables
     # Get specific images for the patches
-    local olm_image
-    olm_image=$(oc adm release info --image-for="operator-lifecycle-manager" "${okd_url}:${okd_releaseTag}" || true)
-    local registry_image
-    registry_image=$(oc adm release info --image-for="operator-registry" "${okd_url}:${okd_releaseTag}" || true)
+    local -r olm_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "operator-lifecycle-manager")
+    local -r registry_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "operator-registry")
 
-    if [ -n "${olm_image}" ] && [ -n "${registry_image}" ] ; then
-        cat << EOF >> "${kustomization_arch_file}"
-
+    cat >> "${kustomization_arch_file}" <<EOF
 patches:
   - patch: |-
      - op: add
@@ -116,21 +130,19 @@ patches:
       kind: Deployment
       labelSelector: app=catalog-operator
 EOF
-    fi
 }
 
 replace_kindnet_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r arch=$(uname -m)
-    local -r temp_json=$(mktemp "/tmp/release-kindnet-${arch}.XXXXX.json")
+    local -r temp_json="$(mktemp "/tmp/release-kindnet-${UNAME_M}.XXXXX.json")"
 
     # Install the yq tool
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
 
-    # kube proxy is required for kindnet
-    local -r image_with_hash=$(oc adm release info --image-for="kube-proxy" "${okd_url}:${okd_releaseTag}")
-    echo "kube-proxy ${image_with_hash}"
+    # Kube proxy is required for kindnet
+    local -r image_with_hash=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "kube-proxy")
+    echo "Replacing 'kube-proxy' with '${image_with_hash}'"
     # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
     # where the image name and digest (hash) are combined in a single string.
     # However, in the kustomization.${arch}.yaml file, we need the image name (newName) and
@@ -143,10 +155,10 @@ replace_kindnet_assets() {
     # Update the image and hash
     "${MICROSHIFT_ROOT}"/_output/bin/yq eval \
         ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${image_name}\" | .digest = \"${image_hash}\")" \
-        -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${arch}.yaml"
+        -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${UNAME_M}.yaml"
     jq --arg img "$image_with_hash" '.images["kube-proxy"] = $img' \
-        "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json" >"${temp_json}"
-    mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${arch}.json"
+        "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${UNAME_M}.json" >"${temp_json}"
+    mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${UNAME_M}.json"
 }
 
 fix_rpm_spec() {
@@ -171,17 +183,17 @@ fi
 
 case "$1" in
 --replace)
-    verify              "$2" "$3"
+    verify_okd_release  "$2" "$3"
     replace_base_assets "$2" "$3"
     replace_olm_assets  "$2" "$3"
     fix_rpm_spec
     ;;
 --replace-kindnet)
-    verify                 "$2" "$3"
+    verify_okd_release     "$2" "$3"
     replace_kindnet_assets "$2" "$3"
     ;;
 --verify)
-    verify "$2" "$3"
+    verify_okd_release "$2" "$3"
     ;;
 *)
     usage

@@ -23,6 +23,15 @@ runs:
         sudo apt-get update  -y -q
         sudo apt-get install -y -q make lvm2 podman jq curl
 
+        # Install the latest OpenShift client from the OpenShift Mirror
+        ocp_client="openshift-client-linux-amd64-rhel9.tar.gz"
+        if [ "$(uname -m)" == "aarch64" ] ; then
+          ocp_client="openshift-client-linux-arm64-rhel9.tar.gz"
+        fi
+        curl -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/${ocp_client} -o /tmp/${ocp_client}
+        sudo tar xvf /tmp/${ocp_client} -C /usr/bin
+        rm -f /tmp/${ocp_client}
+
         # Redirect the container build directories to /mnt/ to avoid running out of disk space.
         sudo mv /var/tmp /var/tmp.orig
         sudo mv /var/lib/containers /mnt/containers

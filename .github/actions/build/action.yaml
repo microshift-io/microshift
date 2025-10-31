@@ -67,8 +67,8 @@ runs:
         # Run the RPM build process.
         cd ${GITHUB_WORKSPACE}/
         make rpm \
-          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
-          OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+          USHIFT_BRANCH="${{ inputs.ushift-branch }}" \
+          OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
@@ -87,8 +87,8 @@ runs:
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
 
         make image \
-          BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
-          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
+          BOOTC_IMAGE_URL="${{ inputs.bootc-image-url }}" \
+          BOOTC_IMAGE_TAG="${{ inputs.bootc-image-tag }}" \
           ${make_opts[@]}
 
     - name: Run a test to verify that MicroShift is functioning properly

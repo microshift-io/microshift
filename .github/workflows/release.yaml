@@ -9,8 +9,12 @@ on:
         description: MicroShift branch from https://github.com/openshift/microshift/branches
         type: string
       okd-version-tag:
-        default: "4.19.0-okd-scos.19"
+        default: "4.21.0-okd-scos.ec.5"
         description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+        type: string
+      okd-target-registry:
+        default: ghcr.io/microshift-io/okd
+        description: Target registry for the OKD release images for ARM
         type: string
       build:
         type: choice
@@ -20,9 +24,33 @@ on:
         - all
         - rpms
         - bootc-image
+        - okd-release-arm
 
 jobs:
-  build:
+  build-okd-release:
+    name: Build OKD release images for ARM
+    runs-on: ubuntu-24.04-arm
+    if: contains(fromJSON('["all", "okd-release-arm"]'), inputs.build)
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the OKD release images build action
+        uses: ./.github/actions/build-okd
+        with:
+          ushift-branch: ${{ inputs.ushift-branch }}
+          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
+          target-arch: arm64
+          target-registry: ${{ inputs.okd-target-registry }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-microshift:
+    needs: build-okd-release
+    if: always() && contains(fromJSON('["all", "rpms", "bootc-image"]'), inputs.build)
     strategy:
       matrix:
         # The ARM runner is disabled because OKD images for ARM are not available.
@@ -75,12 +103,9 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
-        uses: redhat-actions/podman-login@v1
+        uses: ./.github/actions/podman-login
         with:
-          registry: ghcr.io/${{ github.repository_owner }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          auth_file_path: /tmp/ghcr-auth.json
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish Bootc image
         if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
@@ -89,8 +114,8 @@ jobs:
           sudo podman tag microshift-okd \
             ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} \
             ghcr.io/${{ github.repository }}:latest
-          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
-          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:latest
+          sudo podman push ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
+          sudo podman push ghcr.io/${{ github.repository }}:latest
 
           # Prepare the release note for the bootc image usage
           TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/release.md > /tmp/release.md
