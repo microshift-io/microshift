@@ -43,6 +43,11 @@ inputs:
     - all
     - rpms
     - bootc-image
+  rpm-builder:
+    type: string
+    description: RPM builder image to use
+    required: false
+    default: microshift-okd-builder
 
 runs:
   using: "composite"
@@ -56,9 +61,12 @@ runs:
       uses: ./.github/actions/debug-info
 
     - name: Prepare the build and run environment
+      # Skip if the rpm-builder is overridden - release.yaml builds RPMs using COPR.
+      if: inputs.rpm-builder == 'microshift-okd-builder'
       uses: ./.github/actions/prebuild
 
     - name: Build MicroShift RPMs
+      if: inputs.rpm-builder == 'microshift-okd-builder'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -89,6 +97,7 @@ runs:
         make image \
           BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
           BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
+          BUILDER_IMAGE=${{ inputs.rpm-builder }} \
           ${make_opts[@]}
 
     - name: Run a test to verify that MicroShift is functioning properly
