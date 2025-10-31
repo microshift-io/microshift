@@ -1,4 +1,9 @@
-FROM quay.io/centos/centos:stream9
+FROM quay.io/fedora/fedora:42
+
+RUN dnf install -y \
+        --setopt=install_weak_deps=False \
+        git rpm-build jq python3-pip copr-cli python3-specfile createrepo && \
+    dnf clean all
 
 # Variables controlling the source of MicroShift components to build
 ARG USHIFT_BRANCH=main
@@ -14,6 +19,8 @@ ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
 ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 
+ENV COPR_REPO_NAME=pmtk0/test123
+
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
         echo "ERROR: OKD_VERSION_TAG is not set"; \
@@ -21,14 +28,13 @@ RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
         exit 1; \
     fi
 
-RUN ARCH=amd64 ; if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi && \
-    OKD_CLIENT_URL=https://github.com/okd-project/okd/releases/download/${OKD_VERSION_TAG}/openshift-client-linux-${ARCH}-rhel9-${OKD_VERSION_TAG}.tar.gz && \
+RUN ARCH="" ; if [ "$(uname -m)" = "aarch64" ]; then ARCH="-arm64"; fi && \
+    OKD_CLIENT_URL=https://github.com/okd-project/okd/releases/download/${OKD_VERSION_TAG}/openshift-client-linux${ARCH}-${OKD_VERSION_TAG}.tar.gz && \
+    echo "OKD_CLIENT_URL: ${OKD_CLIENT_URL}" && \
     curl -L -o /tmp/okd-client.tar.gz "${OKD_CLIENT_URL}" && \
     tar -xzf /tmp/okd-client.tar.gz -C /tmp && \
     mv /tmp/oc /usr/local/bin/oc && \
-    rm -rf /tmp/okd-client.tar.gz
-
-RUN dnf install -y git rpm-build jq python3-pip && dnf clean all
+    rm -rf /tmp/okd-client.tar.gz ;
 
 WORKDIR ${HOME}
 
@@ -42,7 +48,6 @@ COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
 COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
 RUN cd "${HOME}/microshift/" && \
     sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
-    python3 -m pip install specfile && \
     python3 ${USHIFT_MODIFY_SPEC_SCRIPT} && \
     "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
@@ -63,7 +68,5 @@ COPY ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
 COPY ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
 RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
-# Argument to make sure that the last step will always be executed.
-# Otherwise, if cache is used, the files won't be copied to the host.
-ARG CACHE_BUST
-RUN cp -r "${HOME}/microshift/_output/rpmbuild/SRPMS/." /output
+COPY ./src/copr/create-builds-and-wait.sh /tmp/create-builds-and-wait.sh
+RUN --mount=type=secret,id=copr-cfg bash /tmp/create-builds-and-wait.sh
