@@ -9,17 +9,13 @@ on:
         description: MicroShift branch from https://github.com/openshift/microshift/branches
         type: string
       okd-version-tag:
-        default: "4.19.0-okd-scos.19"
+        default: "4.21.0-okd-scos.ec.5"
         description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
         type: string
-      build:
-        type: choice
-        description: Types of artifacts to build
-        default: all
-        options:
-        - all
-        - rpms
-        - bootc-image
+      copr-repo:
+        default: pmtk0/test123
+        description: COPR repository name
+        type: string
 
 jobs:
   build:
@@ -34,47 +30,56 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Run the build action
+      - name: Prepare the build and run environment
+        uses: ./.github/actions/prebuild
+
+      - name: Build MicroShift RPMs
+        shell: bash
+        env:
+          COPR_TOKEN: |
+            ${{ secrets.COPR_TOKEN }}
+        run: |
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_TOKEN}" > /tmp/copr-token
+          make copr-rpm \
+            USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+            OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
+            RPM_OUTDIR=/mnt/rpms \
+            COPR_CONFIG=/tmp/copr-token \
+            COPR_REPO_NAME="${{ inputs.copr-repo }}"
+
+      - name: Build and test bootc image
         uses: ./.github/actions/build
         with:
           ushift-branch: ${{ inputs.ushift-branch }}
           okd-version-tag: ${{ inputs.okd-version-tag }}
-          build: ${{ inputs.build }}
+          build: bootc-image
+          rpm-builder: microshift-copr-builder
 
-      # Test the local container image with the quick start and clean procedures
-      # before releasing the artifacts.
-      - name: Run the quick start script and clean scripts
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
-        uses: ./.github/actions/quick-start-clean
-        with:
-          image-ref: localhost/microshift-okd:latest
-
-        # The release process consumes the RPMs and the container image
-        # prepared by the build action.
-      - name: Prepare the RPM archives
-        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
+      - name: COPR - Delete builds
+        if: failure()
         shell: bash
+        env:
+          COPR_TOKEN: |
+            ${{ secrets.COPR_TOKEN }}
         run : |
-          # Archive sources separately from the RPMs
-          sudo mv /mnt/rpms/srpms /mnt/srpms
-          cd /mnt/srpms
-          sudo tar zcvf /mnt/release/microshift-src.tgz .
+          echo "${COPR_TOKEN}" > /tmp/copr-token
+          make copr-delete-builds \
+            COPR_CONFIG=/tmp/copr-token \
+            COPR_BUILDS="$(cat /mnt/rpms/builds.txt)"
 
-          cd /mnt/rpms
-          sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
-
-      - name: Release RPMs
-        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
-          files: |
-            /mnt/release/microshift-rpms-*.tgz
-            /mnt/release/microshift-src.tgz
-          overwrite_files: true
+      - name: COPR - Regenerate RPM repo
+        shell: bash
+        env:
+          COPR_TOKEN: |
+            ${{ secrets.COPR_TOKEN }}
+        run : |
+          echo "${COPR_TOKEN}" > /tmp/copr-token
+          make copr-regenerate-repos \
+            COPR_CONFIG=/tmp/copr-token \
+            COPR_REPO_NAME="${{ inputs.copr-repo }}"
 
       - name: Login to GitHub Container Registry
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: redhat-actions/podman-login@v1
         with:
           registry: ghcr.io/${{ github.repository_owner }}
@@ -83,21 +88,24 @@ jobs:
           auth_file_path: /tmp/ghcr-auth.json
 
       - name: Publish Bootc image
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+        id: publish-bootc-image
         shell: bash
         run: |
+          VERSION="$(cat /mnt/rpms/version.txt)"
           sudo podman tag microshift-okd \
-            ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} \
+            ghcr.io/${{ github.repository }}:${VERSION} \
             ghcr.io/${{ github.repository }}:latest
-          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
+          sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:${VERSION}
           sudo podman push --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository }}:latest
 
           # Prepare the release note for the bootc image usage
-          TAG=${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }} envsubst < .github/workflows/release.md > /tmp/release.md
+          VERSION="${VERSION}" \
+          COPR_REPO_NAME="${{ inputs.copr-repo }}" \
+          envsubst < .github/workflows/release.md > /tmp/release.md
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Add release note for bootc image usage
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag }}
+          tag_name: ${{ steps.publish-bootc-image.outputs.version }}
           body_path: /tmp/release.md
