@@ -35,8 +35,13 @@ check_podman_login() {
 }
 
 check_release_image_exists() {
-  if skopeo inspect --format "Digest: {{.Digest}}" "docker://${OKD_RELEASE_IMAGE}" &>/dev/null ; then
-    echo "The '${OKD_RELEASE_IMAGE}:${OKD_VERSION}-${TARGET_ARCH}' release image already exists. Exiting..."
+  # Check if the release image exists, hardcoding the architecture to amd64 as
+  # the source release image is only available for the amd64 architecture
+  if skopeo inspect \
+    --override-os="linux" \
+    --override-arch="amd64" \
+    --format "Digest: {{.Digest}}" "docker://${OKD_RELEASE_IMAGE}" &>/dev/null ; then
+    echo "The '${OKD_RELEASE_IMAGE}' release image already exists. Exiting..."
     exit 0
   fi
 }
