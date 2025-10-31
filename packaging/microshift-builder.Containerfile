@@ -2,10 +2,10 @@ FROM quay.io/centos-bootc/centos-bootc:stream9
 
 # Variables controlling the source of MicroShift components to build
 ARG USHIFT_BRANCH=main
+ARG OKD_REPO=quay.io/okd/scos-release
 ARG OKD_VERSION_TAG
 
 # Internal variables
-ARG OKD_REPO=quay.io/okd/scos-release
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV USER=microshift
 ENV HOME=/home/microshift
@@ -14,9 +14,9 @@ ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 
 # Verify mandatory build arguments
-RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
-        echo "ERROR: OKD_VERSION_TAG is not set"; \
-        echo "See quay.io/okd/scos-release for a list of tags"; \
+RUN if [ -z "${OKD_VERSION_TAG}" ] ; then \
+        echo "ERROR: OKD_VERSION_TAG is not set" ; \
+        echo "See ${OKD_REPO} for a list of tags" ; \
         exit 1; \
     fi
 
