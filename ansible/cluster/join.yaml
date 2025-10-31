@@ -1,0 +1,78 @@
+---
+- name: install Microshift on remote host
+  hosts: remote
+  gather_facts: true
+  become: false
+
+  vars:
+    RPM_DEP_PATH: "4.21-el9-beta"
+
+  tasks:
+    - name: Install required packages
+      become: true
+      dnf:
+        name:
+          - tmux
+          - git
+          - python3-pip
+          - firewalld
+        state: present
+    - name: Ensure kubeconfig is accessible as root on primary host
+      become: true
+      copy:
+        src: /var/lib/microshift/resources/kubeadmin/kubeconfig
+        dest: /root/kubeconfig
+        remote_src: yes
+        mode: '0600'
+      when: hostvars[inventory_hostname]['role'] == "primary"
+
+    - name: Find primary host name
+      set_fact:
+        primary_hostname: "{{ groups['remote'] | map('extract', hostvars) | selectattr('role', 'equalto', 'primary') | map(attribute='inventory_hostname') | list | first | default('') }}"
+      run_once: true
+
+    - name: Validate primary hostname is defined
+      ansible.builtin.fail:
+        msg: "No host with role=primary found in inventory"
+      when: primary_hostname is not defined or primary_hostname == ''
+      run_once: true
+
+    - name: Download configure-node.sh to /root/configure-node.sh
+      become: true
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/openshift/microshift/5a0a896896bc8ecdaf0e72ca1c12a909988a3790/scripts/multinode/configure-node.sh
+        dest: /root/configure-node.sh
+        mode: '0755'
+        checksum: sha256:eee96af46d8068c1b154190cab208151f915755d7ac58836b15d7d5b9bc75225
+
+    - name: Run configure-node.sh on primary host as root
+      become: true
+      shell: /root/configure-node.sh
+      async: 600
+      poll: 5
+      when: hostvars[inventory_hostname]['role'] == "primary"
+
+    - name: Fetch kubeconfig from primary host to Ansible executor
+      become: true
+      fetch:
+        src: /root/kubeconfig-bootstrap
+        dest: /tmp/kubeconfig_from_primary
+        flat: yes
+      delegate_to: "{{ primary_hostname }}"
+      run_once: true
+
+    - name: Copy kubeconfig from executor to secondary hosts
+      become: true
+      copy:
+        src: /tmp/kubeconfig_from_primary
+        dest: /root/kubeconfig-bootstrap
+        mode: '0600'
+      when: hostvars[inventory_hostname]['role'] == "secondary"
+
+    - name: Run configure-node.sh with --bootstrap-kubeconfig on secondary hosts
+      become: true
+      shell: /root/configure-node.sh --bootstrap-kubeconfig /root/kubeconfig-bootstrap
+      async: 600
+      poll: 5
+      when: hostvars[inventory_hostname]['role'] == "secondary"
+

@@ -1,0 +1,3 @@
+k9s_version: "v0.50.16" # Specify desired k9s version, or use "latest" for github_release module
+k9s_install_dir: "/usr/local/bin"
+k9s_download_url_template: "https://github.com/derailed/k9s/releases/download/{{ k9s_version }}/k9s_Linux_amd64.tar.gz"
