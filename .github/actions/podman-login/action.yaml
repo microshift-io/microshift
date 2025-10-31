@@ -24,6 +24,6 @@ runs:
         set -euo pipefail
 
         sudo chmod 644 /tmp/ghcr-auth.json
-        # Login both for the current and evelated users
+        # Login both for the current and elevated users
         podman login      --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository_owner }}
         sudo podman login --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository_owner }}

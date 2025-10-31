@@ -87,8 +87,8 @@ runs:
         cd ${GITHUB_WORKSPACE}/
 
         make image \
-          BOOTC_IMAGE_URL=${{ inputs.bootc-image-url }} \
-          BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
+          BOOTC_IMAGE_URL="${{ inputs.bootc-image-url }}" \
+          BOOTC_IMAGE_TAG="${{ inputs.bootc-image-tag }}" \
 
     - name: Run a test to verify that MicroShift is functioning properly
       shell: bash

@@ -50,13 +50,13 @@ jobs:
 
   build-microshift:
     needs: build-okd-release
+    if: always() && contains(fromJSON('["all", "rpms", "bootc-image"]'), inputs.build)
     strategy:
       matrix:
         # The ARM runner is disabled because OKD images for ARM are not available.
         # See USHIFT-5570
         runners: [ubuntu-24.04]
     name: Build MicroShift upstream
-    if: contains(fromJSON('["all", "rpms", "bootc-image"]'), inputs.build)
     runs-on: ${{ matrix.runners }}
     steps:
       - name: Check out MicroShift upstream repository

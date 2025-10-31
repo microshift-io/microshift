@@ -193,7 +193,7 @@ case "$1" in
     replace_kindnet_assets "$2" "$3"
     ;;
 --verify)
-    verify "$2" "$3"
+    verify_okd_release "$2" "$3"
     ;;
 *)
     usage
