@@ -74,11 +74,10 @@ runs:
         make rpm \
           USHIFT_BRANCH="${{ inputs.ushift-branch }}" \
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
-          OKD_REPO="${{ inputs.target-registry }}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}" \
+          OKD_RELEASE_IMAGE="${{ inputs.target-registry }}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
-      if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -92,7 +91,6 @@ runs:
           BOOTC_IMAGE_TAG=${{ inputs.bootc-image-tag }} \
 
     - name: Run a test to verify that MicroShift is functioning properly
-      if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
