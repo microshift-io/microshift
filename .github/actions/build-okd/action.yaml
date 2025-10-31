@@ -1,0 +1,59 @@
+name: build-okd-images
+description: Reusable action to build OKD images
+
+inputs:
+  ushift-branch:
+    description: MicroShift branch from https://github.com/openshift/microshift/branches
+    required: true
+    type: string
+  okd-version-tag:
+    description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+    required: true
+    type: string
+  target-arch:
+    description: Target architecture for the OKD images
+    required: true
+    type: string
+  target-registry:
+    description: Target registry for the OKD images
+    required: true
+    type: string
+  token:
+    description: Token for the GitHub Container Registry
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Collect debug information before the build
+      if: always()
+      uses: ./.github/actions/debug-info
+
+    - name: Prepare the build and run environment
+      uses: ./.github/actions/prebuild
+
+    - name: Login to GitHub Container Registry
+      uses: ./.github/actions/podman-login
+      with:
+        token: ${{ inputs.token }}
+
+    - name: Build OKD images
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${GITHUB_WORKSPACE}/
+        TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          "${{ inputs.okd-version-tag }}" \
+          "${{ inputs.ushift-branch }}" \
+          "${{ inputs.target-arch }}"
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
+
+    - name: Collect debug information after the build
+      if: always()
+      uses: ./.github/actions/debug-info
