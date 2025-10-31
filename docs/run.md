@@ -6,9 +6,25 @@ This document describes how to run MicroShift on the host.
 See [MicroShift Bootc Deployment](./run-bootc.md) on how to run MicroShift
 inside a Bootc container.
 
-## MicroShift RPM Packages
+## MicroShift - optional packages
 
-### Install RPM
+The following optional RPM packages are available. It is
+mandatory to install either `microshift-kindnet` or `microshift-networking`
+to enable the Kindnet or OVN-K networking support.
+MicroShift with OVN-K CNI is not supported for Ubuntu.
+
+| Package               | Description                | Comments |
+|-----------------------|----------------------------|----------|
+| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K |
+| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K |
+| microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
+| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
+
+## Package based systems (non-bootc)
+
+### Install MicroShift
+
+#### Local RPMs
 
 Run the following command to install MicroShift RPM packages from the local
 repository copied from the build container image.
@@ -22,39 +38,27 @@ sudo dnf install -y microshift microshift-kindnet
 sudo ./src/rpm/create_repos.sh -delete
 ```
 
-The following optional RPM packages are available in the repository. It is
-mandatory to install either `microshift-kindnet` or `microshift-networking`
-to enable the Kindnet or OVN-K networking support.
+#### RPMs from COPR
 
-| Package               | Description                | Comments |
-|-----------------------|----------------------------|----------|
-| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K |
-| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K |
-| microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
-| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
-
-### Start MicroShift Service
-
-Run the following commands to configure the minimum required firewall rules,
-disable LVMS, and start the MicroShift service.
-
-```bash
-sudo ./src/rpm/postinstall.sh
-sudo systemctl start microshift.service
+Run following command to enable COPR repository:
+```sh
+sudo dnf copr enable $COPR_REPO_NAME
 ```
 
-Verify that all the MicroShift pods are up and running successfully.
-
-```bash
-mkdir -p ~/.kube
-sudo cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
-
-oc get pods -A
+Optionally specify chroot like `centos-stream-9-{x86_64,aarch64}`, `fedora-42-{x86_64,aarch64}`, for example:
+```sh
+sudo dnf copr enable $COPR_REPO_NAME centos-stream-9-x86_64
+sudo dnf copr enable $COPR_REPO_NAME centos-stream-9-aarch64
+sudo dnf copr enable $COPR_REPO_NAME fedora-42-x86_64
+sudo dnf copr enable $COPR_REPO_NAME fedora-42-aarch64
 ```
 
-## MicroShift DEB Packages
+Next, install MicroShift:
+```sh
+sudo dnf install -y microshift microshift-kindnet
+```
 
-### Install DEB
+#### Local DEB (Ubuntu)
 
 Run the following command to install MicroShift DEB packages from the local
 repository copied from the build container image.
@@ -65,19 +69,17 @@ DEB_REPO_DIR=/tmp/microshift-rpms/deb
 sudo ./src/deb/install.sh "${DEB_REPO_DIR}"
 ```
 
-The following optional DEB packages are available in the repository.
-
-| Package            | Description                | Comments |
-|--------------------|----------------------------|----------|
-| microshift-topolvm | TopoLVM CSI                | Install to enable storage support |
-| microshift-olm     | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
-
-> Note: All of the optional packages are installed by default.
-
 ### Start MicroShift Service
 
-Run the following command to start the MicroShift service. All the necessary system
-configuration was performed during the installation step.
+On RPM-based systems, run the following commands to configure the minimum
+required firewall rules, disable LVMS, and enable the MicroShift service.
+Skip this command on Ubuntu.
+
+```bash
+sudo ./src/rpm/postinstall.sh
+```
+
+Run the following command to start the MicroShift service.
 
 ```bash
 sudo systemctl start microshift.service
