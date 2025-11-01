@@ -4,12 +4,12 @@ COPR_BUILDS ?=
 COPR_REPO_NAME ?= pmtk0/test123
 
 COPR_SECRET_NAME := copr-cfg
-COPR_BUILDER_IMAGE := microshift-copr-builder
+COPR_BUILDER_IMAGE := rpm-copr-builder
 COPR_CLI_IMAGE := localhost/copr-cli:latest
 
 .PHONY: copr-rpm
 copr-rpm:
-	@echo "Building the MicroShift RPMs for COPR"
+	@echo "Building the MicroShift RPMs using the COPR build service"
 	sudo podman build \
         --tag "${COPR_BUILDER_IMAGE}" \
 		--secret id=${COPR_SECRET_NAME},src=${COPR_CONFIG} \
@@ -17,7 +17,7 @@ copr-rpm:
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
 		--env COPR_REPO_NAME="${COPR_REPO_NAME}" \
-        --file packaging/microshift-copr.Containerfile .
+        --file packaging/rpm-copr-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
