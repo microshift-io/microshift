@@ -20,11 +20,14 @@ replace_base_assets() {
     local -r arch=$(uname -m)
     local -r temp_json=$(mktemp "/tmp/release-${arch}.XXXXX.json")
 
-    # replace Microshift images with upstream (from OKD release)
+    # Replace Microshift images with upstream (from OKD release)
+    local -r okd_json=$(mktemp "/tmp/okd-release.XXXXX.json")
+    oc adm release info "${okd_url}:${okd_releaseTag}" -o json > "${okd_json}"
+
     for op in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json")
     do
         local image
-        image=$(oc adm release info --image-for="${op}" "${okd_url}:${okd_releaseTag}" || true)
+        image=$(jq -r --arg NAME "${op}" '.references.spec.tags[] | select(.name == $NAME) | .from.name' "${okd_json}" || true)
         if [ -n "${image}" ] ; then
             echo "${op} ${image}"
             jq --arg a "${op}" --arg b "${image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${arch}.json" >"${temp_json}"
@@ -32,8 +35,8 @@ replace_base_assets() {
         fi
     done
 
-    pod_image=$(oc adm release info --image-for=pod "${okd_url}:${okd_releaseTag}" || true)
-    # update the infra pods for crio
+    pod_image=$(jq -r --arg NAME pod '.references.spec.tags[] | select(.name == $NAME) | .from.name' "${okd_json}" || true)
+    # Update the infra pods for crio
     sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${arch}]}.conf"
 }
 
@@ -61,6 +64,9 @@ replace_olm_assets() {
 images:
 EOF
 
+    local -r okd_json=$(mktemp "/tmp/okd-release.XXXXX.json")
+    oc adm release info "${okd_url}:${okd_releaseTag}" -o json > "${okd_json}"
+
     # Read from the image-references file to find the images we need to update
     local -r containers=$("${MICROSHIFT_ROOT}"/_output/bin/yq -r '.spec.tags[].name' "${olm_image_refs_file}")
     for container in "${containers[@]}" ; do
@@ -70,7 +76,7 @@ EOF
 
         # Get the new image from OKD release
         local new_image
-        new_image=$(oc adm release info --image-for="${container}" "${okd_url}:${okd_releaseTag}" || true)
+        new_image=$(jq -r --arg NAME "${op}" '.references.spec.tags[] | select(.name == $NAME) | .from.name' "${okd_json}" || true)
 
         if [ -n "${new_image}" ] ; then
             echo "${container} ${new_image}"

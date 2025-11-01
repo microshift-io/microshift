@@ -1,55 +1,41 @@
-#
-# Beginning of the header copied from microshift/packaging/rpm/microshift.spec
-#
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 # Debug info not supported with Go
 %global debug_package %{nil}
 
-Name: microshift
+Name: microshift-topolvm
 Version: %{version}
 Release: %{release}%{dist}
-Summary: MicroShift service
+Summary: TopoLVM CSI Plugin for MicroShift
 License: ASL 2.0
 URL: https://github.com/openshift/microshift
 Source0: https://github.com/openshift/microshift/archive/%{commit}/microshift-%{shortcommit}.tar.gz
-
-ExclusiveArch: x86_64 aarch64
-
-%description
-The microshift package provides an OpenShift Kubernetes distribution optimized for small form factor and edge computing.
-
-%prep
-%setup -n microshift-%{commit}
-#
-# End of the header copied from microshift/packaging/rpm/microshift.spec
-#
-
-%package topolvm
-Summary: TopoLVM CSI Plugin for MicroShift
 ExclusiveArch: x86_64 aarch64
 Requires: microshift = %{version}
 
-%description topolvm
+%description
 The microshift-topolvm package provides the required manifests for the TopoLVM CSI and the dependent
 cert-manager to be installed on MicroShift.
 
-%files topolvm
+%files
 %dir %{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
 %{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm/*
 %{_sysconfdir}/greenboot/check/required.d/50_microshift_topolvm_check.sh
 %config(noreplace) %{_sysconfdir}/microshift/config.d/01-disable-storage-csi.yaml
 
-%package topolvm-release-info
+%package release-info
 Summary: Release information for TopoLVM components for MicroShift
 BuildArch: noarch
 Requires: microshift-release-info = %{version}
 
-%description topolvm-release-info
+%description release-info
 The microshift-topolvm-release-info package provides release information files for this
 release. These files contain the list of container image references used by the TopoLVM CSI.
 
-%files topolvm-release-info
+%files release-info
 %{_datadir}/microshift/release/release-topolvm-{x86_64,aarch64}.json
+
+%prep
+%setup -n microshift-%{commit}
 
 %install
 install -d -m755 %{buildroot}/%{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
