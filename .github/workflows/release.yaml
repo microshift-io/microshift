@@ -54,7 +54,7 @@ jobs:
           ushift-branch: ${{ inputs.ushift-branch }}
           okd-version-tag: ${{ inputs.okd-version-tag }}
           build: bootc-image
-          rpm-builder: microshift-copr-builder
+          rpm-builder: rpm-copr-builder
 
       - name: COPR - Delete builds
         if: failure()

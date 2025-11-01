@@ -20,7 +20,7 @@ ISOLATED_NETWORK ?= 0
 
 # Internal variables
 SHELL := /bin/bash
-BUILDER_IMAGE ?= microshift-okd-builder
+BUILDER_IMAGE ?= rpm-local-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
@@ -60,13 +60,13 @@ all:
 
 .PHONY: rpm
 rpm:
-	@echo "Building the MicroShift builder image"
+	@echo "Building the MicroShift RPMs"
 	sudo podman build \
         -t "${BUILDER_IMAGE}" \
         --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        -f packaging/microshift-builder.Containerfile .
+        -f packaging/rpm-local-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
@@ -108,7 +108,7 @@ image:
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-        -f packaging/microshift-runner.Containerfile .
+        -f packaging/bootc.Containerfile .
 
 # Notes:
 # - An isolated network is created if the ISOLATED_NETWORK environment variable is set
@@ -168,6 +168,7 @@ clean-all:
 	$(MAKE) clean
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
 	sudo podman rmi -f "${BUILDER_IMAGE}" || true
+	sudo podman rmi -f "${COPR_BUILDER_IMAGE}" || true
 
 .PHONY: check
 check: _hadolint _shellcheck
