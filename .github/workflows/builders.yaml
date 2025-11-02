@@ -61,7 +61,7 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
-          bootc-image-tag: latest
+          bootc-image-tag: 42
           build: bootc-image
           node-count: 2
 
