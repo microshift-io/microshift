@@ -152,17 +152,21 @@ runs:
         set -euo pipefail
         set -x
 
-        # Check if the MicroShift container is running
-        if ! sudo podman ps --format "{{.Names}}" | grep -q '^microshift-okd$' ; then
-          echo "WARNING: MicroShift container is not running - cannot collect sos report"
-          exit 0
-        fi
+        sudo podman ps --all
 
-        # Collect sos report from the MicroShift container
-        sudo podman exec -i microshift-okd microshift-sos-report
-        for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
-          sudo podman cp microshift-okd:${f} /mnt/tmp/
-          sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+        for i in $(seq 1 ${{ inputs.node-count }}); do
+          # Check if the MicroShift container is running
+          if ! sudo podman ps --format "{{.Names}}" | grep -q "^microshift-okd-${i}$" ; then
+            echo "WARNING: MicroShift container number ${i} is not running - cannot collect sos report"
+            exit 0
+          fi
+
+          # Collect sos report from the MicroShift container
+          sudo podman exec -i "microshift-okd-${i}" microshift-sos-report
+          for f in $(sudo podman exec -i "microshift-okd-${i}" bash -c 'ls -1 /tmp/sosreport-*'); do
+            sudo podman cp "microshift-okd-${i}":${f} /mnt/tmp/
+            sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+          done
         done
 
     - name: Upload sos report to the GitHub Actions artifact
