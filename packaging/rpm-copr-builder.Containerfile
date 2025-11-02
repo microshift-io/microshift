@@ -46,26 +46,27 @@ RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
 COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
 COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
-RUN cd "${HOME}/microshift/" && \
-    sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
+
+WORKDIR ${HOME}/microshift/
+RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
     python3 ${USHIFT_MODIFY_SPEC_SCRIPT} && \
     "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
 # Building Kindnet upstream RPM
-COPY ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
-COPY ./src/kindnet/assets/  "${HOME}/microshift/assets/optional/"
-COPY ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
-COPY ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
+COPY ./src/kindnet/kindnet.spec ./packaging/rpm/microshift.spec
+COPY ./src/kindnet/assets/  ./assets/optional/
+COPY ./src/kindnet/dropins/ ./packaging/kindnet/
+COPY ./src/kindnet/crio.conf.d/ ./packaging/crio.conf.d/
 # Prepare and build Kindnet upstream RPM
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}" && \
     "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
 # Building TopoLVM upstream RPM
-COPY ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
-COPY ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
-COPY ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
-COPY ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
-COPY ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
+COPY ./src/topolvm/topolvm.spec ./packaging/rpm/microshift.spec
+COPY ./src/topolvm/assets/  ./assets/optional/topolvm/
+COPY ./src/topolvm/dropins/ ./packaging/microshift/dropins/
+COPY ./src/topolvm/greenboot/ ./packaging/greenboot/
+COPY ./src/topolvm/release/ ./assets/optional/topolvm/
 RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm
 
 COPY ./src/copr/create-builds-and-wait.sh /tmp/create-builds-and-wait.sh
