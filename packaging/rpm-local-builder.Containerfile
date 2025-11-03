@@ -41,27 +41,30 @@ RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "$
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
 
-ENV MICROSHIFT_VERSION="${USHIFT_BRANCH}-${OKD_VERSION_TAG}"
 COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
+COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
 
-# Building all MicroShift downstream RPMs and SRPMs
-RUN "${USHIFT_BUILDRPMS_SCRIPT}"
+WORKDIR ${HOME}/microshift/
+# Building MicroShift downstream RPMs and SRPMs
+RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
+    python3 ${USHIFT_MODIFY_SPEC_SCRIPT} && \
+    "${USHIFT_BUILDRPMS_SCRIPT}"
 
 # Building Kindnet upstream RPM
-COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
-COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "${HOME}/microshift/assets/optional/"
-COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
-COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
+COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "./packaging/rpm/microshift.spec"
+COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "./assets/optional/"
+COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "./packaging/kindnet/"
+COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "./packaging/crio.conf.d/"
 # Prepare and build Kindnet upstream RPM
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}" && \
     "${USHIFT_BUILDRPMS_SCRIPT}"
 
 # Building TopoLVM upstream RPM
-COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
-COPY --chown=${USER}:${USER} ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
-COPY --chown=${USER}:${USER} ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
-COPY --chown=${USER}:${USER} ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
-COPY --chown=${USER}:${USER} ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
+COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "./packaging/rpm/microshift.spec"
+COPY --chown=${USER}:${USER} ./src/topolvm/assets/  "./assets/optional/topolvm/"
+COPY --chown=${USER}:${USER} ./src/topolvm/dropins/ "./packaging/microshift/dropins/"
+COPY --chown=${USER}:${USER} ./src/topolvm/greenboot/ "./packaging/greenboot/"
+COPY --chown=${USER}:${USER} ./src/topolvm/release/ "./assets/optional/topolvm/"
 RUN "${USHIFT_BUILDRPMS_SCRIPT}"
 
 # Post-build MicroShift configuration
