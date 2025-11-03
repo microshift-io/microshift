@@ -20,10 +20,13 @@ ISOLATED_NETWORK ?= 0
 
 # Internal variables
 SHELL := /bin/bash
-BUILDER_IMAGE := microshift-okd-builder
+BUILDER_IMAGE ?= rpm-local-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
+
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+include $(PROJECT_DIR)/src/copr/copr.mk
 
 #
 # Define the main targets
@@ -47,16 +50,23 @@ all:
 	@echo "   run-status:	show the status of the MicroShift cluster"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
+	@echo "COPR related targets:"
+	@echo "   copr-rpm:		                    build the MicroShift RPMs using COPR build service"
+	@echo "   copr-delete-builds:	            delete the COPR builds using the COPR_BUILDS environment variable"
+	@echo "   copr-regenerate-repos:	        regenerate the COPR repository"
+	@echo "   copr-cfg-ensure-podman-secret:	create podman secret from COPR_CONFIG"
+	@echo "   copr-cli:		                    build the COPR CLI container image used by copr-delete-builds and copr-regenerate-repos"
+	@echo ""
 
 .PHONY: rpm
 rpm:
-	@echo "Building the MicroShift builder image"
+	@echo "Building the MicroShift RPMs"
 	sudo podman build \
         -t "${BUILDER_IMAGE}" \
         --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        -f packaging/microshift-builder.Containerfile .
+        -f packaging/rpm-local-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
@@ -80,8 +90,8 @@ rpm-to-deb:
 
 .PHONY: image
 image:
-	@if ! sudo podman image exists microshift-okd-builder ; then \
-		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
+	@if ! sudo podman image exists "${BUILDER_IMAGE}" ; then \
+		echo "ERROR: Run 'make rpm' or 'make copr-rpm' to build the MicroShift RPMs" ; \
 		exit 1 ; \
 	fi
 
@@ -93,11 +103,12 @@ image:
      	--label okd.version="${OKD_VERSION_TAG}" \
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
         --build-arg BOOTC_IMAGE_TAG="${BOOTC_IMAGE_TAG}" \
+		--build-arg RPM_BUILDER_IMAGE="${BUILDER_IMAGE}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-        -f packaging/microshift-runner.Containerfile .
+        -f packaging/bootc.Containerfile .
 
 # Notes:
 # - An isolated network is created if the ISOLATED_NETWORK environment variable is set
@@ -157,6 +168,7 @@ clean-all:
 	$(MAKE) clean
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
 	sudo podman rmi -f "${BUILDER_IMAGE}" || true
+	sudo podman rmi -f "${COPR_BUILDER_IMAGE}" || true
 
 .PHONY: check
 check: _hadolint _shellcheck
