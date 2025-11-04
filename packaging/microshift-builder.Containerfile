@@ -2,10 +2,10 @@ FROM quay.io/centos-bootc/centos-bootc:stream9
 
 # Variables controlling the source of MicroShift components to build
 ARG USHIFT_BRANCH=main
+ARG OKD_RELEASE_IMAGE=quay.io/okd/scos-release
 ARG OKD_VERSION_TAG
 
 # Internal variables
-ARG OKD_REPO=quay.io/okd/scos-release
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV USER=microshift
 ENV HOME=/home/microshift
@@ -14,9 +14,9 @@ ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 
 # Verify mandatory build arguments
-RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
-        echo "ERROR: OKD_VERSION_TAG is not set"; \
-        echo "See quay.io/okd/scos-release for a list of tags"; \
+RUN if [ -z "${OKD_VERSION_TAG}" ] ; then \
+        echo "ERROR: OKD_VERSION_TAG is not set" ; \
+        echo "See ${OKD_RELEASE_IMAGE} for a list of tags" ; \
         exit 1; \
     fi
 
@@ -38,7 +38,7 @@ RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "$
 
 # Preparing the build scripts
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
+RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}"
 
 # Building all MicroShift downstream RPMs and SRPMs
 # hadolint ignore=DL3059
@@ -50,7 +50,7 @@ COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "${HOME}/microshift/assets/o
 COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
 COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
 # Prepare and build Kindnet upstream RPM
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}" && \
+RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}" && \
     MICROSHIFT_VARIANT="community" make -C "${HOME}/microshift" rpm
 
 # Building TopoLVM upstream RPM

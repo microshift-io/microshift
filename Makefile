@@ -20,6 +20,14 @@ ISOLATED_NETWORK ?= 0
 
 # Internal variables
 SHELL := /bin/bash
+ARCH := $(shell uname -m)
+# Override the default OKD_RELEASE_IMAGE variable based on the architecture
+ifeq ($(ARCH),aarch64)
+OKD_RELEASE_IMAGE ?= ghcr.io/microshift-io/okd/okd-release-arm64
+else
+OKD_RELEASE_IMAGE ?= quay.io/okd/scos-release
+endif
+
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
@@ -56,6 +64,7 @@ rpm:
         --ulimit nofile=524288:524288 \
         --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
