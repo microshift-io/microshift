@@ -22,16 +22,21 @@ container dependencies used during the build process.
 * OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
 
 The following actions are suppported.
-* `build-all`: Builds both MicroShift RPMs and Bootc container images
-* `build-rpms`: Builds only the MicroShift RPM packages
-* `build-bootc-images`: Builds only the Bootc container images
+* `rpms`: Builds the MicroShift RPM packages
+* `bootc-image`: Builds the Bootc container images
+* `okd-release-arm`: Builds an OKD release for the ARM architecture
+* `all`: Builds all of the above
 
 Note: When the Bootc container images are built, one of the workflow steps tests
 the validity of the produced artifacts by attempting to run the container image
 and making sure all the MicroShift services are functional.
 
-The build artifacts are available for download under [Releases](https://github.com/microshift-io/microshift/releases)
-after the job finishes successfully.
+If the build job finishes successfully, the build artifacts are available for
+download in the following locations:
+* [Releases](https://github.com/microshift-io/microshift/releases) for RPMs
+* [Packages](https://github.com/microshift-io/microshift/packages) for container images
+
+The container images can be pulled directly from the `ghcr.io/microshift-io` registry.
 
 ### Presubmit Pull Request Verification
 
@@ -41,9 +46,10 @@ branch.
 It implements the following verification procedures:
 * Run `shellcheck` on all scripts in the repository
 * Run `hadolint` on all container files in the repository
-* Run MicroShift bootc image build and test the services are up and running
+* Build and test MicroShift Bootc image on selected configurations
+* Build and test MicroShift Debian Packages on Ubuntu
 
-Note: The bootc image build is performed on the `main` MicroShift branch and the
+Note: The Bootc image build is performed on the `main` MicroShift branch and the
 latest published OKD version tag.
 
 If any of these procedures exit with errors, the pull request cannot be merged

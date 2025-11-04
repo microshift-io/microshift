@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MICROSHIFT_ROOT="/home/microshift/microshift"
-UNAME_M="$(uname -m)"
+ARCH="$(uname -m)"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
 oc_release_info() {
@@ -36,10 +36,10 @@ verify_okd_release() {
 replace_base_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r temp_json="$(mktemp "/tmp/release-${UNAME_M}.XXXXX.json")"
+    local -r temp_json="$(mktemp "/tmp/release-${ARCH}.XXXXX.json")"
 
     # Replace MicroShift images with OKD upstream images
-    for cur_image in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json") ; do
+    for cur_image in $(jq -e -r  '.images | keys []' "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json") ; do
         # LVMS operator is not part of the OKD release
         if [ "${cur_image}" = "lvms_operator" ] ; then
             echo "Skipping '${cur_image}'"
@@ -50,13 +50,13 @@ replace_base_assets() {
         new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${cur_image}")
 
         echo "Replacing '${cur_image}' with '${new_image}'"
-        jq --arg a "${cur_image}" --arg b "${new_image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json" >"${temp_json}"
-        mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${UNAME_M}.json"
+        jq --arg a "${cur_image}" --arg b "${new_image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json" >"${temp_json}"
+        mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json"
     done
 
     # Update the infra pods for crio
     local -r pod_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "pod")
-    sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${UNAME_M}]}.conf"
+    sed -i 's,pause_image .*,pause_image = '"\"${pod_image}\""',' "${MICROSHIFT_ROOT}/packaging/crio.conf.d/10-microshift_${UNAME_TO_GOARCH_MAP[${ARCH}]}.conf"
 }
 
 # This code is extracted from openshift/microshift/scripts/auto-rebase/rebase.sh
@@ -64,15 +64,15 @@ replace_base_assets() {
 replace_olm_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r temp_json=$(mktemp "/tmp/release-olm-${UNAME_M}.XXXXX.json")
+    local -r temp_json=$(mktemp "/tmp/release-olm-${ARCH}.XXXXX.json")
 
     # Install the yq tool
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
 
     # Replace OLM images with OKD upstream images
     local olm_image_refs_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/image-references"
-    local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${UNAME_M}.yaml"
-    local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${UNAME_M}.json"
+    local kustomization_arch_file="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/kustomization.${ARCH}.yaml"
+    local olm_release_json="${MICROSHIFT_ROOT}/assets/optional/operator-lifecycle-manager/release-olm-${ARCH}.json"
 
     # Create the OLM release json file with base structure
     jq -n '{"release": {"base": "upstream"}, "images": {}}' > "${olm_release_json}"
@@ -135,7 +135,7 @@ EOF
 replace_kindnet_assets() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
-    local -r temp_json="$(mktemp "/tmp/release-kindnet-${UNAME_M}.XXXXX.json")"
+    local -r temp_json="$(mktemp "/tmp/release-kindnet-${ARCH}.XXXXX.json")"
 
     # Install the yq tool
     "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
@@ -155,10 +155,10 @@ replace_kindnet_assets() {
     # Update the image and hash
     "${MICROSHIFT_ROOT}"/_output/bin/yq eval \
         ".images[] |= select(.name == \"kube-proxy\") |= (.newName = \"${image_name}\" | .digest = \"${image_hash}\")" \
-        -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${UNAME_M}.yaml"
+        -i "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/kustomization.${ARCH}.yaml"
     jq --arg img "$image_with_hash" '.images["kube-proxy"] = $img' \
-        "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${UNAME_M}.json" >"${temp_json}"
-    mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${UNAME_M}.json"
+        "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${ARCH}.json" >"${temp_json}"
+    mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${ARCH}.json"
 }
 
 fix_rpm_spec() {
