@@ -1,0 +1,41 @@
+name: release-okd
+description: Workflow to build and release OKD images
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      ushift-branch:
+        default: "main"
+        description: MicroShift branch from https://github.com/openshift/microshift/branches
+        type: string
+      okd-version-tag:
+        default: "latest"
+        description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+        type: string
+      okd-target-registry:
+        default: ghcr.io/microshift-io/okd
+        description: Target registry for the OKD release images for ARM
+        type: string
+
+jobs:
+  build-okd-release:
+    name: Build OKD release images for ARM
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Run the OKD release images build action
+        uses: ./.github/actions/build-okd
+        with:
+          ushift-branch: ${{ inputs.ushift-branch }}
+          okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          target-arch: arm64
+          target-registry: ${{ inputs.okd-target-registry }}
+          token: ${{ secrets.GITHUB_TOKEN }}
