@@ -1,5 +1,5 @@
 ---
-- name: install Microshift on remote host
+- name: join Microshift nodes to a cluster
   hosts: remote
   gather_facts: true
   become: false

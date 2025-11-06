@@ -8,7 +8,7 @@ This directory contains a minimal workflow to build an Ansible runner container,
   - Public keys should be present in `~/.ssh/` and trusted by the target hosts.
   - Passwordless sudo on the target hosts is recommended for automation.
 - Target hosts are reachable by DNS or IP and allow inbound SSH.
-- **Note:** This workflow assumes that your VMs are running **CentOS Stream 9** as the operating system.
+- **Note:** This workflow assumes that your target nodes are running **CentOS Stream 9** as the operating system.
 
 ### Build the Ansible runner image (Podman)
 Build the container that bundles Ansible and playbooks in this repo:
@@ -22,8 +22,8 @@ Create an `inventory` file in `cluster/` directory with your managed hosts. Exam
 
 ```ini
 [remote]
-hostname-fqdn-pri ansible_connection=ssh ansible_user=ec2-user role=primary
-hostname-fqdn-sec ansible_connection=ssh ansible_user=ec2-user role=secondary
+192.168.1.22 ansible_connection=ssh ansible_user=ec2-user role=primary
+192.168.1.23 ansible_connection=ssh ansible_user=ec2-user role=secondary
 ```
 
 Notes:
@@ -32,7 +32,7 @@ Notes:
 - This setup assumes SSH keys are available at `~/.ssh/` on your workstation.
 
 ### Install latest upstream MicroShift on all nodes
-This installs MicroShift on each node independently.
+This will install Microshift in all the configured nodes in parallel.
 
 ```bash
 podman run -ti \
@@ -56,9 +56,12 @@ podman run -ti \
 ```
 
 ### Verify the cluster
-Once the join completes, verify from the primary node (or using your kubeconfig):
+Once the join completes, log into the primary node and run the following commands to verify the cluster is up and running:
 
 ```bash
+mkdir -p ~/.kube
+sudo cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
+	
 kubectl get nodes -o wide
 kubectl get pods -A
 ```

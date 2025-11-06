@@ -1,7 +1,6 @@
 FROM quay.io/centos/centos:stream9
 
-ENV LANG=en_US.UTF-8 \
-    RUNNER_BASE_DIR=/runner
+ENV LANG=en_US.UTF-8 
 
 # Enable CRB to get python3-wheel, then install deps
 RUN dnf -y update && \
@@ -39,9 +38,8 @@ RUN mkdir -p /runner/project /runner/inventory /runner/env /runner/artifacts && 
     echo "[all]" > /runner/inventory/hosts 
 
 # Non-root user 
-RUN groupadd -g 1000 runner && useradd -u 1000 -g 1000 -m -s /bin/bash runner && \
-    chown -R runner:runner /runner && \
-    echo "runner ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/runner && chmod 0440 /etc/sudoers.d/runner 
+RUN useradd -m -s /bin/bash runner && \
+	    chown -R runner:runner /runner
 
 USER runner
 RUN ansible-galaxy collection install community.general containers.podman
