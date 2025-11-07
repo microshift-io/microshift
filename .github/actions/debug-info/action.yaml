@@ -19,12 +19,12 @@ runs:
         sudo pvs || true
 
         # Collect container and image information from the host
-        sudo podman system df        
-        sudo podman ps -a
-        sudo podman images
+        sudo podman system df || true
+        sudo podman ps -a     || true
+        sudo podman images    || true
 
         # Collect logs from all running containers
-        for container in $(sudo podman ps -a --format "{{.Names}}") ; do        
+        for container in $(sudo podman ps -a --format "{{.Names}}") ; do
           sudo podman logs "${container}" || true
         done
 
