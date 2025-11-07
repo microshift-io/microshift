@@ -1,0 +1,73 @@
+name: sos-report
+description: Reusable action to collect sos-report in the MicroShift containers or on the host
+
+inputs:
+  collect-on-host:
+    description: Collect the sos-report on the host if true or in the MicroShift container otherwise
+    required: false
+    default: false
+    type: boolean
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect the CPU architecture
+      id: detect-cpu-arch
+      uses: ./.github/actions/arch
+
+    - name: Collect sos-report in the MicroShift containers
+      if: inputs.collect-on-host == false
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # Get the names of all running MicroShift containers
+        containers="$(sudo podman ps --format "{{.Names}}" | grep '^microshift-okd' || true)"
+
+        # Check if any MicroShift containers are running
+        if [ -z "${containers}" ]; then
+          echo "WARNING: No MicroShift containers are running - cannot collect sos report"
+          exit 0
+        fi
+
+        # Collect sos-report from the MicroShift containers
+        for container in ${containers} ; do
+          sudo podman exec -i "${container}" microshift-sos-report
+          for f in $(sudo podman exec -i "${container}" bash -c 'ls -1 /tmp/sosreport-*') ; do
+            sudo podman cp "${container}:${f}" /mnt/tmp/
+            sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
+          done
+        done
+
+    - name: Collect sos-report on the host
+      if: inputs.collect-on-host == true
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # Change the default profiles and plugins used in microshift-sos-report
+        # to adapt to the Debian environment.
+        # Profiles:
+        #  - Remove non-existent microshift
+        #  - Add storage
+        # Plugins:
+        #  - Remove unused firewalld and rpm
+        #  - Remove non-existent rpmostree
+        #  - Add ufw, apt
+        sudo sos report \
+          --quiet \
+          --batch \
+          --all-logs \
+          --tmp-dir /mnt/tmp \
+          --profiles network,security,storage \
+          --plugins container_log,crio,logs,ufw,apt
+        sudo chmod 644 /mnt/tmp/sosreport-*
+
+    - name: Upload sos-report files to the GitHub Actions artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
+        path: /mnt/tmp/sosreport-*
+        compression-level: 0

@@ -1,5 +1,5 @@
 name: release-okd
-description: Workflow to build and release OKD images
+# Workflow to build and release OKD container images
 
 on:
   schedule:

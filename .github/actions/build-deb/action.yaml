@@ -98,35 +98,8 @@ runs:
       if: always()
       uses: ./.github/actions/debug-info
 
-    - name: Collect sos report for MicroShift
+    - name: Collect sos-report for MicroShift
       if: failure()
-      shell: bash
-      run: |
-        # Cannot use the microshift-sos-report script because it was uninstalled.
-        # Use the sos command directly instead.
-        #
-        # Change the default profiles and plugins used in microshift-sos-report
-        # to adapt to the Debian environment.
-        # Profiles:
-        #  - Remove non-existent microshift
-        #  - Add storage
-        # Plugins:
-        #  - Remove unused firewalld and rpm
-        #  - Remove non-existent rpmostree
-        #  - Add ufw, apt
-        sudo sos report \
-          --quiet \
-          --batch \
-          --all-logs \
-          --tmp-dir /mnt/tmp \
-          --profiles network,security,storage \
-          --plugins container_log,crio,logs,ufw,apt
-        sudo chmod 644 /mnt/tmp/sosreport-*
-
-    - name: Upload sos report to the GitHub Actions artifact
-      if: failure()
-      uses: actions/upload-artifact@v4
+      uses: ./.github/actions/sos-report
       with:
-        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
-        path: /mnt/tmp/sosreport-*
-        compression-level: 0
+        collect-on-host: true

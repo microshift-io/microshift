@@ -6,6 +6,7 @@ on:
 
 jobs:
   centos9-bootc:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -26,6 +27,7 @@ jobs:
           node-count: 2
 
   centos10-bootc:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -46,7 +48,11 @@ jobs:
           node-count: 2
 
   fedora-bootc:
-    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.draft }}
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runners }}
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
@@ -61,11 +67,12 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
-          bootc-image-tag: latest
+          bootc-image-tag: 42
           build: bootc-image
           node-count: 2
 
   ubuntu-rpm2deb:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -81,8 +88,18 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
 
-  isolated-network-kindnet:
-    runs-on: ubuntu-24.04
+  isolated-network:
+    if: ${{ !github.event.pull_request.draft }}
+    strategy:
+      matrix:
+        include:
+          - name: kindnet
+            runner: ubuntu-24.04
+            ovnk-networking: 0
+          - name: ovnk
+            runner: ubuntu-24.04
+            ovnk-networking: 1
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
@@ -97,24 +114,5 @@ jobs:
           ushift-branch: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           isolated-network: 1
-          ovnk-networking: 0
-          build: bootc-image
-
-  isolated-network-ovnk:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out MicroShift upstream repository
-        uses: actions/checkout@v4
-
-      - name: Detect OKD version tag
-        id: detect-okd-version
-        uses: ./.github/actions/okd-version
-
-      - name: Run the build action
-        uses: ./.github/actions/build
-        with:
-          ushift-branch: main
-          okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
-          isolated-network: 1
-          ovnk-networking: 1
+          ovnk-networking: ${{ matrix.ovnk-networking }}
           build: bootc-image

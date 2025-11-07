@@ -1,7 +1,17 @@
 name: podman-login
-description: Reusable action to login to GitHub Container Registry
+description: Reusable action to login to a container registry
 
 inputs:
+  registry:
+    description: Registry to login to
+    required: false
+    type: string
+    default: ghcr.io
+  username:
+    description: Username to login with
+    required: false
+    type: string
+    default: ${{ github.actor }}
   token:
     description: Token for the registry
     required: true
@@ -13,17 +23,16 @@ runs:
     - name: Login to GitHub Container Registry
       uses: redhat-actions/podman-login@v1
       with:
-        registry: ghcr.io/${{ github.repository_owner }}
-        username: ${{ github.actor }}
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
         password: ${{ inputs.token }}
-        auth_file_path: /tmp/ghcr-auth.json
+        auth_file_path: /tmp/registry-auth.json
 
-    - name: Run podman login command
+    - name: Configure podman credentials for elevated privileges
       shell: bash
       run: |
         set -euo pipefail
+        set -x
 
-        sudo chmod 644 /tmp/ghcr-auth.json
-        # Login both for the current and elevated users
-        podman login      --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository_owner }}
-        sudo podman login --authfile /tmp/ghcr-auth.json ghcr.io/${{ github.repository_owner }}
+        sudo mkdir -p ~/.config/containers
+        sudo cp /tmp/registry-auth.json ~/.config/containers/auth.json
