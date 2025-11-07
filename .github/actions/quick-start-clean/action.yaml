@@ -7,6 +7,11 @@ inputs:
     required: false
     default: ""
     type: string
+  run-clean:
+    description: Run the clean script
+    required: false
+    default: true
+    type: boolean
 
 runs:
   using: "composite"
@@ -28,14 +33,15 @@ runs:
         exit 1
 
     - name: Run the quick clean script
+      if: inputs.run-clean == true
       shell: bash
       run: |
         set -xeuo pipefail
         sudo bash -xeuo pipefail < ./src/quickclean.sh
 
         # Verify the container and its image are removed
-        sudo podman ps -a  | grep microshift-okd && exit 1
-        sudo podman images | grep microshift-okd && exit 1
+        sudo podman ps -a | grep microshift-okd && exit 1
+        sudo podman image exists microshift-okd && exit 1
 
         # Verify the LVM volume group and backing storage are removed
         sudo vgs | grep myvg1 && exit 1
@@ -43,3 +49,16 @@ runs:
           ls -la /var/lib/microshift-okd/
           exit 1
         fi
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
+
+    - name: Collect debug information on failure
+      if: failure()
+      uses: ./.github/actions/debug-info
+
+    - name: Collect MicroShift container sosreport on failure
+      if: failure()
+      uses: ./.github/actions/sos-report
