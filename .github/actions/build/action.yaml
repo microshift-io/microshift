@@ -47,10 +47,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Detect the CPU architecture
-      id: detect-cpu-arch
-      uses: ./.github/actions/arch
-
     - name: Collect debug information before the build
       if: always()
       uses: ./.github/actions/debug-info
@@ -126,6 +122,9 @@ runs:
 
         make run-healthy
         make stop
+        # Clean is necessary to avoid conflicts with other actions that may
+        # potentially run in subsequent actions
+        make clean
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
@@ -136,30 +135,6 @@ runs:
       if: always()
       uses: ./.github/actions/debug-info
 
-    - name: Collect MicroShift container sosreport on failure
+    - name: Collect MicroShift container sos-report on failure
       if: failure()
-      shell: bash
-      run: |
-        set -euo pipefail
-        set -x
-
-        # Check if the MicroShift container is running
-        if ! sudo podman ps --format "{{.Names}}" | grep -q '^microshift-okd$' ; then
-          echo "WARNING: MicroShift container is not running - cannot collect sos report"
-          exit 0
-        fi
-
-        # Collect sos report from the MicroShift container
-        sudo podman exec -i microshift-okd microshift-sos-report
-        for f in $(sudo podman exec -i microshift-okd bash -c 'ls -1 /tmp/sosreport-*'); do
-          sudo podman cp microshift-okd:${f} /mnt/tmp/
-          sudo chmod 644 "/mnt/tmp/$(basename "${f}")"
-        done
-
-    - name: Upload sos report to the GitHub Actions artifact
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: sosreport-microshift-okd-${{ github.job }}-${{ steps.detect-cpu-arch.outputs.arch }}-${{ github.run_id }}
-        path: /mnt/tmp/sosreport-*
-        compression-level: 0
+      uses: ./.github/actions/sos-report
