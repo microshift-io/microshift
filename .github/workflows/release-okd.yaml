@@ -19,6 +19,13 @@ on:
         description: Target registry for the OKD release images for ARM
         type: string
 
+# The workflow dispatch inputs are not inherited by the scheduled workflow runs.
+# Use environment variables to pass the inputs to the build action.
+env:
+  USHIFT_BRANCH: ${{ github.event.inputs.ushift-branch || 'main' }}
+  OKD_VERSION_TAG: ${{ github.event.inputs.okd-version-tag || 'latest' }}
+  OKD_TARGET_REGISTRY: ${{ github.event.inputs.okd-target-registry || 'ghcr.io/microshift-io/okd' }}
+
 jobs:
   build-okd-release:
     name: Build OKD release images for ARM
@@ -34,8 +41,8 @@ jobs:
       - name: Run the OKD release images build action
         uses: ./.github/actions/build-okd
         with:
-          ushift-branch: ${{ inputs.ushift-branch }}
-          okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          ushift-branch: ${{ env.USHIFT_BRANCH }}
+          okd-version-tag: ${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }}
           target-arch: arm64
-          target-registry: ${{ inputs.okd-target-registry }}
+          target-registry: ${{ env.OKD_TARGET_REGISTRY }}
           token: ${{ secrets.GITHUB_TOKEN }}
