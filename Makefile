@@ -29,14 +29,9 @@ EXPOSE_KUBEAPI_PORT ?= 1
 
 # Internal variables
 SHELL := /bin/bash
-# Override the default OKD_RELEASE_IMAGE variable based on the architecture
+# OKD release image URLs for different architectures
 OKD_RELEASE_IMAGE_X86_64 ?= quay.io/okd/scos-release
 OKD_RELEASE_IMAGE_AARCH64 ?= ghcr.io/microshift-io/okd/okd-release-arm64
-ifeq ($(ARCH),aarch64)
-OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_AARCH64)
-else
-OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_X86_64)
-endif
 
 RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd
