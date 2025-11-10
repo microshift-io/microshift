@@ -17,9 +17,9 @@ outside the downstream Red Hat payloads.
 
 # Operating System Support
 
-MicroShift and its main components are available on the `x86_64` architecture.
-RPM and DEB packages built in a container can be installed and run on the
-following operating systems.
+MicroShift and its main components are available for the `x86_64` and `aarch64`
+architectures. RPM and DEB packages built in a container can be installed and
+run on the following operating systems.
 
 | OS        |Package|Bootc|OVN-K|Kindnet|TopoLVM|Greenboot|Comments|
 |-----------|-------|-----|-----|-------|-------|---------|--------|
@@ -29,10 +29,11 @@ following operating systems.
 | Ubuntu    |  DEB  |  N  |  N  |   Y   |   Y   |    N    | Latest LTS version (e.g. 24.04) |
 
 Notes:
-- MicroShift Bootc container images can be run on any operating system supported
-  by [Podman](https://podman.io/).
-- The support for the `aarch64` architecture depends on
-  [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215).
+- MicroShift Bootc container images can be run on `x86_64` and `aarch64` systems
+  using any OS supported by [Podman](https://podman.io/).
+- OKD builds for the `aarch64` architecture are performed using MicroShift-specific
+  build procedure until [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215)
+  is implemented by the OKD team.
 
 ## Quick Start
 
