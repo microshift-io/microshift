@@ -4,14 +4,23 @@ set -euo pipefail
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
-TARGET_REGISTRY=${TARGET_REGISTRY:-ghcr.io/microshift-io/okd}
+# Production registry - must be provided via TARGET_REGISTRY environment variable
+# or defaults to the upstream registry if not specified
+PRODUCTION_REGISTRY="${TARGET_REGISTRY:-ghcr.io/microshift-io/okd}"
+# Automatically derive staging registry by appending '/okd-staging' subpath
+STAGING_REGISTRY="$(dirname "${PRODUCTION_REGISTRY}")/okd-staging"
 PULL_SECRET=${PULL_SECRET:-~/.pull-secret.json}
 
 WORKDIR=$(mktemp -d /tmp/okd-build-images-XXXXXX)
 trap 'cd ; rm -rf "${WORKDIR}"' EXIT
 
 usage() {
-  echo "Usage: $(basename "$0") <okd-version> <ocp-branch> <target-arch>"
+  echo "Usage: $(basename "$0") <mode> <okd-version> <ocp-branch> <target-arch>"
+  echo "  mode:        Operation mode - 'staging' or 'production'"
+  echo "               'staging'    - Build OKD images locally and push to staging registry"
+  echo "                              (${STAGING_REGISTRY})"
+  echo "               'production' - Push previously built images to production registry"
+  echo "                              (${PRODUCTION_REGISTRY})"
   echo "  okd-version: The version of OKD to build (see https://amd64.origin.releases.ci.openshift.org/)"
   echo "  ocp-branch:  The branch of OCP to build (e.g. release-4.19)"
   echo "  target-arch: The architecture of the target images (amd64 or arm64)"
@@ -320,17 +329,96 @@ create_new_okd_release() {
       # "ovn-kubernetes-microshift=${images_sha[ovn-kubernetes-microshift]}" \
 }
 
+# Build OKD images locally and populate images_sha array
+build_okd_images() {
+  echo "Building OKD images locally..."
+  create_images
+
+  for key in "${!images[@]}" ; do
+    # Skip haproxy-router for non-ARM64 architectures (see TODO at line 99)
+    # haproxy28 package implementation for amd64 is not yet available
+    if [ "${TARGET_ARCH}" != "arm64" ] && [ "${key}" = "haproxy-router" ] ; then
+      continue
+    fi
+    images_sha["${key}"]="${images[$key]}"
+  done
+
+  echo "Build completed successfully"
+}
+
+# Push images and manifests to registry, then create OKD release
+push_okd_images() {
+  echo "Pushing images to registry: ${TARGET_REGISTRY}"
+  push_image_manifests
+  create_new_okd_release
+  echo "Push completed successfully"
+  echo "OKD release image published to: ${OKD_RELEASE_IMAGE}"
+}
+
+# Retag staging images to production names
+retag_staging_to_production() {
+  echo "Re-tagging staging images to production names..."
+
+  for key in "${!images[@]}" ; do
+    # Skip haproxy-router for non-ARM64 architectures (see TODO at line 99)
+    # haproxy28 package implementation for amd64 is not yet available
+    if [ "${TARGET_ARCH}" != "arm64" ] && [ "${key}" = "haproxy-router" ] ; then
+      continue
+    fi
+
+    staging_image="${images[$key]/${PRODUCTION_REGISTRY}/${STAGING_REGISTRY}}"
+    production_image="${images[$key]}"
+
+    if ! podman image exists "${staging_image}" ; then
+      echo "ERROR: Local staging image ${staging_image} not found."
+      echo "Run staging build first: $0 staging ${OKD_VERSION} ${OCP_BRANCH} ${TARGET_ARCH}"
+      exit 1
+    fi
+
+    echo "Re-tagging ${staging_image} to ${production_image}"
+    podman tag "${staging_image}" "${production_image}"
+    images_sha["${key}"]="${production_image}"
+  done
+}
+
+# Staging mode: build images locally and push to staging registry
+push_staging() {
+  check_podman_login
+  check_release_image_exists
+  build_okd_images
+  push_okd_images
+  echo ""
+  echo "Images built and pushed to staging registry: ${STAGING_REGISTRY}"
+  echo "OKD release image available at: ${OKD_RELEASE_IMAGE}"
+  echo "After successful testing, push to production with:"
+  echo "  $0 production ${OKD_VERSION} ${OCP_BRANCH} ${TARGET_ARCH}"
+}
+
+# Production mode: retag staging images and push to production registry
+push_production() {
+  check_podman_login
+  check_release_image_exists
+  retag_staging_to_production
+  push_okd_images
+}
+
 #
 # Main
 #
-if [[ $# -ne 3 ]]; then
+if [[ $# -ne 4 ]]; then
   usage
 fi
 
-OKD_VERSION="$1"
-OCP_BRANCH="$2"
-TARGET_ARCH="$3"
-OKD_RELEASE_IMAGE="${TARGET_REGISTRY}/okd-release-${TARGET_ARCH}:${OKD_VERSION}"
+MODE="$1"
+OKD_VERSION="$2"
+OCP_BRANCH="$3"
+TARGET_ARCH="$4"
+
+# Validate mode
+if [[ "${MODE}" != "staging" ]] && [[ "${MODE}" != "production" ]]; then
+  echo "ERROR: Invalid mode '${MODE}'. Must be 'staging' or 'production'"
+  usage
+fi
 
 # Determine the alternate architecture
 case "${TARGET_ARCH}" in
@@ -345,6 +433,15 @@ case "${TARGET_ARCH}" in
     exit 1
     ;;
 esac
+
+# Set target registry based on mode
+if [[ "${MODE}" == "staging" ]]; then
+  TARGET_REGISTRY="${STAGING_REGISTRY}"
+elif [[ "${MODE}" == "production" ]]; then
+  TARGET_REGISTRY="${PRODUCTION_REGISTRY}"
+fi
+
+OKD_RELEASE_IMAGE="${TARGET_REGISTRY}/okd-release-${TARGET_ARCH}:${OKD_VERSION}"
 
 # Populate associative arrays with image names and tags
 declare -A images
@@ -368,10 +465,9 @@ images=(
 
 # Check the prerequisites
 check_prereqs
-check_podman_login
-check_release_image_exists
-# Create and push images
-create_images
-push_image_manifests
-# Create a new OKD release
-create_new_okd_release
+# Execute based on mode
+if [[ "${MODE}" == "staging" ]]; then
+  push_staging
+elif [[ "${MODE}" == "production" ]]; then
+  push_production
+fi
