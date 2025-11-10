@@ -15,7 +15,7 @@ on:
         description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
         type: string
       okd-target-registry:
-        default: ghcr.io/microshift-io/okd
+        default: "ghcr.io/microshift-io/okd"
         description: Target registry for the OKD release images for ARM
         type: string
 

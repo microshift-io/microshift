@@ -6,7 +6,6 @@ inputs:
     description: Collect the sos-report on the host if true or in the MicroShift container otherwise
     required: false
     default: false
-    type: boolean
 
 runs:
   using: "composite"
@@ -16,7 +15,7 @@ runs:
       uses: ./.github/actions/arch
 
     - name: Collect sos-report in the MicroShift containers
-      if: inputs.collect-on-host == false
+      if: ${{ inputs.collect-on-host == 'false' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -41,7 +40,7 @@ runs:
         done
 
     - name: Collect sos-report on the host
-      if: inputs.collect-on-host == true
+      if: ${{ inputs.collect-on-host == 'true' }}
       shell: bash
       run: |
         set -euo pipefail

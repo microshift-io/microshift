@@ -1,48 +1,36 @@
-name: build-rpms-and-images
+name: build-microshift
 description: Reusable action to build MicroShift RPMs and container images
 
 inputs:
   ushift-branch:
     description: MicroShift branch from https://github.com/openshift/microshift/branches
     required: true
-    type: string
   okd-version-tag:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
-    type: string
   bootc-image-url:
     description: Base Bootc image URL used in `make image` command
     required: false
     default: quay.io/centos-bootc/centos-bootc
-    type: string
   bootc-image-tag:
     description: Base Bootc image tag used in `make image` command
     required: false
     default: stream9
-    type: string
   isolated-network:
     description: Build and test the isolated network container image
     required: false
     default: 0
-    type: integer
   ovnk-networking:
     description: Use OVN-K networking
     required: false
     default: 0
-    type: integer
   node-count:
     description: Number of nodes in the MicroShift cluster
     required: false
     default: 1
-    type: integer
   build:
-    type: choice
-    description: Types of artifacts to build
+    description: Types of artifacts to build (all, rpms, bootc-image)
     required: true
-    options:
-    - all
-    - rpms
-    - bootc-image
 
 runs:
   using: "composite"

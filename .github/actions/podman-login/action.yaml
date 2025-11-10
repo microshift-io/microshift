@@ -5,22 +5,19 @@ inputs:
   registry:
     description: Registry to login to
     required: false
-    type: string
     default: ghcr.io
   username:
     description: Username to login with
     required: false
-    type: string
     default: ${{ github.actor }}
   token:
     description: Token for the registry
     required: true
-    type: string
 
 runs:
   using: "composite"
   steps:
-    - name: Login to GitHub Container Registry
+    - name: Login to the container registry
       uses: redhat-actions/podman-login@v1
       with:
         registry: ${{ inputs.registry }}

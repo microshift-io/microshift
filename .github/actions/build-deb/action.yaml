@@ -5,11 +5,9 @@ inputs:
   ushift-branch:
     description: MicroShift branch from https://github.com/openshift/microshift/branches
     required: true
-    type: string
   okd-version-tag:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
-    type: string
 
 runs:
   using: "composite"
