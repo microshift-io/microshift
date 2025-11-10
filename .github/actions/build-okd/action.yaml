@@ -25,52 +25,77 @@ inputs:
   token:
     description: Token for the GitHub Container Registry
     required: true
+  cleanup-staging:
+    description: Only run staging registry cleanup (skip build/test/push steps)
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
   steps:
     - name: Detect the CPU architecture
+      if: ${{ inputs.cleanup-staging != 'true' }}
       id: detect-cpu-arch
       uses: ./.github/actions/arch
 
     - name: Collect debug information before the build
-      if: always()
+      if: ${{ always() && inputs.cleanup-staging != 'true' }}
       uses: ./.github/actions/debug-info
 
     - name: Prepare the build and run environment
+      if: ${{ inputs.cleanup-staging != 'true' }}
       uses: ./.github/actions/prebuild
 
     - name: Login to GitHub Container Registry
+      if: ${{ inputs.cleanup-staging != 'true' }}
       uses: ./.github/actions/podman-login
       with:
         token: ${{ inputs.token }}
 
     - name: Build OKD images
+      if: ${{ inputs.cleanup-staging != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
 
         cd ${GITHUB_WORKSPACE}/
+        # The 'staging' mode builds images locally AND pushes them to staging registry
+        # Staging registry is automatically derived as: $(dirname target-registry)/okd-staging
+        # This allows testing before promoting to production
         TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          staging \
           "${{ inputs.okd-version-tag }}" \
           "${{ inputs.ushift-gitref }}" \
           "${{ inputs.target-arch }}"
 
-    - name: Build MicroShift RPMs
+    - name: Build MicroShift RPMs using staging OKD images
+      if: ${{ inputs.cleanup-staging != 'true' }}
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
         # for more information about the build process.
 
-        # Run the RPM build process.
+        # Run the RPM build process using images from staging registry
+        # Staging registry is derived as: $(dirname target-registry)/okd-staging
         cd ${GITHUB_WORKSPACE}/
+        PRODUCTION_REGISTRY="${{ inputs.target-registry }}"
+        STAGING_REGISTRY="$(dirname "${PRODUCTION_REGISTRY}")/okd-staging"
+
+        # Set the correct architecture-specific variable for staging override
+        if [ "${{ steps.detect-cpu-arch.outputs.go_arch }}" = "arm64" ]; then
+          OKD_OVERRIDE="OKD_RELEASE_IMAGE_AARCH64=${STAGING_REGISTRY}/okd-release-arm64"
+        else
+          OKD_OVERRIDE="OKD_RELEASE_IMAGE_X86_64=${STAGING_REGISTRY}/okd-release-amd64"
+        fi
+
         make rpm \
           USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
-          OKD_RELEASE_IMAGE="${{ inputs.target-registry }}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}" \
+          "${OKD_OVERRIDE}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
+      if: ${{ inputs.cleanup-staging != 'true' }}
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -84,6 +109,7 @@ runs:
           BOOTC_IMAGE_TAG="${{ inputs.bootc-image-tag }}" \
 
     - name: Run a test to verify that MicroShift is functioning properly
+      if: ${{ inputs.cleanup-staging != 'true' }}
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/run.md
@@ -97,15 +123,75 @@ runs:
         make run-healthy
         make stop
 
+    - name: Push OKD images to production registry
+      if: ${{ success() && inputs.cleanup-staging != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${GITHUB_WORKSPACE}/
+        # Only push to production if all tests passed
+        # This ensures we don't publish broken OKD images to production
+        TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          production \
+          "${{ inputs.okd-version-tag }}" \
+          "${{ inputs.ushift-gitref }}" \
+          "${{ inputs.target-arch }}"
+
+    - name: Cleanup staging registry
+      if: ${{ inputs.cleanup-staging == 'true' }}
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # GitHub Container Registry cleanup using gh CLI
+        # Deletes known staging packages
+        echo "Cleaning up staging packages..."
+
+        OWNER="${{ github.repository_owner }}"
+
+        # Detect if owner is an organization or user account
+        if gh api "/orgs/${OWNER}" --silent 2>/dev/null; then
+          OWNER_TYPE="orgs"
+          echo "Detected organization: ${OWNER}"
+        else
+          OWNER_TYPE="users"
+          echo "Detected user account: ${OWNER}"
+        fi
+
+        # Get list of staging packages from the build script
+        cd ${GITHUB_WORKSPACE}/
+        mapfile -t packages < <(./src/okd/build_images.sh list-packages "${{ inputs.okd-version-tag }}")
+
+        # Delete each package
+        for package in "${packages[@]}"; do
+          # URL-encode package name (replace / with %2F)
+          encoded_package="${package//\//%2F}"
+
+          echo "Deleting package: ${package}"
+          # Use appropriate endpoint based on owner type
+          if gh api --method DELETE "/${OWNER_TYPE}/${OWNER}/packages/container/${encoded_package}" \
+             -H "Accept: application/vnd.github+json" 2>&1; then
+            echo "  ✓ Deleted successfully"
+          else
+            echo "  ⚠ Failed to delete (may not exist or already deleted)"
+          fi
+        done
+
+        echo "Staging registry cleanup completed"
+
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
     #   if: failure()
     #   uses: ./.github/actions/tmate-debug
 
     - name: Collect debug information after the build
-      if: always()
+      if: ${{ always() && inputs.cleanup-staging != 'true' }}
       uses: ./.github/actions/debug-info
 
     - name: Collect MicroShift container sos-report on failure
-      if: failure()
+      if: ${{ failure() && inputs.cleanup-staging != 'true' }}
       uses: ./.github/actions/sos-report

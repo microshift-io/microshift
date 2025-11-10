@@ -30,6 +30,8 @@ jobs:
   build-okd-release:
     name: Build OKD release images for ARM
     runs-on: ubuntu-24.04-arm
+    outputs:
+      okd-version-tag: ${{ steps.set-version.outputs.okd-version-tag }}
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
@@ -42,11 +44,37 @@ jobs:
         with:
           check-amd64: "true"
 
+      - name: Set OKD version for reuse
+        id: set-version
+        run: |
+          VERSION="${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }}"
+          echo "okd-version-tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Using OKD version: ${VERSION}"
+
       - name: Run the OKD release images build action
         uses: ./.github/actions/build-okd
         with:
           ushift-gitref: ${{ env.USHIFT_GITREF }}
-          okd-version-tag: ${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }}
+          okd-version-tag: ${{ steps.set-version.outputs.okd-version-tag }}
           target-arch: arm64
           target-registry: ${{ env.OKD_TARGET_REGISTRY }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-staging:
+    name: Cleanup staging registry
+    needs: build-okd-release
+    if: success() || failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Run cleanup of staging OKD images
+        uses: ./.github/actions/build-okd
+        with:
+          ushift-gitref: ${{ env.USHIFT_GITREF }}
+          okd-version-tag: ${{ needs.build-okd-release.outputs.okd-version-tag }}
+          target-arch: arm64
+          target-registry: ${{ env.OKD_TARGET_REGISTRY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          cleanup-staging: 'true'
