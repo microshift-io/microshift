@@ -5,7 +5,7 @@
 
 # Options used in the 'rpm' target
 USHIFT_BRANCH ?= main
-OKD_VERSION_TAG ?= $$(curl -s https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
+OKD_VERSION_TAG ?= $$(curl -s --max-time 60 https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
 RPM_OUTDIR ?=
 # Options used in the 'image' target
 BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc

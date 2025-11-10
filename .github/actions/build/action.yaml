@@ -92,7 +92,7 @@ runs:
         # Verify that Internet access is not available in the container
         # when the isolated network is enabled
         if [ "${{ inputs.isolated-network }}" = "1" ]; then
-          for cmd in "ping -c1 8.8.8.8" "curl -I quay.io" "curl -I ghcr.io"; do
+          for cmd in "ping -c1 -W10 8.8.8.8" "curl -I -m 10 quay.io" "curl -I -m 10 ghcr.io"; do
             if sudo podman exec -i microshift-okd ${cmd} ; then
               echo "ERROR: Internet access is available in the isolated network container"
               exit 1
