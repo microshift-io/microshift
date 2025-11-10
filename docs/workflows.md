@@ -1,56 +1,98 @@
 ## GitHub Workflows
 
-The following GitHub workflows are defined at the `.github/workflows` folder:
-* `MicroShift RPM and Container Image Builder` in `build-rpms.yaml`
+The GitHub Workflows are defined at the `.github/workflows` folder, including
+pre-submit tests and software release procedures.
 
-These workflows can be run under the [Actions](https://github.com/microshift-io/microshift/actions)
-tab by the repository maintainers. Other contributors can
-[create a fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository)
-from the [MicroShift Upstream](https://github.com/microshift-io/microshift) repository
-and run existing or create new workflows in their private repository branches.
+* Pre-submit tests are run automatically before a pull request can be merged
+* Software release procedures can be run under the [Actions](https://github.com/microshift-io/microshift/actions)
+  tab by the repository maintainers, or scheduled for regular automatic execution
+
+> Note: Contributors can create a fork from the [MicroShift Upstream](https://github.com/microshift-io/microshift)
+> repository and run software release workflows in their private repository branches.
 
 The remainder of this document describes the existing workflows and their functionality.
 
-### Release MicroShift RPMs and Container Images
+### Pre-submit Workflows
 
-The workflow implements a build process producing MicroShift RPM and Bootc
-container image artifacts.
+The workflows described in this section are run as a prerequisite for merging a
+pull request into the main branch. If any of these procedures exit with errors,
+the pull request cannot be merged before all the errors are fixed.
 
-The following parameters determine the MicroShift source code branch and OKD
-container dependencies used during the build process.
-* MicroShift branch from https://github.com/openshift/microshift/branches
-* OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+#### Builders
 
-The following actions are suppported.
-* `rpms`: Builds the MicroShift RPM packages
-* `bootc-image`: Builds the Bootc container images
-* `okd-release-arm`: Builds an OKD release for the ARM architecture
-* `all`: Builds all of the above
+Build a MicroShift Bootc image from the `main` MicroShift source branch and the
+latest published OKD version tag. Run this image to verify that all the MicroShift
+services are functional.
 
-Note: When the Bootc container images are built, one of the workflow steps tests
-the validity of the produced artifacts by attempting to run the container image
-and making sure all the MicroShift services are functional.
+The following operating systems are tested:
+* Fedora, CentOS 9 and CentOS 10 for RPM packages and Bootc images
+* Ubuntu for DEB packages
 
-If the build job finishes successfully, the build artifacts are available for
-download in the following locations:
-* [Releases](https://github.com/microshift-io/microshift/releases) for RPMs
-* [Packages](https://github.com/microshift-io/microshift/packages) for container images
+The following configurations are tested:
+* The `x86_64` and `aarch64` architectures
+* Isolated network for OVN-K and Kindnet CNI
 
-The container images can be pulled directly from the `ghcr.io/microshift-io` registry.
+#### Installers
 
-### Presubmit Pull Request Verification
+Run the [Quick Start](../README.md#quick-start) procedure followed by the
+[quick clean](./quickclean.sh) script invocation.
 
-The workflow is run as a prerequisite for merging a pull request into the main
-branch.
+#### Linters
 
-It implements the following verification procedures:
-* Run `shellcheck` on all scripts in the repository
-* Run `hadolint` on all container files in the repository
-* Build and test MicroShift Bootc image on selected configurations
-* Build and test MicroShift Debian Packages on Ubuntu
+Run [ShellCheck](https://github.com/koalaman/shellcheck) on all shell scripts and
+[hadolint](https://github.com/hadolint/hadolint) on all container files in the repository.
 
-Note: The Bootc image build is performed on the `main` MicroShift branch and the
-latest published OKD version tag.
+### Software Release Procedures
 
-If any of these procedures exit with errors, the pull request cannot be merged
-before all the errors are fixed.
+#### MicroShift
+
+The workflow implements a build process producing MicroShift RPM packages and Bootc
+container image artifacts. It is executed manually by the repository maintainers -
+no scheduled runs are configured at this time.
+
+The following parameters determine the MicroShift source code branch and the OKD
+container image dependencies used during the build process.
+* [MicroShift (OpenShift) branch](https://github.com/openshift/microshift/branches)
+* [OKD version tag](https://quay.io/repository/okd/scos-release?tab=tags)
+
+The following actions are supported:
+* `rpms`: Build MicroShift RPM packages
+* `bootc-image`: Build a MicroShift Bootc container image
+* `all`: Build all of the above
+
+> Note: After the Bootc container image is built, a workflow step checks it by
+> attempting to run the container image and verifying that all the MicroShift
+> services are functional.
+
+If the build job finishes successfully, the artifact download and installation
+instructions are available at [Releases](https://github.com/microshift-io/microshift/releases).
+
+> Note: The available container images can be listed at [Packages](https://github.com/microshift-io/microshift/packages)
+> and pulled from the `ghcr.io/microshift-io` registry.
+
+#### OKD on ARM
+
+The workflow implements a build process producing a subset of OKD container image
+artifacts that are required by MicroShift on the `aarch64` architecture. It runs
+every day at 03:00 UTC to make sure ARM artifacts are available for the latest
+OKD releases.
+
+> Note: OKD `aarch64` builds are performed using MicroShift-specific build procedure
+> until [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215)
+> is implemented by the OKD team.
+
+The following parameters determine the MicroShift source code branch and the OKD
+container image dependencies used during the build process.
+* [MicroShift (OpenShift) branch](https://github.com/openshift/microshift/branches)
+* [OKD version tag](https://quay.io/repository/okd/scos-release?tab=tags)
+
+The default target registry for publishing OKD container image artifacts is
+`ghcr.io/microshift-io/okd`.
+
+> Note: After the OKD container images are built, a workflow step checks them by
+> creating a MicroShift Bootc image with the new artifacts, attempting to run it,
+> and verifying that all the MicroShift services work.
+
+If the build job finishes successfully, the available container images can be listed
+at [Packages](https://github.com/microshift-io/microshift/packages) and pulled from
+the `ghcr.io/microshift-io` registry.
