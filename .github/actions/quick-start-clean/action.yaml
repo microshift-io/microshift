@@ -6,12 +6,10 @@ inputs:
     description: Image reference to use for the MicroShift container
     required: false
     default: ""
-    type: string
   run-clean:
     description: Run the clean script
     required: false
-    default: true
-    type: boolean
+    default: "true"
 
 runs:
   using: "composite"
@@ -19,8 +17,17 @@ runs:
     - name: Run the quick start script
       shell: bash
       run: |
-        set -xeuo pipefail
-        sudo IMAGE_REF=${{ inputs.image-ref }} bash -xeuo pipefail < ./src/quickstart.sh
+        set -euo pipefail
+        set -x
+
+        IMAGE=""
+        TAG=""
+        image_ref="${{ inputs.image-ref }}"
+        if [ -n "${image_ref}" ]; then
+          IMAGE="${image_ref%%:*}"
+          TAG="${image_ref##*:}"
+        fi
+        sudo IMAGE="${IMAGE}" TAG="${TAG}" bash -xeuo pipefail < ./src/quickstart.sh
 
         # Wait until the MicroShift service is ready and healthy
         for _ in $(seq 100); do
@@ -33,10 +40,11 @@ runs:
         exit 1
 
     - name: Run the quick clean script
-      if: inputs.run-clean == true
+      if: ${{ inputs.run-clean == 'true' }}
       shell: bash
       run: |
-        set -xeuo pipefail
+        set -euo pipefail
+        set -x
         sudo bash -xeuo pipefail < ./src/quickclean.sh
 
         # Verify the container and its image are removed
