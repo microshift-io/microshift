@@ -51,6 +51,8 @@ runs:
         set -euo pipefail
 
         cd ${GITHUB_WORKSPACE}/
+        # Build images locally without pushing to registry
+        # This allows testing before publishing
         TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
           "${{ inputs.okd-version-tag }}" \
           "${{ inputs.ushift-branch }}" \
@@ -96,6 +98,21 @@ runs:
         make run-ready
         make run-healthy
         make stop
+
+    - name: Push OKD images to registry
+      if: success()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${GITHUB_WORKSPACE}/
+        # Only push if all previous steps succeeded
+        # This ensures we don't publish broken OKD images
+        TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          "${{ inputs.okd-version-tag }}" \
+          "${{ inputs.ushift-branch }}" \
+          "${{ inputs.target-arch }}" \
+          push
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session

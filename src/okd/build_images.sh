@@ -11,10 +11,13 @@ WORKDIR=$(mktemp -d /tmp/okd-build-images-XXXXXX)
 trap 'cd ; rm -rf "${WORKDIR}"' EXIT
 
 usage() {
-  echo "Usage: $(basename "$0") <okd-version> <ocp-branch> <target-arch>"
+  echo "Usage: $(basename "$0") <okd-version> <ocp-branch> <target-arch> [push]"
   echo "  okd-version: The version of OKD to build (see https://amd64.origin.releases.ci.openshift.org/)"
   echo "  ocp-branch:  The branch of OCP to build (e.g. release-4.19)"
   echo "  target-arch: The architecture of the target images (amd64 or arm64)"
+  echo "  push:        Optional - if specified as 'push', will push previously built images"
+  echo ""
+  echo "Default behavior: Build images locally without pushing"
   exit 1
 }
 
@@ -317,14 +320,28 @@ create_new_okd_release() {
 #
 # Main
 #
-if [[ $# -ne 3 ]]; then
+if [[ $# -lt 3 ]] || [[ $# -gt 4 ]]; then
   usage
 fi
 
 OKD_VERSION="$1"
 OCP_BRANCH="$2"
 TARGET_ARCH="$3"
+
+# Check if 4th parameter exists (safe with set -u)
+if [[ $# -eq 4 ]]; then
+  MODE="$4"
+else
+  MODE=""  # Default: build only
+fi
+
 OKD_RELEASE_IMAGE="${TARGET_REGISTRY}/okd-release-${TARGET_ARCH}:${OKD_VERSION}"
+
+# Validate mode if provided
+if [[ -n "${MODE}" ]] && [[ "${MODE}" != "push" ]]; then
+  echo "ERROR: Invalid mode '${MODE}'. Only 'push' is supported"
+  usage
+fi
 
 # Determine the alternate architecture
 case "${TARGET_ARCH}" in
@@ -362,10 +379,42 @@ images=(
 
 # Check the prerequisites
 check_prereqs
-check_podman_login
-check_release_image_exists
-# Create and push images
-create_images
-push_image_manifests
-# Create a new OKD release
-create_new_okd_release
+
+# Execute based on mode
+if [[ -z "${MODE}" ]]; then
+  # Default: Build only (no push)
+  # Note: Not checking if release image exists in registry since we're building
+  # locally for testing. The push phase will handle the final release.
+  create_images
+  echo ""
+  echo "Build completed successfully"
+  echo "Images are available locally and ready for testing."
+  echo "To push these images after testing, run:"
+  echo "  $0 ${OKD_VERSION} ${OCP_BRANCH} ${TARGET_ARCH} push"
+
+else
+  # Push mode: Push previously built images
+  # Note: Assumes podman login was already done externally (e.g., by CI/CD workflow)
+
+  # Verify all local images exist and populate images_sha array
+  for key in "${!images[@]}" ; do
+    if [ "${TARGET_ARCH}" != "arm64" ] && [ "${key}" = "haproxy-router" ] ; then
+      continue
+    fi
+
+    # Check if local image exists
+    if ! podman image exists "${images[$key]}" ; then
+      echo "ERROR: Local image ${images[$key]} not found."
+      echo "Run build first: $0 ${OKD_VERSION} ${OCP_BRANCH} ${TARGET_ARCH}"
+      exit 1
+    fi
+
+    # Populate images_sha array with local image reference
+    images_sha["${key}"]="${images[$key]}"
+  done
+
+  push_image_manifests
+  create_new_okd_release
+  echo "Push completed successfully"
+  echo "OKD release image published to: ${OKD_RELEASE_IMAGE}"
+fi
