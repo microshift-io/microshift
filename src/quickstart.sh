@@ -3,8 +3,8 @@ set -euo pipefail
 
 OWNER=${OWNER:-microshift-io}
 REPO=${REPO:-microshift}
+IMAGE=${IMAGE:-"ghcr.io/${OWNER}/${REPO}"}
 TAG=${TAG:-latest}
-IMAGE_REF=${IMAGE_REF:-"ghcr.io/${OWNER}/${REPO}:${TAG}"}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
@@ -81,10 +81,19 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Update the tag for the latest version
+if [ "${TAG}" == "latest" ] ; then
+    TAG="$(curl -s "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
+    if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
+        echo "ERROR: Could not determine the latest release tag from GitHub"
+        exit 1
+    fi
+fi
+
 # Run the procedures
-pull_bootc_image     "${IMAGE_REF}"
+pull_bootc_image     "${IMAGE}:${TAG}"
 prepare_lvm_disk     "${LVM_DISK}" "${VG_NAME}"
-run_bootc_image      "${IMAGE_REF}"
+run_bootc_image      "${IMAGE}:${TAG}"
 
 # Follow-up instructions
 echo
