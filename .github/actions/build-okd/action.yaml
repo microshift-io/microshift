@@ -5,33 +5,26 @@ inputs:
   ushift-branch:
     description: MicroShift branch from https://github.com/openshift/microshift/branches
     required: true
-    type: string
   okd-version-tag:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
-    type: string
   bootc-image-url:
     description: Base Bootc image URL used in `make image` command
     required: false
     default: quay.io/centos-bootc/centos-bootc
-    type: string
   bootc-image-tag:
     description: Base Bootc image tag used in `make image` command
     required: false
     default: stream9
-    type: string
   target-arch:
     description: Target architecture for the OKD images
     required: true
-    type: string
   target-registry:
     description: Target registry for the OKD images
     required: true
-    type: string
   token:
     description: Token for the GitHub Container Registry
     required: true
-    type: string
 
 runs:
   using: "composite"
