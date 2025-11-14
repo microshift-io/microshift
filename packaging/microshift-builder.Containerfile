@@ -12,6 +12,7 @@ ENV HOME=/home/microshift
 ARG BUILDER_RPM_REPO_PATH=${HOME}/microshift/_output/rpmbuild/RPMS
 ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
+ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ] ; then \
@@ -24,8 +25,11 @@ RUN if [ -z "${OKD_VERSION_TAG}" ] ; then \
 RUN useradd -m -s /bin/bash "${USER}" && \
     echo "${USER}  ALL=(ALL)  NOPASSWD: ALL" > "/etc/sudoers.d/${USER}" && \
     chmod 0640 /etc/shadow && \
-    dnf install -y git && \
-    dnf clean all
+    dnf install -y \
+        --setopt=install_weak_deps=False \
+        git rpm-build jq python3-pip createrepo && \
+    dnf clean all && \
+    pip install specfile
 
 # Set the user and work directory
 USER ${USER}:${USER}
@@ -36,9 +40,17 @@ RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "$
     echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
     "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret
 
+WORKDIR ${HOME}/microshift/
+
 # Preparing the build scripts
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}"
+
+# Modify the microshift.spec to remove packages not yet supported by the upstream.
+COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
+# Disable the RPM and SRPM checks in the make-rpm.sh script.
+RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
+    ${USHIFT_MODIFY_SPEC_SCRIPT}
 
 # Building all MicroShift downstream RPMs and SRPMs
 # hadolint ignore=DL3059
