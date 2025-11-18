@@ -4,9 +4,6 @@
   gather_facts: true
   become: false
 
-  vars:
-    RPM_DEP_PATH: "4.21-el9-beta"
-
   tasks:
     - name: Install required packages
       become: true
