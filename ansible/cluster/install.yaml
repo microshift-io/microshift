@@ -1,0 +1,113 @@
+---
+- name: install Microshift on remote host
+  hosts: remote
+  gather_facts: true
+  become: false
+
+  vars:
+    RPM_DEP_PATH: "4.21-el9-beta"
+
+  tasks:
+    - name: Install required packages
+      become: true
+      dnf:
+        name:
+          - tmux
+          - git
+          - python3-pip
+        state: present
+
+    - name: install k9s for kubernetes debugging
+      include_role:
+        name: k9s
+      vars:
+        ansible_become: true
+
+    - name: Install github3.py for python3
+      ansible.builtin.pip:
+        name: "github3.py"
+        executable: pip3
+        
+    - name: download microshift latest RPMs from github
+      include_role:
+        name: microshift-okd-download
+      vars:
+        microshift_download_dir: "/var/tmp/microshift_rpms"
+
+    - name: Extract MicroShift RPMs tarball
+      ansible.builtin.unarchive:
+        src: /var/tmp/microshift_rpms/microshift-rpms-x86_64.tgz
+        dest: /var/tmp/microshift_rpms
+        remote_src: yes
+
+    - name: on centos create openshift-mirror-beta repo file 
+      copy:
+        dest: /etc/yum.repos.d/openshift-mirror-beta.repo
+        mode: 0644
+        content: |
+          [openshift-mirror-beta]
+          name=OpenShift Mirror Beta Repository
+          baseurl=https://mirror.openshift.com/pub/openshift-v4/{{ ansible_facts.architecture }}/dependencies/rpms/{{ RPM_DEP_PATH }}/
+          enabled=1
+          gpgcheck=0
+          skip_if_unavailable=0
+      become: true
+      when: ansible_facts.distribution == "CentOS"
+
+    - name: create local.repo file
+      copy:
+        dest: /etc/yum.repos.d/local.repo
+        mode: 0644
+        content: |
+          [microshift-local]
+          # No spaces allowed in that [repo-name] or you get a "bad id for repo" error
+          name=My RPMs $releasever - $basearch
+          baseurl=/var/tmp/microshift_rpms
+          enabled=1
+          metadata_expire=1d
+          gpgcheck=0
+      become: true
+
+    - name: Perform dnf update
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: yes
+      become: true
+
+    - name: Install microshift packages
+      dnf:
+        name:
+          - microshift
+          - microshift-networking
+          - openvswitch3.5
+        state: present
+      become: true
+
+    - name: create microshift config
+      copy:
+        dest: /etc/microshift/config.yaml
+        content: |
+          apiServer:
+              subjectAltNames:
+              - "{{ansible_ssh_host}}"
+      become: true
+
+    - name: Restart microshift service
+      systemd:
+        name: microshift
+        state: restarted
+        daemon_reload: yes
+      become: true
+
+    - name: Run microshift healthcheck for cert-manager deployment
+      command: microshift healthcheck 
+      become: true
+
+    - name: add kubeconfig to bashrc
+      lineinfile:
+        path: /root/.bashrc
+        line: 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig'
+        state: present
+        create: yes
+      become: true
