@@ -81,8 +81,8 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Update the tag for the latest version
-if [ "${TAG}" == "latest" ] ; then
+# For remote images with the 'latest' tag, update the tag to the latest released version
+if [[ "${IMAGE}" != localhost/* ]] && [ "${TAG}" == "latest" ]; then
     TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
