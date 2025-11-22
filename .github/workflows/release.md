@@ -1,6 +1,6 @@
 ### Install and Run
 
-#### RPM
+#### RPM and DEB
 
 Review the instructions in [MicroShift Host Deployment](https://github.com/microshift-io/microshift/blob/main/docs/run.md) to install the packages and run MicroShift.
 
