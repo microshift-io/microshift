@@ -46,9 +46,9 @@ Run [ShellCheck](https://github.com/koalaman/shellcheck) on all shell scripts an
 
 #### MicroShift
 
-The workflow implements a build process producing MicroShift RPM packages and Bootc
-container image artifacts. It is executed manually by the repository maintainers -
-no scheduled runs are configured at this time.
+The workflow implements a build process producing MicroShift RPM packages, DEB
+packages and Bootc container image artifacts. It is executed manually by the
+repository maintainers - no scheduled runs are configured at this time.
 
 The following parameters determine the MicroShift source code branch and the OKD
 container image dependencies used during the build process.
@@ -56,7 +56,7 @@ container image dependencies used during the build process.
 * [OKD version tag](https://quay.io/repository/okd/scos-release?tab=tags)
 
 The following actions are supported:
-* `rpms`: Build MicroShift RPM packages
+* `packages`: Build MicroShift RPM and DEB packages
 * `bootc-image`: Build a MicroShift Bootc container image
 * `all`: Build all of the above
 
