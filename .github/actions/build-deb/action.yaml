@@ -8,6 +8,10 @@ inputs:
   okd-version-tag:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
     required: true
+  build-rpms:
+    description: Build MicroShift RPM packages
+    required: false
+    default: true
 
 runs:
   using: "composite"
@@ -20,10 +24,14 @@ runs:
       if: always()
       uses: ./.github/actions/debug-info
 
+    # Only prepare the build and run environment if the RPM packages are built.
+    # If RPM packages were built elsewhere, the environment is already prepared.
     - name: Prepare the build and run environment
+      if: ${{ inputs.build-rpms == 'true' }}
       uses: ./.github/actions/prebuild
 
     - name: Build MicroShift RPMs
+      if: ${{ inputs.build-rpms == 'true' }}
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
