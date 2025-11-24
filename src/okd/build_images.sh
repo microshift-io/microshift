@@ -106,7 +106,13 @@ kube_proxy_image() {
   local -r dockerfile_path="images/kube-proxy/Dockerfile.rhel"
   local -r repo="${WORKDIR}/$(basename "${repo_url}")"
 
-  git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
+  # Use the main branch of the sdn repository as a fallback because
+  # it may not have all the OpenShift release tags
+  if ! git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}" ; then
+    echo "WARNING: Failed to clone the sdn repository for the branch '${OCP_BRANCH}'. Using the main branch as a fallback."
+    git_clone_repo "${repo_url}" main "${repo}"
+  fi
+
   # This is a special case because the 4.17 image is not available in the registry
   # for the ARM64 platform, so we use the 4.19 image instead.
   sed -i 's|^FROM registry.ci.openshift.org/ocp/builder.*|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.22-openshift-4.19 AS builder|' "${dockerfile_path}"

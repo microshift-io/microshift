@@ -80,6 +80,13 @@ _get_ip_address() {
     echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}'
 }
 
+# Notes:
+# - The container joins the cluster network and gets the cluster network IP
+#   address when the ISOLATED_NETWORK environment variable is set to 0.
+# - The /dev directory is shared with the container to enable TopoLVM CSI driver,
+#   masking the devices that may conflict with the host
+# - The containers storage is mounted on a tmpfs to avoid usage of fuse-overlayfs,
+#   which is less efficient than the default driver
 _add_node() {
     local -r name="${1}"
     local -r network_name="${2}"
@@ -256,7 +263,8 @@ cluster_destroy() {
         echo "Stopping container: ${container}"
         sudo podman stop --time 0 "${container}" || true
         echo "Removing container: ${container}"
-        sudo podman rm -f "${container}" || true
+        # Remove the container and its anonymous volumes
+        sudo podman rm -f --volumes "${container}" || true
     done
 
     if sudo podman network exists "${USHIFT_MULTINODE_CLUSTER}"; then
