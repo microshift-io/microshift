@@ -1,5 +1,8 @@
-name: release-rpms-and-images
-# Workflow to build and release MicroShift RPMs and container images
+name: release-packages-and-images
+# Workflow to build and release the following MicroShift artifacts:
+# - RPM packages
+# - DEB packages
+# - Bootc container images
 
 on:
   workflow_dispatch:
@@ -18,7 +21,7 @@ on:
         default: all
         options:
         - all
-        - rpms
+        - packages
         - bootc-image
 
 jobs:
@@ -57,10 +60,9 @@ jobs:
           image-ref: localhost/microshift-okd:latest
           run-clean: false
 
-        # The release process consumes the RPMs and the container image
-        # prepared by the build action.
+      # Prepare the RPM archives to be released before converting to DEB packages.
       - name: Prepare the RPM archives
-        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
+        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         shell: bash
         run : |
           # Archive sources separately from the RPMs
@@ -71,13 +73,31 @@ jobs:
           cd /mnt/rpms
           sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
 
-      - name: Release RPMs
-        if: contains(fromJSON('["all", "rpms"]'), inputs.build)
+        # This step is run after the RPM archives are prepared to avoid
+        # including DEB packages in the RPM archive.
+      - name: Convert the RPMs to DEB packages
+        if: contains(fromJSON('["all", "packages"]'), inputs.build)
+        uses: ./.github/actions/build-deb
+        with:
+          ushift-branch: ${{ inputs.ushift-branch }}
+          okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          build-rpms: false
+
+      - name: Prepare the DEB archives
+        if: contains(fromJSON('["all", "packages"]'), inputs.build)
+        shell: bash
+        run: |
+          cd /mnt/rpms/deb
+          sudo tar zcvf /mnt/release/microshift-debs-$(uname -m).tgz .
+
+      - name: Release RPM and DEB packages
+        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           files: |
             /mnt/release/microshift-rpms-*.tgz
+            /mnt/release/microshift-debs-*.tgz
             /mnt/release/microshift-src.tgz
           overwrite_files: true
 
