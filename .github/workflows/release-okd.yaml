@@ -6,7 +6,7 @@ on:
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
-      ushift-branch:
+      ushift-ref:
         default: "main"
         description: MicroShift branch from https://github.com/openshift/microshift/branches
         type: string
@@ -22,7 +22,7 @@ on:
 # The workflow dispatch inputs are not inherited by the scheduled workflow runs.
 # Use environment variables to pass the inputs to the build action.
 env:
-  USHIFT_BRANCH: ${{ github.event.inputs.ushift-branch || 'main' }}
+  USHIFT_REF: ${{ github.event.inputs.ushift-ref || 'main' }}
   OKD_VERSION_TAG: ${{ github.event.inputs.okd-version-tag || 'latest' }}
   OKD_TARGET_REGISTRY: ${{ github.event.inputs.okd-target-registry || 'ghcr.io/microshift-io/okd' }}
 
@@ -41,7 +41,7 @@ jobs:
       - name: Run the OKD release images build action
         uses: ./.github/actions/build-okd
         with:
-          ushift-branch: ${{ env.USHIFT_BRANCH }}
+          ushift-ref: ${{ env.USHIFT_REF }}
           okd-version-tag: ${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }}
           target-arch: arm64
           target-registry: ${{ env.OKD_TARGET_REGISTRY }}

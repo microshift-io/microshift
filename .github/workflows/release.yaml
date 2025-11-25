@@ -7,7 +7,7 @@ name: release-packages-and-images
 on:
   workflow_dispatch:
     inputs:
-      ushift-branch:
+      ushift-ref:
         default: "main"
         description: MicroShift branch from https://github.com/openshift/microshift/branches
         type: string
@@ -46,7 +46,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-branch: ${{ inputs.ushift-branch }}
+          ushift-ref: ${{ inputs.ushift-ref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           build: ${{ inputs.build }}
 
@@ -79,7 +79,7 @@ jobs:
         if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: ./.github/actions/build-deb
         with:
-          ushift-branch: ${{ inputs.ushift-branch }}
+          ushift-ref: ${{ inputs.ushift-ref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           build-rpms: false
 
@@ -94,7 +94,7 @@ jobs:
         if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          tag_name: ${{ inputs.ushift-ref }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           files: |
             /mnt/release/microshift-rpms-*.tgz
             /mnt/release/microshift-debs-*.tgz
@@ -116,7 +116,7 @@ jobs:
 
           OKD_VERSION_TAG="${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}"
           TARGET_IMAGE="ghcr.io/${{ github.repository_owner }}/microshift"
-          TARGET_TAG="${{ inputs.ushift-branch }}-${OKD_VERSION_TAG}-${{ steps.detect-cpu-arch.outputs.go_arch }}"
+          TARGET_TAG="${{ inputs.ushift-ref }}-${OKD_VERSION_TAG}-${{ steps.detect-cpu-arch.outputs.go_arch }}"
 
           sudo podman tag microshift-okd "${TARGET_IMAGE}:${TARGET_TAG}"
           sudo podman push "${TARGET_IMAGE}:${TARGET_TAG}"
@@ -147,7 +147,7 @@ jobs:
 
           OKD_VERSION_TAG="${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}"
           TARGET_IMAGE="ghcr.io/${{ github.repository_owner }}/microshift"
-          TARGET_TAG="${{ inputs.ushift-branch }}-${OKD_VERSION_TAG}"
+          TARGET_TAG="${{ inputs.ushift-ref }}-${OKD_VERSION_TAG}"
 
           sudo podman manifest create "${TARGET_IMAGE}:${TARGET_TAG}"
           sudo podman manifest add "${TARGET_IMAGE}:${TARGET_TAG}" "${TARGET_IMAGE}:${TARGET_TAG}-amd64"
@@ -163,5 +163,5 @@ jobs:
         if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ushift-branch }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          tag_name: ${{ inputs.ushift-ref }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           body_path: /tmp/release.md

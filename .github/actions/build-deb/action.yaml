@@ -2,7 +2,7 @@ name: build-deb-packages
 description: Reusable action to build MicroShift Debian packages
 
 inputs:
-  ushift-branch:
+  ushift-ref:
     description: MicroShift branch from https://github.com/openshift/microshift/branches
     required: true
   okd-version-tag:
@@ -40,7 +40,7 @@ runs:
         # Run the RPM build process.
         cd ${GITHUB_WORKSPACE}/
         make rpm \
-          USHIFT_BRANCH=${{ inputs.ushift-branch }} \
+          USHIFT_REF=${{ inputs.ushift-ref }} \
           OKD_VERSION_TAG=${{ inputs.okd-version-tag }} \
           RPM_OUTDIR=/mnt/rpms
 

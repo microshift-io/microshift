@@ -4,7 +4,7 @@
 #
 
 # Options used in the 'rpm' target
-USHIFT_BRANCH ?= main
+USHIFT_REF ?= main
 OKD_VERSION_TAG ?= $$(curl -s --max-time 60 https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)
 RPM_OUTDIR ?=
 # Options used in the 'image' target
@@ -62,7 +62,7 @@ rpm:
 	sudo podman build \
         -t "${BUILDER_IMAGE}" \
         --ulimit nofile=524288:524288 \
-        --build-arg USHIFT_BRANCH="${USHIFT_BRANCH}" \
+        --build-arg USHIFT_REF="${USHIFT_REF}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
         --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
         -f packaging/microshift-builder.Containerfile .
@@ -98,8 +98,8 @@ image:
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
         --ulimit nofile=524288:524288 \
-     	--label microshift.branch="${USHIFT_BRANCH}" \
-     	--label okd.version="${OKD_VERSION_TAG}" \
+        --label microshift.ref="${USHIFT_REF}" \
+        --label okd.version="${OKD_VERSION_TAG}" \
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
         --build-arg BOOTC_IMAGE_TAG="${BOOTC_IMAGE_TAG}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \

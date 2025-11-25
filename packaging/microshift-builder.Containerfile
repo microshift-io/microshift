@@ -1,7 +1,7 @@
 FROM quay.io/centos-bootc/centos-bootc:stream9
 
 # Variables controlling the source of MicroShift components to build
-ARG USHIFT_BRANCH=main
+ARG USHIFT_REF=main
 ARG OKD_RELEASE_IMAGE=quay.io/okd/scos-release
 ARG OKD_VERSION_TAG
 
@@ -36,7 +36,7 @@ USER ${USER}:${USER}
 WORKDIR ${HOME}
 
 # Preparing the OS configuration for the build
-RUN git clone --branch "${USHIFT_BRANCH}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
+RUN git clone --branch "${USHIFT_REF}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
     echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
     "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret
 
