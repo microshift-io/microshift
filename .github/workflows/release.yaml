@@ -73,6 +73,19 @@ jobs:
           cd /mnt/rpms
           sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
 
+      - name: Store version in a variable
+        id: version
+        run: |
+          set -euo pipefail
+          echo "version=$(cat /mnt/rpms/version.txt)" >> "${GITHUB_OUTPUT}"
+
+      - name: Push version.txt to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: version.txt
+          path: /mnt/rpms/version.txt
+          overwrite: true
+
         # This step is run after the RPM archives are prepared to avoid
         # including DEB packages in the RPM archive.
       - name: Convert the RPMs to DEB packages
@@ -94,7 +107,7 @@ jobs:
         if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ushift-ref }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          tag_name: ${{ steps.version.outputs.version }}
           files: |
             /mnt/release/microshift-rpms-*.tgz
             /mnt/release/microshift-debs-*.tgz
@@ -114,9 +127,8 @@ jobs:
           set -euo pipefail
           set -x
 
-          OKD_VERSION_TAG="${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}"
           TARGET_IMAGE="ghcr.io/${{ github.repository_owner }}/microshift"
-          TARGET_TAG="${{ inputs.ushift-ref }}-${OKD_VERSION_TAG}-${{ steps.detect-cpu-arch.outputs.go_arch }}"
+          TARGET_TAG="${{ steps.version.outputs.version }}-${{ steps.detect-cpu-arch.outputs.go_arch }}"
 
           sudo podman tag microshift-okd "${TARGET_IMAGE}:${TARGET_TAG}"
           sudo podman push "${TARGET_IMAGE}:${TARGET_TAG}"
@@ -128,9 +140,15 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Detect OKD version tag
-        id: detect-okd-version
-        uses: ./.github/actions/okd-version
+      - uses: actions/download-artifact@v4
+        with:
+          name: version.txt
+          path: /tmp/
+
+      - name: Store version in a variable
+        id: version
+        run: |
+          echo "version=$(cat /tmp/version.txt)" >> "${GITHUB_OUTPUT}"
 
       - name: Login to GitHub Container Registry
         if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
@@ -145,9 +163,8 @@ jobs:
           set -euo pipefail
           set -x
 
-          OKD_VERSION_TAG="${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}"
           TARGET_IMAGE="ghcr.io/${{ github.repository_owner }}/microshift"
-          TARGET_TAG="${{ inputs.ushift-ref }}-${OKD_VERSION_TAG}"
+          TARGET_TAG="${{ steps.version.outputs.version }}"
 
           sudo podman manifest create "${TARGET_IMAGE}:${TARGET_TAG}"
           sudo podman manifest add "${TARGET_IMAGE}:${TARGET_TAG}" "${TARGET_IMAGE}:${TARGET_TAG}-amd64"
@@ -163,5 +180,5 @@ jobs:
         if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.ushift-ref }}-${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          tag_name: ${{ steps.version.outputs.version }}
           body_path: /tmp/release.md
