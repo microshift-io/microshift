@@ -108,12 +108,6 @@ image:
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/microshift-runner.Containerfile .
 
-# Notes:
-# - An isolated network is created if the ISOLATED_NETWORK environment variable is set
-# - The /dev directory is shared with the container to enable TopoLVM CSI driver,
-#   masking the devices that may conflict with the host
-# - The containers storage is mounted on a tmpfs to avoid usage of fuse-overlayfs,
-#   which is less efficient than the default driver
 .PHONY: run
 run:
 	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh create

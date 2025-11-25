@@ -58,3 +58,7 @@ RUN if [ "${EMBED_CONTAINER_IMAGES}" = "1" ] ; then \
 # shared as required by OVN images
 COPY --from=builder ${BUILDER_RSHARED_SERVICE} /usr/lib/systemd/system/microshift-make-rshared.service
 RUN systemctl enable microshift-make-rshared.service
+
+# The /var directory is shared with the container as an anonymous volume to enable
+# idmap mounts under /var/lib/kubelet for containers using 'hostUsers: false'
+VOLUME ["/var"]

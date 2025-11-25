@@ -80,7 +80,7 @@ function install_debpkg() {
     # Install the package and its dependencies
     apt-get update  -y -q
     # shellcheck disable=SC2086
-    apt-get install -y -q "${debpkg}=${version}*" ${extra_packages}
+    apt-get install -y -q --allow-downgrades "${debpkg}=${version}*" ${extra_packages}
 }
 
 function install_prereqs() {
