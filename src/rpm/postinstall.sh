@@ -36,8 +36,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Configure network and add some useful utilities
-dnf install -y firewalld systemd-resolved \
-    jq bash-completion
+dnf install -y firewalld jq bash-completion
 firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
 firewall-offline-cmd --zone=trusted --add-source=169.254.169.1
 # Multinode clusters require connectivity on both apiserver and etcd
@@ -54,7 +53,8 @@ EOF
 # With kindnet present:
 # - No need for openvswitch service which is enabled by default once MicroShift
 #   is installed. Disable the service to avoid the need to configure it.
-# - Need to disable systemd-resolved service to allow proper host name resolution.
+# - Need to disable systemd-resolved service to allow proper host name resolution
+#   in Bootc containers running in privileged mode.
 # - May need to install the containernetworking-plugins package from the package
 #   GitHub release page (e.g. CentOS 10).
 if rpm -q microshift-kindnet &>/dev/null; then
