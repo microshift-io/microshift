@@ -1,0 +1,91 @@
+name: quick-start-clean
+description: Reusable action to run the quick start and clean scripts
+
+inputs:
+  bootc-image-url:
+    description: Base Bootc image URL used for the test environment
+    required: true
+  bootc-image-tag:
+    description: Base Bootc image tag used for the test environment
+    required: true
+  install-tag:
+    description: Tag to use for the MicroShift RPM packages
+    required: false
+    default: "latest"
+  run-clean:
+    description: Run the clean script
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare the test environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # Mask the systemd-resolved and its related services to prevent them from
+        # interfering with the host DNS resolver.
+        # See: https://gitlab.com/fedora/bootc/tracker/-/issues/80
+        mask_opts=""
+        for service in systemd-resolved.service systemd-resolved-varlink.socket systemd-resolved-monitor.socket ; do
+          mask_opts="${mask_opts} --security-opt mask=/usr/lib/systemd/system/${service}"
+        done
+
+        sudo podman run --rm --privileged -d \
+          -v /dev:/dev \
+          --name microshift-quickrpm-test \
+          ${mask_opts} \
+          "${{ inputs.bootc-image-url }}:${{ inputs.bootc-image-tag }}"
+
+        # Wait up to 60 seconds for the container to initialize the system services
+        is_running=false
+        for _ in {1..60}; do
+          running=$(sudo podman exec -i microshift-quickrpm-test systemctl is-system-running || true)
+          if [ "${running}" = "running" ] || [ "${running}" = "degraded" ] ; then
+            is_running=true
+            break;
+          fi
+          sleep 1;
+        done
+        if [ "${is_running}" = "false" ]; then
+          echo "ERROR: The container did not initialize the system services within 60 seconds"
+          exit 1
+        fi
+
+    - name: Run the quick RPM installation script
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        sudo podman exec -i microshift-quickrpm-test \
+          env TAG="${{ inputs.install-tag }}" \
+          bash -xeuo pipefail < ./src/quickrpm.sh
+
+    - name: Run the quick clean script
+      if: ${{ inputs.run-clean == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        sudo podman exec -i microshift-quickrpm-test bash -xeuo pipefail < ./src/quickclean.sh
+
+        # Remove the container used for the test
+        sudo podman rm -f microshift-quickrpm-test --time 0
+
+    # Uncomment this to enable tmate-debug on failure
+    # - name: Pause and open tmate debug session
+    #   if: failure()
+    #   uses: ./.github/actions/tmate-debug
+
+    - name: Collect debug information on failure
+      if: failure()
+      uses: ./.github/actions/debug-info
+
+    - name: Collect MicroShift container sosreport on failure
+      if: failure()
+      uses: ./.github/actions/sos-report
