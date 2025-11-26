@@ -1,0 +1,40 @@
+---
+- name: Create temporary directory for k9s download
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: k9s_download_
+  register: temp_k9s_dir
+
+- name: Download k9s tarball
+  ansible.builtin.get_url:
+    url: "{{ k9s_download_url_template | replace('{{ k9s_version }}', k9s_version) }}"
+    dest: "{{ temp_k9s_dir.path }}/k9s.tar.gz"
+    mode: '0644'
+
+- name: Unarchive k9s tarball
+  ansible.builtin.unarchive:
+    src: "{{ temp_k9s_dir.path }}/k9s.tar.gz"
+    dest: "{{ temp_k9s_dir.path }}"
+    remote_src: yes # Indicates that the src is on the managed node
+
+- name: Install k9s binary
+  ansible.builtin.copy:
+    src: "{{ temp_k9s_dir.path }}/k9s"
+    dest: "{{ k9s_install_dir }}/k9s"
+    mode: '0755'
+    remote_src: yes
+
+- name: Clean up k9s temporary directory
+  ansible.builtin.file:
+    path: "{{ temp_k9s_dir.path }}"
+    state: absent
+  when: temp_k9s_dir.path is defined
+
+- name: add kubeconfig to bashrc
+  ansible.builtin.lineinfile:
+    path: /root/.bashrc
+    line: 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig'
+    state: present
+    create: yes
+  
+  
