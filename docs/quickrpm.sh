@@ -1,0 +1,1 @@
+../src/quickrpm.sh
