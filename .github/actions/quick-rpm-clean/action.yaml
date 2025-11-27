@@ -1,5 +1,5 @@
-name: quick-start-clean
-description: Reusable action to run the quick start and clean scripts
+name: quick-rpm-clean
+description: Reusable action to run the quick RPM installation and clean procedures
 
 inputs:
   bootc-image-url:
@@ -34,16 +34,17 @@ runs:
           mask_opts="${mask_opts} --security-opt mask=/usr/lib/systemd/system/${service}"
         done
 
-        sudo podman run --rm --privileged -d \
+        sudo podman run --privileged -d \
           -v /dev:/dev \
-          --name microshift-quickrpm-test \
+          --tmpfs /var/lib/containers \
+          --name microshift-okd \
           ${mask_opts} \
           "${{ inputs.bootc-image-url }}:${{ inputs.bootc-image-tag }}"
 
         # Wait up to 60 seconds for the container to initialize the system services
         is_running=false
         for _ in {1..60}; do
-          running=$(sudo podman exec -i microshift-quickrpm-test systemctl is-system-running || true)
+          running=$(sudo podman exec -i microshift-okd systemctl is-system-running || true)
           if [ "${running}" = "running" ] || [ "${running}" = "degraded" ] ; then
             is_running=true
             break;
@@ -61,9 +62,13 @@ runs:
         set -euo pipefail
         set -x
 
-        sudo podman exec -i microshift-quickrpm-test \
+        sudo podman exec -i microshift-okd \
           env TAG="${{ inputs.install-tag }}" \
           bash -xeuo pipefail < ./src/quickrpm.sh
+
+        # Restart the greenboot service synchronously to check the health of the system.
+        # The command exits with the status of the service.
+        sudo podman exec -i microshift-okd systemctl restart greenboot-healthcheck.service
 
     - name: Run the quick clean script
       if: ${{ inputs.run-clean == 'true' }}
@@ -72,10 +77,18 @@ runs:
         set -euo pipefail
         set -x
 
-        sudo podman exec -i microshift-quickrpm-test bash -xeuo pipefail < ./src/quickclean.sh
+        sudo podman exec -i microshift-okd \
+          bash -xeuo pipefail < ./src/quickclean.sh
+
+    - name: Clean up test container
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
 
         # Remove the container used for the test
-        sudo podman rm -f microshift-quickrpm-test --time 0
+        sudo podman rm -f microshift-okd --time 0 || true
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
