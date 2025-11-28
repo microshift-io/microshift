@@ -1,9 +1,12 @@
 FROM quay.io/centos-bootc/centos-bootc:stream9
 
 # Variables controlling the source of MicroShift components to build
-ARG USHIFT_REF=main
+ARG USHIFT_GITREF=main
 ARG OKD_RELEASE_IMAGE=quay.io/okd/scos-release
 ARG OKD_VERSION_TAG
+
+ENV OKD_VERSION_TAG=${OKD_VERSION_TAG}
+ENV USHIFT_GITREF=${USHIFT_GITREF}
 
 # Internal variables
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
@@ -37,7 +40,7 @@ USER ${USER}:${USER}
 WORKDIR ${HOME}
 
 # Preparing the OS configuration for the build
-RUN git clone --branch "${USHIFT_REF}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
+RUN git clone --branch "${USHIFT_GITREF}" --single-branch "${USHIFT_GIT_URL}" "${HOME}/microshift" && \
     echo '{"auths":{"fake":{"auth":"aWQ6cGFzcwo="}}}' > /tmp/.pull-secret && \
     "${HOME}/microshift/scripts/devenv-builder/configure-vm.sh" --no-build --no-set-release-version --skip-dnf-update /tmp/.pull-secret
 
@@ -56,7 +59,7 @@ RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/ma
 
 # Building all MicroShift downstream RPMs and SRPMs
 # hadolint ignore=DL3059
-RUN "${USHIFT_BUILDRPMS_SCRIPT}" rpm srpm
+RUN "${USHIFT_BUILDRPMS_SCRIPT}" all
 
 # Building Kindnet upstream RPM
 COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"

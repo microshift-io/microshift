@@ -19,7 +19,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-ref: main
+          ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream9
@@ -40,7 +40,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-ref: main
+          ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream10
@@ -64,7 +64,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-ref: main
+          ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
           bootc-image-tag: 42
@@ -85,7 +85,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build-deb
         with:
-          ushift-ref: main
+          ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
 
   isolated-network:
@@ -111,7 +111,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-ref: main
+          ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           isolated-network: 1
           ovnk-networking: ${{ matrix.ovnk-networking }}

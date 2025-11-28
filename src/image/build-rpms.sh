@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -xeuo pipefail
+set -euo pipefail
 
 # Primary purpose of this script is to build the MicroShift RPMs and SRPMs
 # with adjusted version string.
@@ -7,24 +7,46 @@ set -xeuo pipefail
 # which would not provide good information to identify the build and trace back its contents.
 # Following script overrides the version to include information about the downstream version and commit, and OKD tag.
 
-target=all
-if [[ "$#" -eq 1 ]]; then
-    if [[ "${1}" != "all" && "${1}" != "rpm" && "${1}" != "srpm" ]]; then
-        echo "Script accepts at most one argument: all, rpm or srpm"
-        echo "If no argument is provided, the default is 'all'"
-        exit 1
-    fi
-    target="${1}"
+usage() {
+    echo "Usage: $(basename "$0") <all | rpm | srpm>"
+    echo ""
+    echo "Script expects to be run from the root of the MicroShift repository"
+    echo "Following env vars are required: USHIFT_GITREF, OKD_VERSION_TAG"
+    exit 1
+}
+
+if [[ "${#}" -ne 1 ]]; then
+    usage
 fi
 
-cd "${HOME}/microshift"
+target="${1}"
+
+case "${target}" in
+    all) :;;
+    rpm) :;;
+    srpm) :;;
+    *)
+        echo -e "ERROR: Unknown command: ${target}\n"
+        usage
+        ;;
+esac
+
+if [[ -z "${USHIFT_GITREF}" ]]; then
+    echo "ERROR: USHIFT_GITREF is not set"
+    usage
+fi
+
+if [[ -z "${OKD_VERSION_TAG}" ]]; then
+    echo "ERROR: OKD_VERSION_TAG is not set"
+    usage
+fi
 
 SOURCE_GIT_COMMIT="$(git rev-parse --short 'HEAD^{commit}')"
 
 # MICROSHIFT_VERSION must start with X.Y.Z for the internals to correctly parse the version.
-# If USHIFT_REF is a tag, use it. Otherwise parse the version from Makefile.version.*.var file.
-if [[ $(git tag -l "${USHIFT_REF}") ]]; then
-    MICROSHIFT_VERSION="${USHIFT_REF}"
+# If USHIFT_GITREF is a tag, use it. Otherwise parse the version from Makefile.version.*.var file.
+if [[ $(git tag -l "${USHIFT_GITREF}") ]]; then
+    MICROSHIFT_VERSION="${USHIFT_GITREF}"
 else
     MICROSHIFT_VERSION="$(awk -F'[=.-]' '{print $2 "." $3 "." $4}' Makefile.version.aarch64.var | sed -e 's/ //g')"
 fi
@@ -38,7 +60,7 @@ MICROSHIFT_VERSION="${MICROSHIFT_VERSION}-g${SOURCE_GIT_COMMIT}-${OKD_VERSION_TA
 MICROSHIFT_VERSION=${MICROSHIFT_VERSION//-/_}
 
 RPM_RELEASE="1"
-SOURCE_GIT_TAG="$(git describe --long --tags --abbrev=7 --match 'v[0-9]*' || echo "v0.0.0-unknown-${SOURCE_GIT_COMMIT}")"
+SOURCE_GIT_TAG="${MICROSHIFT_VERSION}"
 SOURCE_GIT_TREE_STATE=clean # Because we're updating downstream specfile, but that shouldn't be a reason to have -dirty suffix.
 MICROSHIFT_VARIANT=community
 
@@ -57,4 +79,4 @@ if [[ "${target}" == "all" || "${target}" == "srpm" ]]; then
     ./packaging/rpm/make-rpm.sh srpm local
 fi
 
-echo "${MICROSHIFT_VERSION}" > "${HOME}/microshift/_output/rpmbuild/RPMS/version.txt"
+echo "${MICROSHIFT_VERSION}" > _output/rpmbuild/RPMS/version.txt

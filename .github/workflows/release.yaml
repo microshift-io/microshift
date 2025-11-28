@@ -7,9 +7,9 @@ name: release-packages-and-images
 on:
   workflow_dispatch:
     inputs:
-      ushift-ref:
+      ushift-gitref:
         default: "main"
-        description: MicroShift branch from https://github.com/openshift/microshift/branches
+        description: MicroShift git ref (branch, tag, commit) from https://github.com/openshift/microshift/branches
         type: string
       okd-version-tag:
         default: "latest"
@@ -46,7 +46,7 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-ref: ${{ inputs.ushift-ref }}
+          ushift-gitref: ${{ inputs.ushift-gitref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           build: ${{ inputs.build }}
 
@@ -77,6 +77,10 @@ jobs:
         id: version
         run: |
           set -euo pipefail
+          if [ ! -f /mnt/rpms/version.txt ]; then
+            echo "ERROR: version.txt not found at /mnt/rpms/version.txt"
+            exit 1
+          fi
           echo "version=$(cat /mnt/rpms/version.txt)" >> "${GITHUB_OUTPUT}"
 
       - name: Push version.txt to artifacts
@@ -92,7 +96,7 @@ jobs:
         if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: ./.github/actions/build-deb
         with:
-          ushift-ref: ${{ inputs.ushift-ref }}
+          ushift-gitref: ${{ inputs.ushift-gitref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           build-rpms: false
 

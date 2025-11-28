@@ -24,7 +24,7 @@ The following options can be specified in the make command line using the `NAME=
 
 | Name            | Required | Default  | Comments |
 |-----------------|----------|----------|----------|
-| USHIFT_REF      | no       | main     | [MicroShift repository branches](https://github.com/openshift/microshift/branches) |
+| USHIFT_GITREF   | no       | main     | [MicroShift repository branches](https://github.com/openshift/microshift/branches) |
 | OKD_VERSION_TAG | no       | latest   | [OKD version tags](https://quay.io/repository/okd/scos-release?tab=tags) |
 | RPM_OUTDIR      | no       | /tmp/... | RPM repository output directory |
 
@@ -50,7 +50,7 @@ RPMs are available in '/tmp/microshift-rpms-EI3IXg'
 
 Notes:
 - The MicroShift repository branch and the OKD version tag used to build the
-  packages can be overriden by specifying `USHIFT_REF` and `OKD_VERSION_TAG`
+  packages can be overridden by specifying `USHIFT_GITREF` and `OKD_VERSION_TAG`
   make command line arguments.
 - The path to the `RPM_OUTDIR` directory (either temporary or specified in
   the `make rpm` command line) is displayed in the end of the build procedure.
