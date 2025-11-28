@@ -81,7 +81,7 @@ EOF
 generate_release_file() {
   local -r rel_arch=$1
   local -r rel_file="${RELEASE_DIR}/release-topolvm-${rel_arch}.json"
-  local -r tmp_file=$(mktemp /tmp/topolvm-release-XXXXXX.txt)
+  local -r tmp_file=$(mktemp /tmp/topolvm-release-XXXXXX)
 
   for file in ${ASSETS_DIR}/02-cert-manager.yaml ${ASSETS_DIR}/03-topolvm.yaml ; do
     images="$(yq -r '.spec.template.spec.containers[].image' "${file}" | grep -v '^---$')"
