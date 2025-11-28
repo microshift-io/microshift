@@ -2,8 +2,8 @@ name: build-microshift
 description: Reusable action to build MicroShift RPMs and container images
 
 inputs:
-  ushift-branch:
-    description: MicroShift branch from https://github.com/openshift/microshift/branches
+  ushift-gitref:
+    description: MicroShift git ref (branch, tag, commit) from https://github.com/openshift/microshift/branches
     required: true
   okd-version-tag:
     description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
@@ -51,7 +51,7 @@ runs:
         # Run the RPM build process.
         cd ${GITHUB_WORKSPACE}/
         make rpm \
-          USHIFT_BRANCH="${{ inputs.ushift-branch }}" \
+          USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
           RPM_OUTDIR=/mnt/rpms
 
