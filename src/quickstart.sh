@@ -104,7 +104,7 @@ echo "LVM disk:  ${LVM_DISK}"
 echo "VG name:   ${VG_NAME}"
 echo
 echo "To access the container, run the following command:"
-echo " - sudo podman exec -it microshift-okd /bin/bash"
+echo " - sudo podman exec -it microshift-okd /bin/bash -l"
 echo
 echo "To verify that MicroShift pods are up and running, run the following command:"
 echo " - sudo podman exec -it microshift-okd oc get pods -A"

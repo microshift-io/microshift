@@ -10,13 +10,21 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-image_ref="$(podman inspect --format '{{.Image}}' microshift-okd)"
+# Clean up the MicroShift container and image
+image_ref="$(podman inspect --format '{{.Image}}' microshift-okd 2>/dev/null || true)"
+if [ -n "${image_ref:-}" ]; then
+    podman rm -f --time 0 microshift-okd || true
+    podman rmi -f "${image_ref}" || true
+fi
 
-# Stop and remove the container
-podman rm -f --time 0 microshift-okd || true
-
-# Remove the image
-podman rmi -f "${image_ref}" || true
+# Clean up the MicroShift data and uninstall RPMs
+if rpm -q microshift &>/dev/null ; then
+    echo y | microshift-cleanup-data --all
+    dnf remove -y 'microshift*'
+    # Undo post-installation configuration
+    rm -f /etc/sysctl.d/99-microshift.conf
+    rm -f /root/.kube/config
+fi
 
 # Remove the LVM disk
 if [ -f "${LVM_DISK}" ]; then

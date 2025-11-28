@@ -69,7 +69,7 @@ fi
 # directory may not exist, depending on the operating system.
 if [ ! -f /root/.kube/config ] ; then
     mkdir -p "$(readlink -f /root)/.kube"
-    ln -s /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
+    ln -sf /var/lib/microshift/resources/kubeadmin/kubeconfig /root/.kube/config
 fi
 
 # Enable the MicroShift service

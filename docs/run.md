@@ -10,9 +10,9 @@ inside a Bootc container.
 
 ### Install RPM
 
-Run the following command to install MicroShift RPM packages from the local
-repository copied from the build container image.
-See [Create RPM Packages](../docs/build.md#create-rpm-packages) for more information.
+Run the following commands to install MicroShift RPM packages from a local repository.
+This repository should be either [built locally](../docs/build.md#create-rpm-packages)
+or downloaded from [Releases](https://github.com/microshift-io/microshift/releases).
 
 ```bash
 RPM_REPO_DIR=/tmp/microshift-rpms
@@ -56,9 +56,9 @@ oc get pods -A
 
 ### Install DEB
 
-Run the following command to install MicroShift DEB packages from the local
-repository copied from the build container image.
-See [Create DEB Packages](../docs/build.md#create-deb-packages) for more information.
+Run the following commands to install MicroShift DEB packages from the RPM repository.
+This repository should be either [built locally](../docs/build.md#create-deb-packages)
+or downloaded from [Releases](https://github.com/microshift-io/microshift/releases).
 
 ```bash
 DEB_REPO_DIR=/tmp/microshift-rpms/deb

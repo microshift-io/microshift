@@ -50,12 +50,25 @@ fi
 case $1 in
 -create)
     repo_path="$2"
-    repo_version="$(dnf --quiet --disablerepo="*" --repofrompath=ushift,file://"${repo_path}" --enablerepo=ushift repoquery --qf "%{VERSION}" microshift | cut -d. -f1,2)"
+    if [ ! -d "${repo_path}" ] ; then
+        echo "ERROR: The RPM repository path '${repo_path}' does not exist"
+        exit 1
+    fi
+
+    repo_version="$(dnf --quiet --disablerepo="*" \
+        --repofrompath=ushift,file://"${repo_path}" \
+        --enablerepo=ushift repoquery --qf "%{VERSION}" microshift | cut -d. -f1,2)"
+    if [ -z "${repo_version:-}" ] ; then
+        echo "ERROR: Could not determine the MicroShift version from the RPM repository at '${repo_path}'"
+        exit 1
+    fi
     create_repos "${repo_path}" "${repo_version}"
     ;;
+
 -delete)
     delete_repos
     ;;
+
 *)
     usage
 esac
