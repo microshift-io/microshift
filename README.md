@@ -61,6 +61,7 @@ setup, next steps for accessing MicroShift and uninstall instructions.
 ## Documentation
 
 * [Build MicroShift](./docs/build.md)
+* [Versioning Scheme](./docs/versioning.md)
 * [MicroShift Host Deployment](./docs/run.md)
 * [MicroShift Bootc Deployment](./docs/run-bootc.md)
 * [GitHub Workflows](./docs/workflows.md)
