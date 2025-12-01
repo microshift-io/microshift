@@ -18,6 +18,7 @@ pkgs_to_remove = [
     'ai-model-serving',
     'cert-manager',
     'observability',
+    'sriov',
 ]
 
 # Sections to remove for the subpackages
