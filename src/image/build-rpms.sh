@@ -73,10 +73,11 @@ export MICROSHIFT_VARIANT
 
 if [[ "${target}" == "all" || "${target}" == "rpm" ]]; then
     ./packaging/rpm/make-rpm.sh rpm local
+    echo "${MICROSHIFT_VERSION}" > _output/rpmbuild/RPMS/version.txt
 fi
 
 if [[ "${target}" == "all" || "${target}" == "srpm" ]]; then
     ./packaging/rpm/make-rpm.sh srpm local
+    echo "${MICROSHIFT_VERSION}" > _output/rpmbuild/SRPMS/version.txt
 fi
 
-echo "${MICROSHIFT_VERSION}" > _output/rpmbuild/RPMS/version.txt

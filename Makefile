@@ -32,6 +32,7 @@ BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
+SRPM_IMAGE := microshift-okd-srpm
 
 #
 # Define the main targets
@@ -75,6 +76,19 @@ rpm:
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
+
+.PHONY: srpm
+srpm:
+	@echo "Building the MicroShift SRPM image"
+	outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
+	podman build \
+        -t "${SRPM_IMAGE}" \
+        --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
+        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
+		--volume "$${outdir}:/output:Z" \
+        -f packaging/srpm.Containerfile . && \
+	echo "SRPMs are available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
 rpm-to-deb:
