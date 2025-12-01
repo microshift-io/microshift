@@ -44,6 +44,9 @@ SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+include $(PROJECT_DIR)/src/copr/copr.mk
+
 #
 # Define the main targets
 #
@@ -115,7 +118,7 @@ rpm-to-deb:
 .PHONY: image
 image:
 	@if ! sudo podman image exists "${RPM_IMAGE}" ; then \
-		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
+		echo "ERROR: Run 'make rpm' or 'make rpm-copr' to build the MicroShift RPMs" ; \
 		exit 1 ; \
 	fi
 
