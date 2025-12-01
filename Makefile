@@ -34,6 +34,9 @@ LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 SRPM_IMAGE := microshift-okd-srpm
 
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+include $(PROJECT_DIR)/src/copr/copr.mk
+
 #
 # Define the main targets
 #
