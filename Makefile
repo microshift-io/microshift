@@ -36,6 +36,7 @@ endif
 
 BUILDER_IMAGE := microshift-okd-builder
 USHIFT_IMAGE := microshift-okd
+SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
@@ -44,8 +45,9 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | add-node | start | stop | clean | check>"
+	@echo "make <rpm | srpm | image | run | add-node | start | stop | clean | check>"
 	@echo "   rpm:       	build the MicroShift RPMs"
+	@echo "   srpm:      	build the MicroShift SRPM"
 	@echo "   image:     	build the MicroShift bootc container image"
 	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
 	@echo "   add-node:  	add a new node to the MicroShift cluster in a bootc container"
@@ -81,6 +83,19 @@ rpm:
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
+
+.PHONY: srpm
+srpm:
+	@echo "Building the MicroShift SRPM image"
+	outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
+	sudo podman build \
+        -t "${SRPM_IMAGE}" \
+        --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
+        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
+		--volume "$${outdir}:/output:Z" \
+        -f packaging/srpm.Containerfile . && \
+	echo "SRPMs are available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
 rpm-to-deb:
