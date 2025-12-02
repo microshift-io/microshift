@@ -15,7 +15,38 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      # Test the quick start and clean procedures with the latest published build
-      # of the MicroShift container image.
-      - name: Run the quick start script and clean scripts
+      # Test the quick Bootc image installation and clean procedures with the latest
+      # published build of the MicroShift container image.
+      - name: Run the quick Bootc image installation and clean scripts
         uses: ./.github/actions/quick-start-clean
+
+  quick-rpm-and-clean:
+    if: ${{ !github.event.pull_request.draft }}
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      # Test the quick RPM installation and clean procedures with the latest
+      # published build of the MicroShift RPM packages.
+      # The test is run on Fedora and CentOS images (newest to oldest order).
+      - name: Run the quick RPM installation and clean scripts (Fedora)
+        uses: ./.github/actions/quick-rpm-clean
+        with:
+          bootc-image-url: registry.fedoraproject.org/fedora-bootc
+          bootc-image-tag: 42
+
+      - name: Run the quick RPM installation and clean scripts (CentOS 10)
+        uses: ./.github/actions/quick-rpm-clean
+        with:
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream10
+
+      - name: Run the quick RPM installation and clean scripts (CentOS 9)
+        uses: ./.github/actions/quick-rpm-clean
+        with:
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream9

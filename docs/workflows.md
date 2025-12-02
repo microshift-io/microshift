@@ -34,8 +34,13 @@ The following configurations are tested:
 
 #### Installers
 
-Run the [Quick Start](../README.md#quick-start) procedure followed by the
-[quick clean](./quickclean.sh) script invocation.
+Run the [Quick Start](../README.md#quick-start) procedures to verify:
+* The latest published RPM packages on the supported operating systems and
+  architectures
+* The latest published Bootc images on the supported architectures
+
+The [quick clean](./quickclean.sh) script is called in the end to verify the
+uninstall procedure.
 
 #### Linters
 
