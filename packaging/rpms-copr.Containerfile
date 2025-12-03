@@ -8,6 +8,9 @@ RUN dnf install -y \
 ARG COPR_BUILD_ID=
 ARG BUILDER_RPM_REPO_PATH=/home/microshift/microshift/_output/rpmbuild/RPMS
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# hadolint ignore=DL3003
 RUN \
     copr download-build --rpms --chroot "epel-9-$(uname -m)" --dest /tmp/rpms ${COPR_BUILD_ID} && \
     mkdir -p /home/microshift/microshift && \
