@@ -16,67 +16,56 @@ by generating manifests from upstream configurations.
 
 ## Deployment
 
-### Kindnet
-
-Run the `src/kindnet/generate_kindnet_manifests.sh` script to generate the Kindnet
-manifests in `src/kindnet/assets/kindnet`.
+Run the `src/kindnet/generate_manifests.sh` script to generate both Kindnet and
+Kube-proxy manifests.
 
 This script will:
+- Fetch the latest Kindnet image from Docker Hub (`docker.io/kindest/kindnetd`)
+- Fetch the latest Kube-proxy image from Quay.io (`quay.io/okd/scos-content`) matching the configured version
 - Generate namespace, RBAC, and DaemonSet manifests for Kindnet
-- Generate kustomization files with architecture-specific image references
-- Display a path to the generated manifests
-
-```
-$ ./src/kindnet/generate_kindnet_manifests.sh
-Generating kindnet manifests for kindnetd...
-kindnet manifests generated in /home/microshift/microshift-io/src/kindnet/assets/kindnet
-
-$ ls -1 /home/microshift/microshift-io/src/kindnet/assets/kindnet
-00-namespace.yaml
-01-service-account.yaml
-02-cluster-role.yaml
-03-cluster-role-binding.yaml
-04-daemonset.yaml
-kustomization.yaml
-kustomization.aarch64.yaml
-kustomization.x86_64.yaml
-```
-
-### Kube-Proxy
-
-Run the `src/kindnet/generate_kube_proxy_manifests.sh` script to generate the
-Kube-proxy manifests in `src/kindnet/assets/kube-proxy`.
-
-This script will:
 - Generate namespace, RBAC, ConfigMap, and DaemonSet manifests for Kube-proxy
 - Generate kustomization files with architecture-specific image references
-- Display a path to the generated manifests
+- Generate release JSON files with the resolved image digests
 
 ```
-$ ./src/kindnet/generate_kube_proxy_manifests.sh
+$ ./src/kindnet/generate_manifests.sh
+=========================================
+Generating kindnet and kube-proxy manifests
+=========================================
+
+Fetching latest kindnet image info...
+Latest kindnet tag: v20250512-df8de77b
+ - aarch64 digest: sha256:2bdc3188f2ddc8e54841f69ef900a8dde1280057c97500f966a7ef31364021f1
+ - x86_64 digest: sha256:7a9c9fa59dd517cdc2c82eef1e51392524dd285e9cf7cb5a851c49f294d6cd11
+
+Fetching latest kube-proxy image info...
+Latest kube-proxy tag: 4.20.0-okd-scos.11-kube-proxy
+ - aarch64 digest: sha256:...
+ - x86_64 digest: sha256:182c4934a99762929597de8a3dce9c5980dc957eaa599199eb63f65669bd2643
+
+Generating kindnet manifests...
+kindnet manifests generated in /home/microshift/microshift-io/src/kindnet/assets/kindnet
+
 Generating kube-proxy manifests...
 kube-proxy manifests generated in /home/microshift/microshift-io/src/kindnet/assets/kube-proxy
 
-$ ls -1 /home/microshift/microshift-io/src/kindnet/assets/kube-proxy
-00-namespace.yaml
-01-service-account.yaml
-02-cluster-role.yaml
-03-cluster-role-binding.yaml
-04-configmap.yaml
-05-daemonset.yaml
-kustomization.yaml
-kustomization.aarch64.yaml
-kustomization.x86_64.yaml
+=========================================
+All manifests generated successfully!
+=========================================
 ```
 
 ## Updating Image References
 
-Image digests are stored in release JSON files:
+The script automatically fetches the latest images from upstream:
+- **Kindnet**: Fetches the latest tag from Docker Hub
+- **Kube-proxy**: Fetches the latest tag matching `KUBE_PROXY_VERSION` (configured in the script) from Quay.io
+
+To update to a new version, simply re-run the generation script. To change the
+Kube-proxy version, edit the `KUBE_PROXY_VERSION` variable in `generate_manifests.sh`.
+
+Image digests are stored in release JSON files after generation:
 - `src/kindnet/assets/kindnet/release-kindnet-{aarch64,x86_64}.json`
 - `src/kindnet/assets/kube-proxy/release-kube-proxy-{aarch64,x86_64}.json`
-
-To update to a new version, update the image references in these JSON files and
-re-run the corresponding generation script.
 
 ## Integrating with MicroShift RPMs
 
