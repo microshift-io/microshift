@@ -5,6 +5,7 @@ OWNER=${OWNER:-microshift-io}
 REPO=${REPO:-microshift}
 BRANCH=${BRANCH:-main}
 TAG=${TAG:-latest}
+COPR=${COPR:-"@${OWNER}/${REPO}"}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
@@ -58,11 +59,7 @@ function centos10_cni_plugins() {
 }
 
 function install_rpms() {
-    # Download the RPMs from the release
-    mkdir -p "${WORKDIR}/rpms"
-    curl -L -s --retry 5 \
-        "https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/microshift-rpms-$(uname -m).tgz" | \
-        tar zxf - -C "${WORKDIR}/rpms"
+    dnf copr enable -y "${COPR}"
 
     # Download the installation scripts
     for script in create_repos.sh postinstall.sh ; do
@@ -72,13 +69,22 @@ function install_rpms() {
         chmod +x "${WORKDIR}/${script}"
     done
 
+    # Transform:
+    # "@microshift-io/microshift" -> "copr:copr.fedorainfracloud.org:group_microshift-io:microshift"
+    # "USER/PROJECT" -> "copr:copr.fedorainfracloud.org:USER:PROJECT"
+    local -r repo_name="copr:copr.fedorainfracloud.org:$(echo "${COPR}" | sed -e 's,/,:,g' -e 's,@,group_,g')"
+
+    local -r minor_version="$(dnf --quiet \
+        --disablerepo='*' --enablerepo="${repo_name}" \
+        repoquery microshift \
+        --latest-limit 1 \
+        --queryformat '%{version}-%{release}' | cut -d. -f1,2)"
+
     # Create the RPM repository and install the RPMs
-    "${WORKDIR}/create_repos.sh" -create "${WORKDIR}/rpms"
-    # Disable weak dependencies to avoid the deployment of the microshift-networking
-    # RPM, which is not necessary when microshift-kindnet RPM is installed.
+    "${WORKDIR}/create_repos.sh" -deps-only "${minor_version}"
+
     dnf install -y --setopt=install_weak_deps=False \
         microshift microshift-kindnet microshift-topolvm
-    "${WORKDIR}/create_repos.sh" -delete
 }
 
 function prepare_lvm_disk() {
