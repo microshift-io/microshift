@@ -15,46 +15,114 @@ on:
         default: "latest"
         description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
         type: string
-      build:
-        type: choice
-        description: Types of artifacts to build
-        default: all
-        options:
-        - all
-        - packages
-        - bootc-image
+      copr-repo:
+        default: "@microshift-io/microshift"
+        description: COPR repository name
+        type: string
 
 jobs:
-  build-microshift:
-    strategy:
-      matrix:
-        runners: [ubuntu-24.04, ubuntu-24.04-arm]
-    name: Build MicroShift upstream
-    runs-on: ${{ matrix.runners }}
+  build-rpms:
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
-      - name: Detect the CPU architecture
-        id: detect-cpu-arch
-        uses: ./.github/actions/arch
+      - name: Prepare the build and run environment
+        uses: ./.github/actions/prebuild
 
       - name: Detect OKD version tag
         id: detect-okd-version
         uses: ./.github/actions/okd-version
 
+      - name: Build SRPM
+        shell: bash
+        run: |
+          cd ${GITHUB_WORKSPACE}/
+          make srpm \
+            USHIFT_GITREF=${{ inputs.ushift-gitref }} \
+            OKD_VERSION_TAG=${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }} \
+            SRPM_WORKDIR=/mnt/srpm
+
+      - name: Create COPR build
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+
+          make copr-create-build \
+            SRPM_WORKDIR=/mnt/srpm \
+            COPR_REPO_NAME="${{ inputs.copr-repo }}" \
+            COPR_CONFIG=/tmp/copr-config
+
+          make copr-watch-build \
+            SRPM_WORKDIR=/mnt/srpm \
+            COPR_REPO_NAME="${{ inputs.copr-repo }}"
+
+      - name: Persist version and build ID
+        uses: actions/upload-artifact@v4
+        with:
+          name: srpm-artifacts
+          path: |
+            /mnt/srpm/version.txt
+            /mnt/srpm/build.txt
+          overwrite: true
+
+
+  build-and-test-microshift:
+    needs: build-rpms
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: Build RPM images based on COPR build
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Prepare the build and run environment
+        uses: ./.github/actions/prebuild
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: srpm-artifacts
+          path: /tmp/srpm
+
+      - name: Store version
+        shell: bash
+        id: version
+        run: |
+          set -euo pipefail
+          test -f /tmp/srpm/version.txt
+          echo "version=$(cat /tmp/srpm/version.txt)" >> "${GITHUB_OUTPUT}"
+
+      - name: Detect the CPU architecture
+        id: detect-cpu-arch
+        uses: ./.github/actions/arch
+
+      - name: Create RPMs image with RPMs from COPR
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+
+          make rpm-copr \
+            SRPM_WORKDIR=/tmp/srpm \
+            RPM_OUTDIR=/mnt/rpms
+
       - name: Run the build action
         uses: ./.github/actions/build
         with:
-          ushift-gitref: ${{ inputs.ushift-gitref }}
-          okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
-          build: ${{ inputs.build }}
+          rpm-builder: rpm-copr-builder
+          build: bootc-image
 
       # Test the local container image with the quick start and clean procedures
       # before releasing the artifacts. Make sure not to run the clean scripts
       # because the images are needed for the release process.
       - name: Run the quick start script and clean scripts
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: ./.github/actions/quick-start-clean
         with:
           image-ref: localhost/microshift-okd:latest
@@ -62,38 +130,14 @@ jobs:
 
       # Prepare the RPM archives to be released before converting to DEB packages.
       - name: Prepare the RPM archives
-        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         shell: bash
         run : |
-          # Archive sources separately from the RPMs
-          sudo mv /mnt/rpms/srpms /mnt/srpms
-          cd /mnt/srpms
-          sudo tar zcvf /mnt/release/microshift-src.tgz .
-
           cd /mnt/rpms
           sudo tar zcvf /mnt/release/microshift-rpms-$(uname -m).tgz .
-
-      - name: Store version in a variable
-        id: version
-        run: |
-          set -euo pipefail
-          if [ ! -f /mnt/rpms/version.txt ]; then
-            echo "ERROR: version.txt not found at /mnt/rpms/version.txt"
-            exit 1
-          fi
-          echo "version=$(cat /mnt/rpms/version.txt)" >> "${GITHUB_OUTPUT}"
-
-      - name: Push version.txt to artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: version.txt
-          path: /mnt/rpms/version.txt
-          overwrite: true
 
         # This step is run after the RPM archives are prepared to avoid
         # including DEB packages in the RPM archive.
       - name: Convert the RPMs to DEB packages
-        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: ./.github/actions/build-deb
         with:
           ushift-gitref: ${{ inputs.ushift-gitref }}
@@ -101,31 +145,25 @@ jobs:
           build-rpms: false
 
       - name: Prepare the DEB archives
-        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         shell: bash
         run: |
           cd /mnt/rpms/deb
           sudo tar zcvf /mnt/release/microshift-debs-$(uname -m).tgz .
 
       - name: Release RPM and DEB packages
-        if: contains(fromJSON('["all", "packages"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: |
-            /mnt/release/microshift-rpms-*.tgz
             /mnt/release/microshift-debs-*.tgz
-            /mnt/release/microshift-src.tgz
           overwrite_files: true
 
       - name: Login to GitHub Container Registry
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: ./.github/actions/podman-login
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish Bootc container image for the target architecture
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         shell: bash
         run: |
           set -euo pipefail
@@ -137,8 +175,9 @@ jobs:
           sudo podman tag microshift-okd "${TARGET_IMAGE}:${TARGET_TAG}"
           sudo podman push "${TARGET_IMAGE}:${TARGET_TAG}"
 
+
   release-microshift:
-    needs: build-microshift
+    needs: build-and-test-microshift
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -146,22 +185,22 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: version.txt
-          path: /tmp/
+          name: srpm-artifacts
+          path: /tmp/srpm
 
       - name: Store version in a variable
         id: version
         run: |
-          echo "version=$(cat /tmp/version.txt)" >> "${GITHUB_OUTPUT}"
+          set -euo pipefail
+          test -f /tmp/srpm/version.txt
+          echo "version=$(cat /tmp/srpm/version.txt)" >> "${GITHUB_OUTPUT}"
 
       - name: Login to GitHub Container Registry
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: ./.github/actions/podman-login
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish Bootc container image manifest
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         shell: bash
         run: |
           set -euo pipefail
@@ -180,8 +219,18 @@ jobs:
           OWNER="${{ github.repository_owner }}" IMAGE="${TARGET_IMAGE}" TAG="${TARGET_TAG}" \
             envsubst < .github/workflows/release.md > /tmp/release.md
 
+      - name: COPR - Regenerate RPM repo
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run : |
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+          make copr-regenerate-repos \
+            COPR_CONFIG=/tmp/copr-config \
+            COPR_REPO_NAME="${{ inputs.copr-repo }}"
+
       - name: Add release note for bootc image usage
-        if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}

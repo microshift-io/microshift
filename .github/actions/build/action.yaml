@@ -19,18 +19,22 @@ inputs:
   isolated-network:
     description: Build and test the isolated network container image
     required: false
-    default: 0
+    default: "0"
   ovnk-networking:
     description: Use OVN-K networking
     required: false
-    default: 0
+    default: "0"
   node-count:
     description: Number of nodes in the MicroShift cluster
     required: false
-    default: 1
+    default: "1"
   build:
     description: Types of artifacts to build (all, rpms, bootc-image)
     required: true
+  rpm-builder:
+    description: RPM builder image to use
+    required: false
+    default: microshift-okd-builder
 
 runs:
   using: "composite"
@@ -40,9 +44,11 @@ runs:
       uses: ./.github/actions/debug-info
 
     - name: Prepare the build and run environment
+      if: inputs.rpm-builder == 'microshift-okd-builder'
       uses: ./.github/actions/prebuild
 
     - name: Build MicroShift RPMs
+      if: inputs.rpm-builder == 'microshift-okd-builder'
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
@@ -73,6 +79,7 @@ runs:
         make image \
           BOOTC_IMAGE_URL="${{ inputs.bootc-image-url }}" \
           BOOTC_IMAGE_TAG="${{ inputs.bootc-image-tag }}" \
+          BUILDER_IMAGE=${{ inputs.rpm-builder }} \
           ${make_opts[@]}
 
     - name: Run a test to verify that MicroShift is functioning properly
