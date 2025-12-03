@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MICROSHIFT_ROOT="/home/microshift/microshift"
-ARCH="$(uname -m)"
+ARCH="${ARCH:-$(uname -m)}"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
 oc_release_info() {

@@ -22,10 +22,12 @@ ISOLATED_NETWORK ?= 0
 SHELL := /bin/bash
 ARCH := $(shell uname -m)
 # Override the default OKD_RELEASE_IMAGE variable based on the architecture
+OKD_RELEASE_IMAGE_X86_64 ?= quay.io/okd/scos-release
+OKD_RELEASE_IMAGE_AARCH64 ?= ghcr.io/microshift-io/okd/okd-release-arm64
 ifeq ($(ARCH),aarch64)
-OKD_RELEASE_IMAGE ?= ghcr.io/microshift-io/okd/okd-release-arm64
+OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_AARCH64)
 else
-OKD_RELEASE_IMAGE ?= quay.io/okd/scos-release
+OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_X86_64)
 endif
 
 BUILDER_IMAGE ?= microshift-okd-builder
@@ -84,11 +86,12 @@ rpm:
 srpm:
 	@echo "Building the MicroShift SRPM image"
 	outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
-	podman build \
+	sudo podman build \
         -t "${SRPM_IMAGE}" \
         --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
+        --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
+        --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
 		--volume "$${outdir}:/output:Z" \
         -f packaging/srpm.Containerfile . && \
 	echo "SRPMs are available in '$${outdir}'"
