@@ -14,7 +14,8 @@ ENV OKD_VERSION_TAG=${OKD_VERSION_TAG}
 ENV USHIFT_GITREF=${USHIFT_GITREF}
 
 # Internal variables
-ARG OKD_REPO=quay.io/okd/scos-release
+ARG OKD_RELEASE_IMAGE_X86_64=quay.io/okd/scos-release
+ARG OKD_RELEASE_IMAGE_AARCH64=ghcr.io/microshift-io/okd/okd-release-arm64
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV HOME=/home/microshift
 ARG BUILDER_RPM_REPO_PATH=${HOME}/microshift/_output/rpmbuild/RPMS
@@ -45,10 +46,10 @@ RUN git clone --branch "${USHIFT_GITREF}" --single-branch "${USHIFT_GIT_URL}" "$
 
 # Replace component images with OKD image references
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_REPO}" "${OKD_VERSION_TAG}"
+RUN ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}"
+RUN ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
 
 WORKDIR ${HOME}/microshift/
-
 
 COPY ./src/kindnet/kindnet.spec /tmp/kindnet.spec
 COPY ./src/kindnet/assets/  ./assets/optional/
@@ -61,7 +62,8 @@ COPY ./src/topolvm/dropins/ ./packaging/microshift/dropins/
 COPY ./src/topolvm/greenboot/ ./packaging/greenboot/
 COPY ./src/topolvm/release/ ./assets/optional/topolvm/
 
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_REPO}" "${OKD_VERSION_TAG}"
+RUN ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}"
+RUN ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
 
 COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
 RUN python3 ${USHIFT_MODIFY_SPEC_SCRIPT} /tmp/kindnet.spec /tmp/topolvm.spec
