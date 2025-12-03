@@ -1,5 +1,23 @@
 ### Install and Run
 
+#### Quick Start
+
+MicroShift can be run on the host or inside a Bootc container.
+
+* Install MicroShift RPM packages on your host and start the MicroShift service.
+
+  ```bash
+  curl -s https://microshift-io.github.io/microshift/quickrpm.sh | \
+    sudo OWNER=${OWNER} TAG=${TAG} bash
+  ```
+
+* Bootstrap MicroShift inside a Bootc container on your host.
+
+  ```bash
+  curl -s https://microshift-io.github.io/microshift/quickstart.sh | \
+    sudo OWNER=${OWNER} TAG=${TAG} bash
+  ```
+
 #### RPM and DEB
 
 Review the instructions in [MicroShift Host Deployment](https://github.com/microshift-io/microshift/blob/main/docs/run.md) to install the packages and run MicroShift.
@@ -10,11 +28,6 @@ Load the Bootc container image using the following command:
 
 ```bash
 sudo podman pull ${IMAGE}:${TAG}
-```
-
-Or use the image with the `quickstart.sh`:
-```bash
-curl -s https://microshift-io.github.io/microshift/quickstart.sh | sudo OWNER=${OWNER} TAG=${TAG} bash
 ```
 
 Review the instructions in [MicroShift Bootc Deployment](https://github.com/microshift-io/microshift/blob/main/docs/run-bootc.md) to run the image.
