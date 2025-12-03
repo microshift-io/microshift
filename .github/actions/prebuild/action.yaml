@@ -28,7 +28,7 @@ runs:
         sudo rm -rvf /mnt/* || true
 
         # Create the necessary directories on the /mnt partition
-        sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release
+        sudo mkdir -p /mnt/tmp /mnt/rpms /mnt/release /mnt/srpm
         sudo chmod 1777 /mnt/tmp
 
         # Install the pre-requisites for the build and run environment
