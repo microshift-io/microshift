@@ -347,6 +347,63 @@ cluster_status() {
     return 0
 }
 
+
+cluster_env() {
+    local pod_name="${1:-}"
+    local command="${2:-}"
+    
+    # Determine pod_name: if empty or not a container, use default
+    if [ -z "${pod_name}" ]; then
+        pod_name="${NODE_BASE_NAME}1"
+    elif ! _is_container_created "${pod_name}" 2>/dev/null; then
+        # First argument is not a container, treat it as part of the command
+        command="${pod_name} ${command}"
+        pod_name="${NODE_BASE_NAME}1"
+    fi
+    
+    if ! _is_container_created "${pod_name}"; then
+        echo "ERROR: Container '${pod_name}' does not exist" >&2
+        exit 1
+    fi
+
+    local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
+    trap "rm -rf ${workdir}" EXIT INT TERM
+
+    echo "Copying kubeconfig from ${pod_name}..."
+    sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${pod_name}/kubeconfig" "${workdir}/kubeconfig"
+    sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
+
+    local -r podman_ip_gw=$(sudo podman network inspect "${USHIFT_MULTINODE_CLUSTER}" | jq -r '.[0].subnets.[0].gateway')
+    echo "${podman_ip_gw} ${pod_name}" > "${workdir}/hosts"
+
+    if [ -n "${command}" ]; then
+        # Execute the command and exit
+        echo "Executing command in environment with kubeconfig..."
+        unshare -Urm bash -c "
+            mount --bind ${workdir} /etc
+            export KUBECONFIG=/etc/kubeconfig
+            ${command}
+        "
+    else
+        # Start interactive shell
+        echo "Starting shell environment with kubeconfig..."
+        if [ -t 0 ] && [ -c /dev/tty ]; then
+            unshare -Urm bash -c "
+                mount --bind ${workdir} /etc
+                export KUBECONFIG=/etc/kubeconfig
+                exec bash -i
+            " < /dev/tty
+        else
+            unshare -Urm bash -c "
+                mount --bind ${workdir} /etc
+                export KUBECONFIG=/etc/kubeconfig
+                exec bash -i
+            "
+        fi
+    fi
+    rm -rf "${workdir}"
+}
+
 main() {
     case "${1:-}" in
         create)
@@ -381,6 +438,10 @@ main() {
             shift
             cluster_status
             ;;
+        env)
+            shift
+            cluster_env "$@"
+            ;;
         topolvm-create)
             shift
             create_topolvm_backend
@@ -390,7 +451,7 @@ main() {
             delete_topolvm_backend
             ;;
         *)
-            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|topolvm-create|topolvm-delete}"
+            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|env|topolvm-create|topolvm-delete}"
             exit 1
             ;;
     esac

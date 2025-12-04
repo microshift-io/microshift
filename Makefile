@@ -38,7 +38,7 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | add-node | start | stop | clean | check>"
+	@echo "make <rpm | image | run | add-node | start | stop | clean | check | env>"
 	@echo "   rpm:       	build the MicroShift RPMs"
 	@echo "   image:     	build the MicroShift bootc container image"
 	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
@@ -47,6 +47,8 @@ all:
 	@echo "   stop:      	stop the MicroShift cluster"
 	@echo "   clean:     	clean up the MicroShift cluster and the LVM backend"
 	@echo "   check:     	run the presubmit checks"
+	@echo "   env:       	create a shell environment with kubeconfig from remote POD"
+	@echo "               	use 'make env CMD=\"oc get pods -A\"' to run one-liner commands"
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
@@ -149,6 +151,10 @@ run-healthy:
 .PHONY: run-status
 run-status:
 	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh status
+
+.PHONY: env
+env:
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh env "" "${CMD}"
 
 .PHONY: clean
 clean:
