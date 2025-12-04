@@ -1116,104 +1116,12 @@ spec:
   volumeLifecycleModes:
     - Persistent
 ---
-# Source: topolvm/templates/certificates/certificates.yaml
-# Generate a CA Certificate used to sign certificates for the webhook
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: topolvm-webhook-ca
-  namespace: topolvm-system
-  labels:
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-spec:
-  secretName: topolvm-webhook-ca
-  duration: 87600h # 10y
-  issuerRef:
-    group: cert-manager.io
-    kind: Issuer
-    name: topolvm-webhook-selfsign
-  commonName: ca.webhook.topolvm
-  isCA: true
-  usages:
-    - digital signature
-    - key encipherment
-    - cert sign
----
-# Source: topolvm/templates/certificates/certificates.yaml
-# Finally, generate a serving certificate for the webhook to use
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: topolvm-mutatingwebhook
-  namespace: topolvm-system
-  labels:
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-spec:
-  secretName: topolvm-mutatingwebhook
-  duration: 8760h # 1y
-  issuerRef:
-    group: cert-manager.io
-    kind: Issuer
-    name: topolvm-webhook-ca
-  dnsNames:
-    - topolvm-controller
-    - topolvm-controller.topolvm-system
-    - topolvm-controller.topolvm-system.svc
-  usages:
-    - digital signature
-    - key encipherment
-    - server auth
-    - client auth
----
-# Source: topolvm/templates/certificates/issuers.yaml
-# Create a selfsigned Issuer, in order to create a root CA certificate for
-# signing webhook serving certificates
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: topolvm-webhook-selfsign
-  namespace: topolvm-system
-  labels:
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-spec:
-  selfSigned: {}
----
-# Source: topolvm/templates/certificates/issuers.yaml
-# Create an Issuer that uses the above generated CA certificate to issue certs
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: topolvm-webhook-ca
-  namespace: topolvm-system
-  labels:
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-spec:
-  ca:
-    secretName: topolvm-webhook-ca
----
 # Source: topolvm/templates/mutatingwebhooks.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: topolvm-hook
   annotations:
-    cert-manager.io/inject-ca-from: topolvm-system/topolvm-mutatingwebhook
   labels:
     helm.sh/chart: topolvm-15.5.2
     app.kubernetes.io/name: topolvm
