@@ -396,6 +396,11 @@ cluster_env() {
     # shellcheck disable=SC2064
     trap "rm -rf '${workdir}'" EXIT INT TERM
 
+    # see  CI issue https://github.com/actions/runner-images/issues/10443
+    sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0  >/dev/null 2>&1 || true
+
+
+
     echo "Copying kubeconfig from ${pod_name}..."
     sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${local_fqdn}/kubeconfig" "${workdir}/kubeconfig"
     sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
