@@ -116,6 +116,8 @@ jobs:
       - name: Run the build action
         uses: ./.github/actions/build
         with:
+          ushift-gitref: not-required
+          okd-version-tag: not-required
           rpm-builder: rpm-copr-builder
           build: bootc-image
 
@@ -140,8 +142,8 @@ jobs:
       - name: Convert the RPMs to DEB packages
         uses: ./.github/actions/build-deb
         with:
-          ushift-gitref: ${{ inputs.ushift-gitref }}
-          okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          ushift-gitref: not-required
+          okd-version-tag: not-required
           build-rpms: false
 
       - name: Prepare the DEB archives

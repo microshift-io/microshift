@@ -19,14 +19,14 @@ to enable the Kindnet or OVN-K networking support.
 | microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
 | microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
 
-## Package based systems (non-bootc)
+## Package-based systems (non-bootc)
 
 ### Installing MicroShift
 
 #### Local RPMs
 
 Run the following commands to install MicroShift RPM packages from a local repository.
-This repository should be either [built locally](../docs/build.md#create-rpm-packages).
+This repository should be [built locally](./build.md#create-rpm-packages).
 
 ```bash
 RPM_REPO_DIR=/tmp/microshift-rpms
@@ -60,7 +60,7 @@ sudo dnf install -y microshift microshift-kindnet
 
 Run the following command to install MicroShift DEB packages from the local
 repository copied from the build container image.
-See [Create DEB Packages](../docs/build.md#create-deb-packages) for more information.
+See [Create DEB Packages](./build.md#create-deb-packages) for more information.
 
 ```bash
 DEB_REPO_DIR=/tmp/microshift-rpms/deb

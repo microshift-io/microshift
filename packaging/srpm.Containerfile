@@ -23,7 +23,6 @@ ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
 ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
-ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ]; then \

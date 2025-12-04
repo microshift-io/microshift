@@ -29,7 +29,7 @@ copr-cfg-ensure-podman-secret:
 	@echo "Ensuring the COPR secret is available and is up to date"
 	if sudo podman secret exists "${COPR_SECRET_NAME}"; then \
 		sudo podman secret rm "${COPR_SECRET_NAME}" ; \
-	fi && \
+	fi ; \
 	sudo podman secret create "${COPR_SECRET_NAME}" "${COPR_CONFIG}"
 
 .PHONY: copr-cli
@@ -74,7 +74,6 @@ copr-watch-build: copr-cli
 	@echo "Watching the COPR build"
 	sudo podman run \
 		--rm \
-		--secret ${COPR_SECRET_NAME} \
 		--volume "${SRPM_WORKDIR}:/srpms:Z" \
 		"${COPR_CLI_IMAGE}" \
 		bash -c "copr-cli watch-build \$$(cat /srpms/build.txt)"
