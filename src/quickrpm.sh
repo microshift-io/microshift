@@ -80,6 +80,11 @@ function install_rpms() {
         --latest-limit 1 \
         --queryformat '%{version}-%{release}' | cut -d. -f1,2)"
 
+    if [[ -z "${minor_version}" ]]; then
+        echo "ERROR: Could not determine MicroShift version from COPR repo '${COPR}' (${repo_name})"
+        exit 1
+    fi
+
     # Create the RPM repository and install the RPMs
     "${WORKDIR}/create_repos.sh" -deps-only "${minor_version}"
 

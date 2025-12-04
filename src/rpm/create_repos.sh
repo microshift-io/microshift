@@ -72,6 +72,10 @@ case $1 in
 
 -deps-only)
     repo_version="$2"
+    if [ -z "${repo_version:-}" ] ; then
+        echo "ERROR: Missing argument"
+        usage
+    fi
     create_deps_repo "${repo_version}"
     ;;
 
