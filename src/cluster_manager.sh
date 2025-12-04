@@ -374,35 +374,43 @@ cluster_env() {
     fi
 
     local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
-    trap "rm -rf ${workdir}" EXIT INT TERM
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir}'" EXIT INT TERM
 
     echo "Copying kubeconfig from ${pod_name}..."
     sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${pod_name}/kubeconfig" "${workdir}/kubeconfig"
     sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
 
-    local -r podman_ip_gw=$(sudo podman network inspect "${USHIFT_MULTINODE_CLUSTER}" | jq -r '.[0].subnets.[0].gateway')
-    echo "${podman_ip_gw} ${pod_name}" > "${workdir}/hosts"
+    local -r podman_ip_gw=$(sudo podman network inspect "${USHIFT_MULTINODE_CLUSTER}" | jq -r '.[0].subnets.[0].gateway' 2>/dev/null)
+    if [ -z "${podman_ip_gw}" ]; then
+        echo "ERROR: Could not determine pod network gateway" >&2
+        exit 1
+    fi
+    cp /etc/hosts "${workdir}/hosts"  
+    echo "${podman_ip_gw} ${pod_name}" >> "${workdir}/hosts"
+   
 
     if [ -n "${command}" ]; then
         # Execute the command and exit
         echo "Executing command in environment with kubeconfig..."
         unshare -Urm bash -c "
-            mount --bind ${workdir} /etc
+            mount --bind \"${workdir}\" /etc
             export KUBECONFIG=/etc/kubeconfig
-            ${command}
+            sh -c \"${command}\"
         "
     else
         # Start interactive shell
         echo "Starting shell environment with kubeconfig..."
+        # Check TTY capability on host before unshare; redirect only if both conditions are met
         if [ -t 0 ] && [ -c /dev/tty ]; then
             unshare -Urm bash -c "
-                mount --bind ${workdir} /etc
+                mount --bind \"${workdir}\" /etc
                 export KUBECONFIG=/etc/kubeconfig
                 exec bash -i
             " < /dev/tty
         else
             unshare -Urm bash -c "
-                mount --bind ${workdir} /etc
+                mount --bind \"${workdir}\" /etc
                 export KUBECONFIG=/etc/kubeconfig
                 exec bash -i
             "
