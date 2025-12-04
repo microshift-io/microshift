@@ -47,7 +47,7 @@ for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm" | sort -u)
         exit 1
     fi
     # Save cri-o dependency to a file
-    crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -u | head -1 | cut -d. -f1,2)"
+    crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -uV | head -1 | cut -d. -f1,2)"
     [ -n "${crio_ver}" ] && echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"
 done
 
