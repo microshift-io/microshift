@@ -59,6 +59,12 @@ function centos10_cni_plugins() {
 }
 
 function install_rpms() {
+    if command -v dnf5 &>/dev/null; then
+        # Make sure that 'dnf copr' plugin is installed
+        # (it's present in the fedora:42, but missing from the fedora-bootc:42).
+        dnf install -y 'dnf5-command(copr)'
+    fi
+
     dnf copr enable -y "${COPR}"
 
     # Download the installation scripts
