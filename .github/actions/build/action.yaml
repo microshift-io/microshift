@@ -87,7 +87,7 @@ runs:
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("ISOLATED_NETWORK=1")
 
         # Run the MicroShift container
-        make run ${make_opts[@]}
+        make run ${make_opts[@]} EXPOSE_KUBEAPI_PORT=1
 
         # Verify that Internet access is not available in the container
         # when the isolated network is enabled
