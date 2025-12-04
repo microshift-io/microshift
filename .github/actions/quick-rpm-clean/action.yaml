@@ -62,8 +62,12 @@ runs:
         set -euo pipefail
         set -x
 
+        branch="$(jq -r '.pull_request.head.ref' "${GITHUB_EVENT_PATH}")"
+        repo="$(jq -r '.pull_request.head.repo.name' "${GITHUB_EVENT_PATH}")"
+        owner="$(jq -r '.pull_request.head.repo.owner.login' "${GITHUB_EVENT_PATH}")"
+
         sudo podman exec -i microshift-okd \
-          env TAG="${{ inputs.install-tag }}" \
+          env OWNER="${owner}" REPO="${repo}" BRANCH="${branch}" TAG="${{ inputs.install-tag }}" \
           bash -xeuo pipefail < ./src/quickrpm.sh
 
         # Restart the greenboot service synchronously to check the health of the system.

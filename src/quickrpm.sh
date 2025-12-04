@@ -5,7 +5,7 @@ OWNER=${OWNER:-microshift-io}
 REPO=${REPO:-microshift}
 BRANCH=${BRANCH:-main}
 TAG=${TAG:-latest}
-COPR=${COPR:-"@${OWNER}/${REPO}"}
+COPR=${COPR:-"@microshift-io/microshift"}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
