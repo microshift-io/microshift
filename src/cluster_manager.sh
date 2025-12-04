@@ -13,6 +13,7 @@ LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
 VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
+EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
 
 _is_cluster_created() {
     if sudo podman container exists "${NODE_BASE_NAME}1"; then
@@ -102,11 +103,17 @@ _add_node() {
         network_opts="${network_opts} --ip ${ip_address}"
     fi
 
+    local port_opts=""
+    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
+        port_opts="-p 6443:6443"
+    fi
+
     # shellcheck disable=SC2086
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
         ${vol_opts} \
         ${network_opts} \
+        ${port_opts} \
         --tmpfs /var/lib/containers \
         --name "${name}" \
         --hostname "${name}" \
