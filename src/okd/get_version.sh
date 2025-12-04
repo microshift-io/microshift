@@ -24,9 +24,15 @@ function get_okd_version_tags() {
         fi
 
         # Save the current page content to the query file
-        echo "${query_response}" | jq -r ".tags[].name" >> "${query_file}"
+        if ! echo "${query_response}" | jq -r ".tags[].name" >> "${query_file}" ; then
+            echo "ERROR: Failed to save the current page content to '${query_file}'" >&2
+            exit 1
+        fi
         # Check if there are more pages to query
-        more_pages="$(echo "${query_response}" | jq -r '.has_additional')"
+        if ! more_pages="$(echo "${query_response}" | jq -r '.has_additional')" ; then
+            echo "ERROR: Failed to check if there are more pages to query from '${query_url}'" >&2
+            exit 1
+        fi
         # Increment the page number
         npage=$(( npage + 1 ))
     done
