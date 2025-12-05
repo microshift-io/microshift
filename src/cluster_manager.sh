@@ -119,9 +119,27 @@ _add_node() {
         --hostname "${name}" \
         "${USHIFT_IMAGE}"
 
+    # Copy config file into container if EXPOSE_KUBEAPI_PORT is enabled
+    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
+        # Create a YAML file with microshift configuration including local FQDN in apiServer.subjectAltNames
+        local -r config_file="microshift-config.yaml"
+        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" > "${config_file}"
+        sudo podman cp "${config_file}" "${name}:/etc/microshift/config.d/apiServer_AltNames.yaml"
+        sudo podman exec -i "${name}" systemctl --no-block restart microshift.service
+        sudo rm -f "${config_file}"
+    fi
+
     return $?
 }
 
+_get_hostname() {
+    local -r hostname=$(hostname -f 2>/dev/null)        
+    if [ -z "$hostname" ]; then
+        echo "ERROR: Could not determine local FQDN hostname" >&2
+        exit 1
+    fi
+    echo "$hostname"
+}
 
 _join_node() {
     local -r name="${1}"
@@ -358,7 +376,7 @@ cluster_status() {
 cluster_env() {
     local pod_name="${1:-}"
     local command="${2:-}"
-    
+    local local_fqdn
     # Determine pod_name: if empty or not a container, use default
     if [ -z "${pod_name}" ]; then
         pod_name="${NODE_BASE_NAME}1"
@@ -374,47 +392,23 @@ cluster_env() {
     fi
 
     local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
+    local_fqdn=$(_get_hostname)
     # shellcheck disable=SC2064
     trap "rm -rf '${workdir}'" EXIT INT TERM
 
     echo "Copying kubeconfig from ${pod_name}..."
-    sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${pod_name}/kubeconfig" "${workdir}/kubeconfig"
+    sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${local_fqdn}/kubeconfig" "${workdir}/kubeconfig"
     sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
-
-    local -r podman_ip_gw=$(sudo podman network inspect "${USHIFT_MULTINODE_CLUSTER}" | jq -r '.[0].subnets.[0].gateway' 2>/dev/null)
-    if [ -z "${podman_ip_gw}" ]; then
-        echo "ERROR: Could not determine pod network gateway" >&2
-        exit 1
-    fi
-    cp /etc/hosts "${workdir}/hosts"  
-    echo "${podman_ip_gw} ${pod_name}" >> "${workdir}/hosts"
-   
-
+    export KUBECONFIG="${workdir}/kubeconfig"
+    
     if [ -n "${command}" ]; then
         # Execute the command and exit
         echo "Executing command in environment with kubeconfig..."
-        unshare -Urm bash -c "
-            mount --bind \"${workdir}\" /etc
-            export KUBECONFIG=/etc/kubeconfig
-            sh -c \"${command}\"
-        "
+        sh -c "${command}"
     else
         # Start interactive shell
         echo "Starting shell environment with kubeconfig..."
-        # Check TTY capability on host before unshare; redirect only if both conditions are met
-        if [ -t 0 ] && [ -c /dev/tty ]; then
-            unshare -Urm bash -c "
-                mount --bind \"${workdir}\" /etc
-                export KUBECONFIG=/etc/kubeconfig
-                exec bash -i
-            " < /dev/tty
-        else
-            unshare -Urm bash -c "
-                mount --bind \"${workdir}\" /etc
-                export KUBECONFIG=/etc/kubeconfig
-                exec bash -i
-            "
-        fi
+        exec bash -i
     fi
     rm -rf "${workdir}"
 }
