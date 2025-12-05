@@ -87,7 +87,7 @@ runs:
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("ISOLATED_NETWORK=1")
 
         # Run the MicroShift container
-        make run ${make_opts[@]}
+        make run ${make_opts[@]} EXPOSE_KUBEAPI_PORT=1
 
         # Verify that Internet access is not available in the container
         # when the isolated network is enabled
@@ -104,6 +104,9 @@ runs:
         make run-ready
         make run-healthy
 
+        # Run a test to verify that TopoLVM is functioning properly
+        make env "CMD=bash ./src/topolvm/tests/createWorkloads.sh"
+
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
         done
@@ -113,6 +116,8 @@ runs:
         # Clean is necessary to avoid conflicts with other actions that may
         # potentially run in subsequent actions
         make clean
+
+
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session

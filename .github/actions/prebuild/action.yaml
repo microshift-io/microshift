@@ -33,7 +33,7 @@ runs:
 
         # Install the pre-requisites for the build and run environment
         sudo apt-get update  -y -q
-        sudo apt-get install -y -q make lvm2 podman jq curl
+        sudo apt-get install -y -q make lvm2 podman jq curl gawk
 
         # Install the latest OpenShift client from the OpenShift Mirror
         ocp_client="openshift-client-linux-amd64-rhel9.tar.gz"

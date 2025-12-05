@@ -13,6 +13,7 @@ LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
 VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
+EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
 
 _is_cluster_created() {
     if sudo podman container exists "${NODE_BASE_NAME}1"; then
@@ -102,19 +103,43 @@ _add_node() {
         network_opts="${network_opts} --ip ${ip_address}"
     fi
 
+    local port_opts=""
+    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
+        port_opts="-p 6443:6443"
+    fi
+
     # shellcheck disable=SC2086
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
         ${vol_opts} \
         ${network_opts} \
+        ${port_opts} \
         --tmpfs /var/lib/containers \
         --name "${name}" \
         --hostname "${name}" \
         "${USHIFT_IMAGE}"
 
+    # Copy config file into container if EXPOSE_KUBEAPI_PORT is enabled
+    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
+        # Create a YAML file with microshift configuration including local FQDN in apiServer.subjectAltNames
+        local -r config_file="microshift-config.yaml"
+        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" > "${config_file}"
+        sudo podman cp "${config_file}" "${name}:/etc/microshift/config.d/apiServer_AltNames.yaml"
+        sudo podman exec -i "${name}" systemctl --no-block restart microshift.service
+        sudo rm -f "${config_file}"
+    fi
+
     return $?
 }
 
+_get_hostname() {
+    local -r hostname=$(hostname -f 2>/dev/null)        
+    if [ -z "$hostname" ]; then
+        echo "ERROR: Could not determine local FQDN hostname" >&2
+        exit 1
+    fi
+    echo "$hostname"
+}
 
 _join_node() {
     local -r name="${1}"
@@ -347,6 +372,52 @@ cluster_status() {
     return 0
 }
 
+
+cluster_env() {
+    local pod_name="${1:-}"
+    local command="${2:-}"
+    local local_fqdn
+    # Determine pod_name: if empty or not a container, use default
+    if [ -z "${pod_name}" ]; then
+        pod_name="${NODE_BASE_NAME}1"
+    elif ! _is_container_created "${pod_name}" 2>/dev/null; then
+        # First argument is not a container, treat it as part of the command
+        command="${pod_name} ${command}"
+        pod_name="${NODE_BASE_NAME}1"
+    fi
+    
+    if ! _is_container_created "${pod_name}"; then
+        echo "ERROR: Container '${pod_name}' does not exist" >&2
+        exit 1
+    fi
+
+    local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
+    local_fqdn=$(_get_hostname)
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir}'" EXIT INT TERM
+
+    # see  CI issue https://github.com/actions/runner-images/issues/10443
+    sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0  >/dev/null 2>&1 || true
+
+
+
+    echo "Copying kubeconfig from ${pod_name}..."
+    sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${local_fqdn}/kubeconfig" "${workdir}/kubeconfig"
+    sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
+    export KUBECONFIG="${workdir}/kubeconfig"
+    
+    if [ -n "${command}" ]; then
+        # Execute the command and exit
+        echo "Executing command in environment with kubeconfig..."
+        sh -c "${command}"
+    else
+        # Start interactive shell
+        echo "Starting shell environment with kubeconfig..."
+        exec bash -i
+    fi
+    rm -rf "${workdir}"
+}
+
 main() {
     case "${1:-}" in
         create)
@@ -381,6 +452,10 @@ main() {
             shift
             cluster_status
             ;;
+        env)
+            shift
+            cluster_env "$@"
+            ;;
         topolvm-create)
             shift
             create_topolvm_backend
@@ -390,7 +465,7 @@ main() {
             delete_topolvm_backend
             ;;
         *)
-            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|topolvm-create|topolvm-delete}"
+            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|env|topolvm-create|topolvm-delete}"
             exit 1
             ;;
     esac
