@@ -45,7 +45,8 @@ function get_okd_version_tags() {
 function pop_latest_version_tag() {
     local -r version_file="$1"
 
-    local latest_version_tag="$(grep -Ev '\.rc\.|\.ec\.' "${version_file}" | tail -1 || true)"
+    local latest_version_tag
+    latest_version_tag="$(grep -Ev '\.rc\.|\.ec\.' "${version_file}" | tail -1 || true)"
     if [ -z "${latest_version_tag}" ]; then
         latest_version_tag="$(tail -1 "${version_file}")"
     fi
