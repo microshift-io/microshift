@@ -1,10 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+TARGET_REGISTRY=${TARGET_REGISTRY:-ghcr.io/microshift-io/okd}
+
 function usage() {
     echo "Usage: $(basename "$0") <x.y | latest>" >&2
     echo "" >&2
-    echo "Get the latest OKD version tag based on the specified 'x.y' or 'latest' command line argument" >&2
+    echo "Get the latest OKD version tag based on the specified 'x.y' or 'latest' command line argument." >&2
+    echo "The returned version must be available on both x86_64 and aarch64 platforms." >&2
     exit 1
 }
 
@@ -38,6 +41,34 @@ function get_okd_version_tags() {
     done
 }
 
+function pop_latest_version_tag() {
+    local -r version_file="$1"
+
+    local latest_version_tag="$(grep -Ev '\.rc\.|\.ec\.' "${version_file}" | tail -1 || true)"
+    if [ -z "${latest_version_tag}" ]; then
+        latest_version_tag="$(tail -1 "${version_file}")"
+    fi
+    # Delete the version tag from the version file so that it is not considered again
+    sed -i "/${latest_version_tag}/d" "${version_file}"
+    # Return the latest version tag
+    echo "${latest_version_tag}"
+}
+
+check_arm64_release_image_exists() {
+    local -r okd_version="$1"
+    local -r release_image="${TARGET_REGISTRY}/okd-release-arm64:${okd_version}"
+
+    # Check if the release image exists, hardcoding the architecture to amd64 as
+    # the source release image is only available for the amd64 architecture
+    if skopeo inspect \
+        --override-os="linux" \
+        --override-arch="amd64" \
+        --format "Digest: {{.Digest}}" "docker://${release_image}" &>/dev/null ; then
+        return 0
+    fi
+    return 1
+}
+
 #
 # Main
 #
@@ -60,17 +91,25 @@ if [ "${OKD_XY}" = "latest" ]; then
 fi
 
 # Filter the version tags for the specified 'x.y' base version
-cat "${query_file}" | grep "^${OKD_XY}" | sort -V > "${version_file}" || true
+grep "^${OKD_XY}" "${query_file}" | sort -V > "${version_file}" || true
 if [ ! -s "${version_file}" ]; then
-    echo "ERROR: No OKD version tags found for the specified '${OKD_XY}' base version" >&2
+    echo "ERROR: No OKD version tag found for the '${OKD_XY}' version" >&2
     exit 1
 fi
 
-# Get the latest version tag giving priority to the released versions
-OKD_TAG="$(grep -Ev '\.rc\.|\.ec\.' "${version_file}" | tail -1 || true)"
-# If no released version tag is found, use the latest version tag
-if [ -z "${OKD_TAG}" ]; then
-    OKD_TAG="$(tail -1 "${version_file}")"
-fi
+# Try up to 3 times to get the latest version tag with both x86_64 and aarch64 release images available
+OKD_TAG=""
+for _ in {1..3}; do
+    cur_tag="$(pop_latest_version_tag "${version_file}")"
+    if check_arm64_release_image_exists "${cur_tag}" ; then
+        OKD_TAG="${cur_tag}"
+        break
+    fi
+done
 
+# If no OKD version tag was found, exit with an error
+if [ -z "${OKD_TAG}" ]; then
+    echo "ERROR: No OKD version tag found for the '${OKD_XY}' version on both x86_64 and aarch64 architectures" >&2
+    exit 1
+fi
 echo "${OKD_TAG}"
