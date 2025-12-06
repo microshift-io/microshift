@@ -4,10 +4,11 @@ set -euo pipefail
 TARGET_REGISTRY=${TARGET_REGISTRY:-ghcr.io/microshift-io/okd}
 
 function usage() {
-    echo "Usage: $(basename "$0") <x.y | latest>" >&2
+    echo "Usage: $(basename "$0") [-no-arm64] <x.y | latest>" >&2
     echo "" >&2
-    echo "Get the latest OKD version tag based on the specified 'x.y' or 'latest' command line argument." >&2
-    echo "The returned version must be available on both x86_64 and aarch64 platforms." >&2
+    echo "Get the latest OKD version tag based on the specified 'x.y' or 'latest'" >&2
+    echo "command line argument. The returned version must be available on both" >&2
+    echo "x86_64 and aarch64 platforms unless '-no-arm64' is specified." >&2
     exit 1
 }
 
@@ -72,10 +73,19 @@ check_arm64_release_image_exists() {
 #
 # Main
 #
-if [ $# -ne 1 ]; then
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
     usage
 fi
+if [ $# -eq 2 ] && [ "$1" != "-no-arm64" ]; then
+    usage
+fi
+
 OKD_XY="$1"
+NO_ARM64=false
+if [ "$1" = "-no-arm64" ]; then
+    NO_ARM64=true
+    OKD_XY="$2"
+fi
 
 version_file="$(mktemp /tmp/okd-version-XXXXXX)"
 query_file="$(mktemp /tmp/okd-query-XXXXXX)"
@@ -101,7 +111,7 @@ fi
 OKD_TAG=""
 for _ in {1..3}; do
     cur_tag="$(pop_latest_version_tag "${version_file}")"
-    if check_arm64_release_image_exists "${cur_tag}" ; then
+    if [ "${NO_ARM64}" = "true" ] || check_arm64_release_image_exists "${cur_tag}" ; then
         OKD_TAG="${cur_tag}"
         break
     fi
