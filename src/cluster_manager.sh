@@ -10,7 +10,9 @@ USHIFT_MULTINODE_CLUSTER="${USHIFT_MULTINODE_CLUSTER:-microshift-okd-multinode}"
 NODE_BASE_NAME="${NODE_BASE_NAME:-microshift-okd-}"
 USHIFT_IMAGE="${USHIFT_IMAGE:-microshift-okd}"
 LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
+EXTRA_CONFIG="${EXTRA_CONFIG:-/var/lib/microshift-okd/custom_config.yaml}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
+API_SERVER_PORT="${API_SERVER_PORT:-6443}"
 VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
 EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
@@ -81,6 +83,15 @@ _get_ip_address() {
     echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}'
 }
 
+_get_hostname() {
+    local -r hostname=$(hostname -f 2>/dev/null)        
+    if [ -z "$hostname" ]; then
+        echo "ERROR: Could not determine local FQDN hostname" >&2
+        exit 1
+    fi
+    echo "$hostname"
+}
+
 # Notes:
 # - The container joins the cluster network and gets the cluster network IP
 #   address when the ISOLATED_NETWORK environment variable is set to 0.
@@ -104,8 +115,11 @@ _add_node() {
     fi
 
     local port_opts=""
+    local mount_opts=""
     if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
-        port_opts="-p 6443:6443"
+        port_opts="-p ${API_SERVER_PORT}:${API_SERVER_PORT}"
+        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" | sudo tee "${EXTRA_CONFIG}" >/dev/null
+        mount_opts="--volume ${EXTRA_CONFIG}:/etc/microshift/config.d/api_server.yaml:ro"
     fi
 
     # shellcheck disable=SC2086
@@ -114,32 +128,15 @@ _add_node() {
         ${vol_opts} \
         ${network_opts} \
         ${port_opts} \
+        ${mount_opts} \
         --tmpfs /var/lib/containers \
         --name "${name}" \
         --hostname "${name}" \
         "${USHIFT_IMAGE}"
 
-    # Copy config file into container if EXPOSE_KUBEAPI_PORT is enabled
-    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
-        # Create a YAML file with microshift configuration including local FQDN in apiServer.subjectAltNames
-        local -r config_file="microshift-config.yaml"
-        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" > "${config_file}"
-        sudo podman cp "${config_file}" "${name}:/etc/microshift/config.d/apiServer_AltNames.yaml"
-        sudo podman exec -i "${name}" systemctl --no-block restart microshift.service
-        sudo rm -f "${config_file}"
-    fi
-
     return $?
 }
 
-_get_hostname() {
-    local -r hostname=$(hostname -f 2>/dev/null)        
-    if [ -z "$hostname" ]; then
-        echo "ERROR: Could not determine local FQDN hostname" >&2
-        exit 1
-    fi
-    echo "$hostname"
-}
 
 _join_node() {
     local -r name="${1}"
@@ -374,30 +371,26 @@ cluster_status() {
 
 
 cluster_env() {
-    local pod_name="${1:-}"
-    local command="${2:-}"
-    local local_fqdn
-    # Determine pod_name: if empty or not a container, use default
-    if [ -z "${pod_name}" ]; then
-        pod_name="${NODE_BASE_NAME}1"
-    elif ! _is_container_created "${pod_name}" 2>/dev/null; then
-        # First argument is not a container, treat it as part of the command
-        command="${pod_name} ${command}"
-        pod_name="${NODE_BASE_NAME}1"
+    local command="${1:-}"
+   
+    # Set first_container from the first value of containers array
+    local -r first_container=$(_get_running_containers | head -n1)
+    if [ -z "${first_container}" ]; then
+        echo "ERROR: No running cluster containers found." >&2
+        exit 1
     fi
-    
-    if ! _is_container_created "${pod_name}"; then
-        echo "ERROR: Container '${pod_name}' does not exist" >&2
+    # Verify that ${API_SERVER_PORT} is open for connections on the host
+    if ! sudo ss -ltn "( sport = :${API_SERVER_PORT} )" | grep -q ":${API_SERVER_PORT}"; then
+        echo "ERROR: API server port ${API_SERVER_PORT} is closed, make sure EXPOSE_KUBEAPI_PORT is set to 1." >&2
         exit 1
     fi
 
     local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
-    local_fqdn=$(_get_hostname)
     # shellcheck disable=SC2064
-    trap "rm -rf '${workdir}'" EXIT INT TERM
+    trap "rm -rf '${workdir}'" RETURN
 
-    echo "Copying kubeconfig from ${pod_name}..."
-    sudo podman cp "${pod_name}:/var/lib/microshift/resources/kubeadmin/${local_fqdn}/kubeconfig" "${workdir}/kubeconfig"
+    echo "Copying kubeconfig from ${first_container}..."
+    sudo podman cp "${first_container}:/var/lib/microshift/resources/kubeadmin/$(_get_hostname)/kubeconfig" "${workdir}/kubeconfig"
     sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
     export KUBECONFIG="${workdir}/kubeconfig"
     
@@ -408,9 +401,8 @@ cluster_env() {
     else
         # Start interactive shell
         echo "Starting shell environment with kubeconfig..."
-        exec bash -i
+        bash -li 
     fi
-    rm -rf "${workdir}"
 }
 
 main() {
