@@ -45,7 +45,7 @@ function get_amd64_version_tags() {
 function get_arm64_version_tags() {
     local -r query_file="$1"
 
-    if ! skopeo list-tags docker://${QUERY_URL_ARM64}/okd-release-arm64 | jq -r .Tags[] >> "${query_file}" ; then
+    if ! skopeo list-tags "docker://${QUERY_URL_ARM64}/okd-release-arm64" | jq -r .Tags[] >> "${query_file}" ; then
         echo "ERROR: Failed to get the OKD version tags from '${QUERY_URL_ARM64}/okd-release-arm64'" >&2
         exit 1
     fi
