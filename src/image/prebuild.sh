@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MICROSHIFT_ROOT="/home/microshift/microshift"
-ARCH="$(uname -m)"
+ARCH="${ARCH:-$(uname -m)}"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
 oc_release_info() {
@@ -49,7 +49,7 @@ replace_base_assets() {
         local new_image
         new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${cur_image}")
 
-        echo "Replacing '${cur_image}' with '${new_image}'"
+        echo "[${ARCH}] Replacing '${cur_image}' with '${new_image}'"
         jq --arg a "${cur_image}" --arg b "${new_image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json" >"${temp_json}"
         mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json"
     done
@@ -93,7 +93,7 @@ EOF
         # Get the new image from OKD release
         local new_image
         new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${container}")
-        echo "Replacing '${container}' with '${new_image}'"
+        echo "[${ARCH}] Replacing '${container}' with '${new_image}'"
         local new_image_name="${new_image%@*}"
         local new_image_digest="${new_image#*@}"
 
@@ -142,7 +142,7 @@ replace_kindnet_assets() {
 
     # Kube proxy is required for kindnet
     local -r image_with_hash=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "kube-proxy")
-    echo "Replacing 'kube-proxy' with '${image_with_hash}'"
+    echo "[${ARCH}] Replacing 'kube-proxy' with '${image_with_hash}'"
     # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
     # where the image name and digest (hash) are combined in a single string.
     # However, in the kustomization.${arch}.yaml file, we need the image name (newName) and
