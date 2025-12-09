@@ -52,6 +52,7 @@ release. These files contain the list of container image references used by the 
 %{_datadir}/microshift/release/release-topolvm-{x86_64,aarch64}.json
 
 %install
+# topolvm
 install -d -m755 %{buildroot}/%{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
 install -p -m644 assets/optional/topolvm/*.yaml %{buildroot}/%{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
 
@@ -61,5 +62,6 @@ install -p -m644 packaging/microshift/dropins/disable-storage-csi.yaml %{buildro
 install -d -m755 %{buildroot}%{_sysconfdir}/greenboot/check/required.d
 install -p -m755 packaging/greenboot/microshift-topolvm-check.sh %{buildroot}%{_sysconfdir}/greenboot/check/required.d/50_microshift_topolvm_check.sh
 
+# topolvm-release-info
 install -d -m755 %{buildroot}%{_datadir}/microshift/release
 install -p -m644 assets/optional/topolvm/release-topolvm-{x86_64,aarch64}.json %{buildroot}%{_datadir}/microshift/release

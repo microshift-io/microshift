@@ -17,6 +17,8 @@ ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_POSTBUILD_SCRIPT=/tmp/postbuild.sh
 ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
+ARG SPECFILE_KINDNET=/tmp/kindnet.spec
+ARG SPECFILE_TOPOLVM=/tmp/topolvm.spec
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ] ; then \
@@ -46,37 +48,33 @@ RUN git clone --branch "${USHIFT_GITREF}" --single-branch "${USHIFT_GIT_URL}" "$
 
 WORKDIR ${HOME}/microshift/
 
-# Preparing the build scripts
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
 RUN "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}"
 
-COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
-# Modify the microshift.spec to remove packages not yet supported by the upstream.
-COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
-# Disable the RPM and SRPM checks in the make-rpm.sh script.
-RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh && \
-    ${USHIFT_MODIFY_SPEC_SCRIPT}
-
-# Building all MicroShift downstream RPMs and SRPMs
-# hadolint ignore=DL3059
-RUN "${USHIFT_BUILDRPMS_SCRIPT}" all
-
-# Building Kindnet upstream RPM
-COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
+COPY --chown=${USER}:${USER} ./src/kindnet/kindnet.spec "${SPECFILE_KINDNET}"
 COPY --chown=${USER}:${USER} ./src/kindnet/assets/  "${HOME}/microshift/assets/optional/"
 COPY --chown=${USER}:${USER} ./src/kindnet/dropins/ "${HOME}/microshift/packaging/kindnet/"
 COPY --chown=${USER}:${USER} ./src/kindnet/crio.conf.d/ "${HOME}/microshift/packaging/crio.conf.d/"
-# Prepare and build Kindnet upstream RPM
-RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}" && \
-    "${USHIFT_BUILDRPMS_SCRIPT}" rpm
+RUN "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE}" "${OKD_VERSION_TAG}"
 
-# Building TopoLVM upstream RPM
-COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "${HOME}/microshift/packaging/rpm/microshift.spec"
+COPY --chown=${USER}:${USER} ./src/topolvm/topolvm.spec "${SPECFILE_TOPOLVM}"
 COPY --chown=${USER}:${USER} ./src/topolvm/assets/  "${HOME}/microshift/assets/optional/topolvm/"
 COPY --chown=${USER}:${USER} ./src/topolvm/dropins/ "${HOME}/microshift/packaging/microshift/dropins/"
 COPY --chown=${USER}:${USER} ./src/topolvm/greenboot/ "${HOME}/microshift/packaging/greenboot/"
 COPY --chown=${USER}:${USER} ./src/topolvm/release/ "${HOME}/microshift/assets/optional/topolvm/"
-RUN "${USHIFT_BUILDRPMS_SCRIPT}" rpm
+
+COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
+# Modify the microshift.spec:
+# - remove packages not yet supported by the upstream
+# - merge the kindnet.spec and topolvm.spec into the microshift.spec
+# Disable the RPM and SRPM checks in the make-rpm.sh script to not complain about removed packages
+RUN "${USHIFT_MODIFY_SPEC_SCRIPT}" ./packaging/rpm/microshift.spec "${SPECFILE_KINDNET}" "${SPECFILE_TOPOLVM}" && \
+    sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/make-rpm.sh
+
+# Build all MicroShift downstream RPMs and SRPMs
+COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
+# hadolint ignore=DL3059
+RUN "${USHIFT_BUILDRPMS_SCRIPT}" all
 
 # Post-build MicroShift configuration
 COPY --chmod=755 ./src/image/postbuild.sh ${USHIFT_POSTBUILD_SCRIPT}
