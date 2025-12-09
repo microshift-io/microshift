@@ -1,11 +1,16 @@
 name: detect-okd-version-tag
-description: Reusable action to detect the OKD version tag
+description: Reusable action to detect the latest available OKD version tag
 
+# By default, check the 'arm64' build version availability because it determines
+# the latest available OKD version tag for both 'amd64' and 'arm64' architectures.
+#
+# Checking the latest 'amd64' build version availability is required when building
+# a new OKD release for the corresponding version on the 'arm64' architecture.
 inputs:
-  skip-arm-check:
-    description: "Return the latest available version tag ignoring the ARM build availability"
+  check-amd64:
+    description: "Check the 'amd64' build availability"
     required: false
-    default: "0"
+    default: "false"
 
 outputs:
   okd-version-tag:
@@ -21,11 +26,10 @@ runs:
       run: |
         sudo apt-get install -y jq
 
-        # Compute the latest OKD version tag
-        if [ "${{ inputs.skip-arm-check }}" = "1" ]; then
-          okd_version_tag="$(./src/okd/get_version.sh -no-arm64 latest)"
+        if [ "${{ inputs.check-amd64 }}" = "true" ]; then
+          okd_version_tag="$(./src/okd/get_version.sh latest-amd64)"
         else
-          okd_version_tag="$(./src/okd/get_version.sh latest)"
+          okd_version_tag="$(./src/okd/get_version.sh latest-arm64)"
         fi
 
         if [ -z "${okd_version_tag}" ]; then
