@@ -21,7 +21,7 @@ Kube-proxy manifests.
 
 This script will:
 - Fetch the latest Kindnet image from Docker Hub (`docker.io/kindest/kindnetd`)
-- Fetch the latest Kube-proxy image from Quay.io (`quay.io/okd/scos-content`) matching the configured version
+- Fetch the latest Kube-proxy image from the official Kubernetes registry (`registry.k8s.io/kube-proxy`)
 - Generate namespace, RBAC, and DaemonSet manifests for Kindnet
 - Generate namespace, RBAC, ConfigMap, and DaemonSet manifests for Kube-proxy
 - Generate kustomization files with architecture-specific image references
@@ -39,9 +39,9 @@ Latest kindnet tag: v20250512-df8de77b
  - x86_64 digest: sha256:7a9c9fa59dd517cdc2c82eef1e51392524dd285e9cf7cb5a851c49f294d6cd11
 
 Fetching latest kube-proxy image info...
-Latest kube-proxy tag: 4.20.0-okd-scos.11-kube-proxy
- - aarch64 digest: sha256:...
- - x86_64 digest: sha256:182c4934a99762929597de8a3dce9c5980dc957eaa599199eb63f65669bd2643
+Latest kube-proxy tag: v1.34.2
+ - aarch64 digest: sha256:20a31b16a001e3e4db71a17ba8effc4b145a3afa2086e844ab40dc5baa5b8d12
+ - x86_64 digest: sha256:1512fa1bace72d9bcaa7471e364e972c60805474184840a707b6afa05bde3a74
 
 Generating kindnet manifests...
 kindnet manifests generated in /home/microshift/microshift-io/src/kindnet/assets/kindnet
@@ -57,11 +57,10 @@ All manifests generated successfully!
 ## Updating Image References
 
 The script automatically fetches the latest images from upstream:
-- **Kindnet**: Fetches the latest tag from Docker Hub
-- **Kube-proxy**: Fetches the latest tag matching `KUBE_PROXY_VERSION` (configured in the script) from Quay.io
+- **Kindnet**: Fetches the latest tag from Docker Hub (`docker.io/kindest/kindnetd`)
+- **Kube-proxy**: Fetches the latest stable tag from the official Kubernetes registry (`registry.k8s.io/kube-proxy`), excluding alpha, beta, and rc versions
 
-To update to a new version, simply re-run the generation script. To change the
-Kube-proxy version, edit the `KUBE_PROXY_VERSION` variable in `generate_manifests.sh`.
+To update to a new version, simply re-run the generation script.
 
 Image digests are stored in release JSON files after generation:
 - `src/kindnet/assets/kindnet/release-kindnet-{aarch64,x86_64}.json`
