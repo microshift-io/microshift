@@ -21,15 +21,28 @@ CLUSTER_CIDR="10.42.0.0/16"
 
 get_kindnet_image_info() {
     echo "Fetching latest kindnet image info..."
-
     # Get the latest kindnet tag from Docker Hub
-    KINDNET_LATEST_TAG="$(curl -s 'https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags?page_size=1&ordering=last_updated' | jq -r '.results[0].name')"
+    KINDNET_LATEST_TAG="$(curl -f -s 'https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags?page_size=1&ordering=last_updated' | jq -r '.results[0].name')"
+    if [ -z "${KINDNET_LATEST_TAG}" ] || [ "${KINDNET_LATEST_TAG}" = "null" ]; then
+        echo "Error: Failed to retrieve latest kindnet tag from Docker Hub"
+        exit 1
+    fi
     echo "Latest kindnet tag: ${KINDNET_LATEST_TAG}"
 
     # Get the manifest list to extract architecture-specific digests
-    KINDNET_MANIFEST="$(curl -s "https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags/${KINDNET_LATEST_TAG}")"
+    KINDNET_MANIFEST="$(curl -f -s "https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags/${KINDNET_LATEST_TAG}")"
     KINDNET_SHA256_AARCH64="sha256:$(echo "${KINDNET_MANIFEST}" | jq -r '.images[] | select(.architecture == "arm64") | .digest' | sed 's/sha256://')"
     KINDNET_SHA256_X86_64="sha256:$(echo "${KINDNET_MANIFEST}" | jq -r '.images[] | select(.architecture == "amd64") | .digest' | sed 's/sha256://')"
+
+    # Validate digests
+    if [ -z "${KINDNET_SHA256_X86_64}" ]; then
+        echo "Error: Failed to retrieve x86_64 digest for kindnet"
+        exit 1
+    fi
+    if [ -z "${KINDNET_SHA256_AARCH64}" ]; then
+        echo "Error: Failed to retrieve aarch64 digest for kindnet"
+        exit 1
+    fi
 
     echo " - aarch64 digest: ${KINDNET_SHA256_AARCH64}"
     echo " - x86_64 digest: ${KINDNET_SHA256_X86_64}"
@@ -38,6 +51,7 @@ get_kindnet_image_info() {
 #######################################
 # Kube-proxy image resolution
 #######################################
+
 get_kube_proxy_image_info() {
     echo "Fetching latest kube-proxy image info..."
 
@@ -45,7 +59,6 @@ get_kube_proxy_image_info() {
     # (excludes alpha, beta, rc versions)
     KUBE_PROXY_LATEST_TAG="$(curl -sL "https://registry.k8s.io/v2/kube-proxy/tags/list" | \
         jq -r '.tags[]' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
-
     if [ -z "${KUBE_PROXY_LATEST_TAG}" ]; then
         echo "Error: No kube-proxy tags found"
         exit 1
@@ -61,6 +74,16 @@ get_kube_proxy_image_info() {
     # Extract architecture-specific digests from the manifest list
     KUBE_PROXY_SHA256_X86_64="$(echo "${KUBE_PROXY_MANIFEST}" | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest')"
     KUBE_PROXY_SHA256_AARCH64="$(echo "${KUBE_PROXY_MANIFEST}" | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')"
+
+    # Validate digests
+    if [ -z "${KUBE_PROXY_SHA256_X86_64}" ]; then
+        echo "Error: Failed to retrieve x86_64 digest for kube-proxy"
+        exit 1
+    fi
+    if [ -z "${KUBE_PROXY_SHA256_AARCH64}" ]; then
+        echo "Warning: aarch64 digest for kube-proxy not available; using x86_64 digest as fallback"
+        KUBE_PROXY_SHA256_AARCH64="${KUBE_PROXY_SHA256_X86_64}"
+    fi
 
     echo " - aarch64 digest: ${KUBE_PROXY_SHA256_AARCH64}"
     echo " - x86_64 digest: ${KUBE_PROXY_SHA256_X86_64}"
