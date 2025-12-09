@@ -5,6 +5,9 @@ MICROSHIFT_ROOT="/home/microshift/microshift"
 ARCH="${ARCH:-$(uname -m)}"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
 
+RELEASE_IMAGE_CACHE=$(mktemp "/tmp/release-image-cache-${ARCH}.XXXXX.json")
+trap 'rm -f "${RELEASE_IMAGE_CACHE}"' EXIT
+
 oc_release_info() {
     local -r okd_url=$1
     local -r okd_releaseTag=$2
@@ -15,7 +18,11 @@ oc_release_info() {
         return
     fi
 
-    local -r okd_image="$(oc adm release info --image-for="${image}" "${okd_url}:${okd_releaseTag}")"
+    if [ ! -s "${RELEASE_IMAGE_CACHE}" ] ; then
+        oc adm release info "${okd_url}:${okd_releaseTag}" -o json > "${RELEASE_IMAGE_CACHE}"
+    fi
+
+    local -r okd_image="$(jq -r --arg IMAGE "${image}" '.references.spec.tags[] | select(.name == $IMAGE) | .from.name' "${RELEASE_IMAGE_CACHE}")"
     if [ -z "${okd_image}" ] ; then
         echo "ERROR: No OKD image found for '${image}'"
         exit 1
