@@ -6,7 +6,6 @@ ASSETS_DIR="${SCRIPT_DIR}/assets"
 RELEASE_DIR="${SCRIPT_DIR}/release"
 
 # Prepares manifests and release info for TopoLVM upstream running on MicroShift
-CERT_MANAGER_VERSION=v1.16.1
 TOPO_LVM_VERSION=v15.5.2
 
 generate_manifests() {
@@ -23,20 +22,26 @@ metadata:
     pod-security.kubernetes.io/warn: privileged
 EOF
 
-  # Install cert-manager from the released manifest
-  curl -fsSL -o "${ASSETS_DIR}/02-cert-manager.yaml" \
-    https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
-
   # Generate manifests using helm
   # NOTE: this will produce multi-arch manifest, support both amd64 and arm64
   helm repo add topolvm https://topolvm.github.io/topolvm/
   helm repo update
-  helm template --include-crds --namespace=topolvm-system --version=${TOPO_LVM_VERSION} topolvm topolvm/topolvm >"${ASSETS_DIR}/03-topolvm.yaml"
+  helm template --include-crds --namespace=topolvm-system \
+  --set "cert-manager.enabled=false" \
+  --set "webhook.podMutatingWebhook.enabled=false" \
+  --set webhook.caBundle="dummy" \
+  --set webhook.tlsSecretName=topolvm-webhook-cert \
+  --version=${TOPO_LVM_VERSION} \
+  topolvm topolvm/topolvm >"${ASSETS_DIR}/02-topolvm.yaml"
+  
   helm repo remove topolvm
+
+  # remove the caBundle from the mutatingwebhookconfiguration
+  yq -i 'del(.webhooks.0.clientConfig.caBundle)' "${ASSETS_DIR}/02-topolvm.yaml"
 
   # Patch replicas to 1
   # shellcheck disable=SC2016
-  yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/03-topolvm.yaml"
+  yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/02-topolvm.yaml"
   
   # Patch topolvm-controller manifest with longer startup delay to allow dns to start
   yq 'with(select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[] | select(.name == "topolvm-controller");
@@ -52,7 +57,7 @@ EOF
         "port": "healthz",
         "path": "/healthz"}
       }
-  )' -i "${ASSETS_DIR}/03-topolvm.yaml"
+  )' -i "${ASSETS_DIR}/02-topolvm.yaml"
 
   # Patch topolvm-node DaemonSet with probes
   # echo 'Patching topolvm-node DaemonSet with longer startup delay to allow dns to start'
@@ -65,16 +70,39 @@ EOF
         "port": "healthz",
         "path": "/healthz"
       }
-    })' -i "${ASSETS_DIR}/03-topolvm.yaml"
+    })' -i "${ASSETS_DIR}/02-topolvm.yaml"
+  # Generate Patch with annotation to dynamically inject the CA bundle
+  cat >"${ASSETS_DIR}/topolvm_mutatingwebhook_patch.yaml" <<'EOF'
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: topolvm-hook
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+webhooks:
+  - name: pvc-hook.topolvm.io
+EOF
 
-  # Generate kustomize
+  cat >"${ASSETS_DIR}/topolvm_service_patch.yaml" <<'EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: topolvm-controller
+  namespace: topolvm-system
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: topolvm-mutatingwebhook
+EOF
+
+# Generate kustomize
   cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - 01-namespace.yaml
-  - 02-cert-manager.yaml
-  - 03-topolvm.yaml
+  - 02-topolvm.yaml
+patches:
+  - path: topolvm_mutatingwebhook_patch.yaml
+  - path: topolvm_service_patch.yaml
 EOF
 }
 
@@ -83,7 +111,7 @@ generate_release_file() {
   local -r rel_file="${RELEASE_DIR}/release-topolvm-${rel_arch}.json"
   local -r tmp_file=$(mktemp /tmp/topolvm-release-XXXXXX)
 
-  for file in ${ASSETS_DIR}/02-cert-manager.yaml ${ASSETS_DIR}/03-topolvm.yaml ; do
+  for file in ${ASSETS_DIR}/02-topolvm.yaml ; do
     images="$(yq -r '.spec.template.spec.containers[].image' "${file}" | grep -v '^---$')"
     for image in ${images}; do
         echo "${image}" >> "${tmp_file}"

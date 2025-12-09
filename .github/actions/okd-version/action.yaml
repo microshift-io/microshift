@@ -14,8 +14,8 @@ runs:
       shell: bash
       run: |
         sudo apt-get install -y jq
-        # Get the latest OKD version tag
-        okd_version_tag="$(curl -s --max-time 60 https://quay.io/api/v1/repository/okd/scos-release/tag/ | jq -r ".tags[].name" | sort | tail -1)"
+        # Compute the latest OKD version tag
+        okd_version_tag="$(./src/okd/get_version.sh latest)"
         if [ -z "${okd_version_tag}" ]; then
           echo "ERROR: No OKD version tag found"
           exit 1

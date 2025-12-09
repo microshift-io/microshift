@@ -28,8 +28,7 @@ Manifests generated in /home/microshift/microshift-io/src/topolvm/assets
 
 $ ls -1 /home/microshift/microshift-io/src/topolvm/assets
 01-namespace.yaml
-02-cert-manager.yaml
-03-topolvm.yaml
+02-topolvm.yaml
 kustomization.yaml
 ```
 
@@ -46,3 +45,10 @@ The TopoLVM RPM files are built using the following command:
 cd ~/microshift
 MICROSHIFT_VARIANT=community make rpm
 ```
+
+## Service CA Cert Injection Instead of Cert-Manager
+
+Instead of deploying and managing a full cert-manager stack, MicroShift uses [OpenShift Service CA Operator](https://docs.openshift.com/container-platform/latest/security/certificate_types_descriptions/service-ca-certificates.html) to automate TopoLVM certificate creation. We annotate the TopoLVM Service and MutatingWebhookConfiguration resources, which triggers the Service CA Operator in MicroShift/OKD to inject valid serving certificates.
+
+This approach is lighter-weight than running cert-manager, minimizing dependencies and reducing resource consumption. 
+
