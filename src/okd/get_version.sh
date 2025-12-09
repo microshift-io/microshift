@@ -12,22 +12,9 @@ function usage() {
     exit 1
 }
 
-function get_amd64_version_tags() {
-    local -r query_file="$1"
-
-    if ! skopeo list-tags "docker://${QUERY_URL_AMD64}/scos-release" | jq -r .Tags[] >> "${query_file}" ; then
-        echo "ERROR: Failed to get the OKD version tags from '${QUERY_URL_AMD64}/scos-release'" >&2
-        exit 1
-    fi
-}
-
-function get_arm64_version_tags() {
-    local -r query_file="$1"
-
-    if ! skopeo list-tags "docker://${QUERY_URL_ARM64}/okd-release-arm64" | jq -r .Tags[] >> "${query_file}" ; then
-        echo "ERROR: Failed to get the OKD version tags from '${QUERY_URL_ARM64}/okd-release-arm64'" >&2
-        exit 1
-    fi
+function get_okd_version_tags() {
+    local -r query_url="$1"
+    skopeo list-tags "docker://${query_url}" | jq -r '.Tags[]' | sort -V
 }
 
 #
@@ -36,42 +23,44 @@ function get_arm64_version_tags() {
 if [ $# -ne 1 ]; then
     usage
 fi
-OKD_TAG=""
-
-query_file="$(mktemp /tmp/okd-query-XXXXXX)"
-version_file="$(mktemp /tmp/okd-version-XXXXXX)"
-trap 'rm -f "${query_file}" "${version_file}"' EXIT
+TAG_LIST=""
+TAG_LATEST=""
 
 # Read all version tags from the repositories
 case "$1" in
     latest-amd64)
-        get_amd64_version_tags "${query_file}"
+        TAG_LIST="$(get_okd_version_tags "${QUERY_URL_AMD64}/scos-release")"
         ;;
     latest-arm64)
-        get_arm64_version_tags "${query_file}"
+        TAG_LIST="$(get_okd_version_tags "${QUERY_URL_ARM64}/okd-release-arm64")"
         ;;
     *)
         usage
         ;;
 esac
 
+if [ -z "${TAG_LIST}" ]; then
+    echo "ERROR: No OKD version tags found" >&2
+    exit 1
+fi
+
 # Compute the latest OKD x.y base version
-OKD_XY="$(cat "${query_file}" | sort -V | tail -1)"
+OKD_XY="$(echo "${TAG_LIST}" | tail -1)"
 OKD_XY="${OKD_XY%.*}"
 
-# Filter the version tags for the latest OKD x.y base version
-grep "^${OKD_XY}" "${query_file}" | sort -V > "${version_file}" || true
+# Update the list to only include the latest OKD x.y base version
+TAG_LIST="$(echo "${TAG_LIST}" | grep -E "^${OKD_XY}")"
 
 # Get the latest version tag giving priority to the released versions
-OKD_TAG="$(grep -Ev '\.rc\.|\.ec\.' "${version_file}" | tail -1 || true)"
-if [ -z "${OKD_TAG}" ]; then
+TAG_LATEST="$(echo "${TAG_LIST}" | grep -Ev '\.rc\.|\.ec\.' | tail -1 || true)"
+if [ -z "${TAG_LATEST}" ]; then
     # If no released version tag is found, use the latest version tag
-    OKD_TAG="$(tail -1 "${version_file}")"
+    TAG_LATEST="$(echo "${TAG_LIST}" | tail -1)"
 fi
 
 # If no OKD version tag was found, exit with an error
-if [ -z "${OKD_TAG}" ]; then
+if [ -z "${TAG_LATEST}" ]; then
     echo "ERROR: No OKD version tag found for the latest OKD base version '${OKD_XY}'" >&2
     exit 1
 fi
-echo "${OKD_TAG}"
+echo "${TAG_LATEST}"
