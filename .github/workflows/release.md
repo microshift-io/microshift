@@ -8,14 +8,14 @@ MicroShift can be run on the host or inside a Bootc container.
 
   ```bash
   curl -s https://microshift-io.github.io/microshift/quickrpm.sh | \
-    sudo OWNER=${OWNER} TAG=${TAG} bash
+    sudo TAG=${TAG} bash
   ```
 
 * Bootstrap MicroShift inside a Bootc container on your host.
 
   ```bash
   curl -s https://microshift-io.github.io/microshift/quickstart.sh | \
-    sudo OWNER=${OWNER} TAG=${TAG} bash
+    sudo TAG=${TAG} bash
   ```
 
 #### RPM and DEB
