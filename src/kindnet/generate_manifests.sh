@@ -9,8 +9,7 @@ KUBE_PROXY_ASSETS_DIR="${SCRIPT_DIR}/assets/kube-proxy"
 
 # Image configuration
 KINDNET_IMAGE_BASE="docker.io/kindest/kindnetd"
-KUBE_PROXY_IMAGE_BASE="quay.io/okd/scos-content"
-KUBE_PROXY_VERSION="4.20.0-okd-scos"
+KUBE_PROXY_IMAGE_BASE="registry.k8s.io/kube-proxy"
 
 # Network configuration (can be overridden)
 POD_SUBNET="10.244.0.0/16"
@@ -39,39 +38,29 @@ get_kindnet_image_info() {
 #######################################
 # Kube-proxy image resolution
 #######################################
-
-get_latest_kube_proxy_tag() {
-    local page=1
-    local all_tags=""
-    while true; do
-        local tags
-        tags="$(curl -s "https://quay.io/api/v1/repository/okd/scos-content/tag/?limit=100&onlyActiveTags=true&filter_tag_name=like:kube-proxy&page=${page}" | jq -r --arg version "${KUBE_PROXY_VERSION}" '.tags[] | select(.name | contains("kube-proxy")) | select(.name | startswith($version)) | .name')"
-        if [ -z "${tags}" ]; then
-            break
-        fi
-        all_tags="${all_tags}${tags}"$'\n'
-        ((page++))
-    done
-    echo "${all_tags}" | grep -v '^$' | grep -v '.*.ec.*' | grep -v '.*.rc.*' | sort -V | tail -1
-}
-
 get_kube_proxy_image_info() {
     echo "Fetching latest kube-proxy image info..."
 
-    KUBE_PROXY_LATEST_TAG="$(get_latest_kube_proxy_tag)"
+    # Fetch all tags from registry.k8s.io and get the latest stable version
+    # (excludes alpha, beta, rc versions)
+    KUBE_PROXY_LATEST_TAG="$(curl -sL "https://registry.k8s.io/v2/kube-proxy/tags/list" | \
+        jq -r '.tags[]' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+
     if [ -z "${KUBE_PROXY_LATEST_TAG}" ]; then
-        echo "Error: No kube-proxy tags found matching version ${KUBE_PROXY_VERSION}"
+        echo "Error: No kube-proxy tags found"
         exit 1
     fi
     echo "Latest kube-proxy tag: ${KUBE_PROXY_LATEST_TAG}"
 
-    # Get the manifest digest for the latest tag
-    KUBE_PROXY_MANIFEST_DIGEST="$(curl -s "https://quay.io/api/v1/repository/okd/scos-content/tag/?limit=100&onlyActiveTags=true&specificTag=${KUBE_PROXY_LATEST_TAG}" | jq -r '.tags[].manifest_digest')"
+    # Get the manifest list for the tag using OCI registry API
+    # We need to accept the manifest list media type to get multi-arch info
+    KUBE_PROXY_MANIFEST="$(curl -sL \
+        -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+        "https://registry.k8s.io/v2/kube-proxy/manifests/${KUBE_PROXY_LATEST_TAG}")"
 
-    # For multi-arch manifest, extract architecture-specific digests
-    KUBE_PROXY_MANIFEST_DATA="$(curl -s "https://quay.io/api/v1/repository/okd/scos-content/manifest/${KUBE_PROXY_MANIFEST_DIGEST}" | jq -r '.manifest_data')"
-    KUBE_PROXY_SHA256_X86_64="$(echo "${KUBE_PROXY_MANIFEST_DATA}" | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest')"
-    KUBE_PROXY_SHA256_AARCH64="$(echo "${KUBE_PROXY_MANIFEST_DATA}" | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')"
+    # Extract architecture-specific digests from the manifest list
+    KUBE_PROXY_SHA256_X86_64="$(echo "${KUBE_PROXY_MANIFEST}" | jq -r '.manifests[] | select(.platform.architecture == "amd64") | .digest')"
+    KUBE_PROXY_SHA256_AARCH64="$(echo "${KUBE_PROXY_MANIFEST}" | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')"
 
     echo " - aarch64 digest: ${KUBE_PROXY_SHA256_AARCH64}"
     echo " - x86_64 digest: ${KUBE_PROXY_SHA256_X86_64}"
