@@ -34,9 +34,13 @@ jobs:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
 
+      # Always get the latest available 'amd64' OKD version tag and attempt
+      # to build 'arm64' images for it
       - name: Detect OKD version tag
         id: detect-okd-version
         uses: ./.github/actions/okd-version
+        with:
+          check-amd64: "true"
 
       - name: Run the OKD release images build action
         uses: ./.github/actions/build-okd
