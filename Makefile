@@ -2,11 +2,17 @@
 # The following variables can be overriden from the command line
 # using NAME=value make arguments
 #
+ARCH := $(shell uname -m)
 
 # Options used in the 'rpm' target
 USHIFT_GITREF ?= main
-OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest)
+ifeq ($(ARCH),aarch64)
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64)
+else
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64)
+endif
 RPM_OUTDIR ?=
+
 # Options used in the 'image' target
 BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
 BOOTC_IMAGE_TAG ?= stream9
@@ -14,13 +20,13 @@ WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
 ISOLATED_NETWORK ?= 0
 
 # Internal variables
 SHELL := /bin/bash
-ARCH := $(shell uname -m)
 # Override the default OKD_RELEASE_IMAGE variable based on the architecture
 ifeq ($(ARCH),aarch64)
 OKD_RELEASE_IMAGE ?= ghcr.io/microshift-io/okd/okd-release-arm64
