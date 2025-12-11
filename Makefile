@@ -12,6 +12,7 @@ else
 OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64)
 endif
 RPM_OUTDIR ?=
+SRPM_WORKDIR ?=
 
 # Options used in the 'image' target
 BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
