@@ -1,0 +1,167 @@
+name: cncf-conformance
+# Workflow to run CNCF conformance tests on MicroShift upstream latest release
+#
+# This workflow runs the official CNCF conformance test suite using Sonobuoy in
+# certified-conformance mode, which is required for Kubernetes conformance certification.
+# Other Sonobuoy modes (quick, lite) are not used as they do not provide official
+# CNCF conformance validation.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      ushift-gitref:
+        default: "main"
+        description: MicroShift git ref (branch, tag, commit) from https://github.com/openshift/microshift/branches
+        type: string
+      okd-version-tag:
+        default: "latest"
+        description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+        type: string
+      test-timeout:
+        default: "7200"
+        description: Sonobuoy test timeout in seconds (default 7200 = 2 hours)
+        type: string
+
+env:
+  USHIFT_GITREF: ${{ github.event.inputs.ushift-gitref || 'main' }}
+  OKD_VERSION_TAG: ${{ github.event.inputs.okd-version-tag || 'latest' }}
+  TEST_TIMEOUT: ${{ github.event.inputs.test-timeout || '7200' }}
+
+jobs:
+  cncf-conformance-bootc:
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: Run CNCF conformance tests on bootc (${{ matrix.runners }})
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Prepare the build and run environment
+        uses: ./.github/actions/prebuild
+
+      - name: Run the build action with multi-node setup
+        uses: ./.github/actions/build
+        with:
+          ushift-gitref: ${{ env.USHIFT_GITREF }}
+          okd-version-tag: ${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }}
+          build: bootc-image
+          node-count: 2
+
+      - name: Setup 2-node cluster for CNCF tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+          make run
+          make run-ready
+          # Ensure first node is healthy before adding second node
+          make run-healthy
+          make add-node
+          # Ensure both nodes are healthy before running conformance tests
+          make run-healthy
+
+      - name: Run CNCF conformance tests
+        uses: ./.github/actions/run-cncf
+        with:
+          test-mode: certified-conformance
+          test-timeout: ${{ env.TEST_TIMEOUT }}
+          artifact-name-suffix: bootc
+
+      - name: Collect debug information after tests
+        if: always()
+        uses: ./.github/actions/debug-info
+
+      - name: Collect MicroShift container sos-report on failure
+        if: failure()
+        uses: ./.github/actions/sos-report
+
+      - name: Clean up MicroShift cluster
+        if: always()
+        shell: bash
+        run: |
+          set -x
+          make stop || true
+          make clean || true
+
+  cncf-conformance-rpm:
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: Run CNCF conformance tests on RPM (${{ matrix.runners }})
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Prepare the test environment
+        uses: ./.github/actions/prebuild
+
+      - name: Build and install MicroShift from RPM packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+
+          # Build RPMs
+          make rpm \
+            USHIFT_GITREF=${{ env.USHIFT_GITREF }} \
+            OKD_VERSION_TAG=${{ env.OKD_VERSION_TAG != 'latest' && env.OKD_VERSION_TAG || steps.detect-okd-version.outputs.okd-version-tag }} \
+            RPM_OUTDIR=/mnt/rpms
+
+          # Create bootc container with RPMs installed
+          ./src/quickrpm.sh quay.io/centos-bootc/centos-bootc stream9 /mnt/rpms
+
+          # Commit to local image for multi-node reuse
+          sudo podman commit microshift-okd localhost/microshift-okd:latest
+          sudo podman stop microshift-okd || true
+          sudo podman rm -f microshift-okd --time 0 || true
+
+      - name: Setup 2-node cluster from RPM installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+
+          make run
+          make run-ready
+          # Ensure first node is healthy before adding second node
+          make run-healthy
+          make add-node
+          # Ensure both nodes are healthy before running conformance tests
+          make run-healthy
+
+      - name: Run CNCF conformance tests
+        uses: ./.github/actions/run-cncf
+        with:
+          test-mode: certified-conformance
+          test-timeout: ${{ env.TEST_TIMEOUT }}
+          artifact-name-suffix: rpm
+
+      - name: Collect debug information after tests
+        if: always()
+        uses: ./.github/actions/debug-info
+
+      - name: Collect MicroShift container sos-report on failure
+        if: failure()
+        uses: ./.github/actions/sos-report
+
+      - name: Clean up MicroShift cluster
+        if: always()
+        shell: bash
+        run: |
+          set -x
+          make stop || true
+          make clean || true
+          sudo podman rmi localhost/microshift-okd:latest || true
