@@ -24,6 +24,7 @@ EMBED_CONTAINER_IMAGES ?= 0
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
 ISOLATED_NETWORK ?= 0
+EXPOSE_KUBEAPI_PORT ?= 1
 
 # Internal variables
 SHELL := /bin/bash
@@ -47,7 +48,7 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | srpm | image | run | add-node | start | stop | clean | check>"
+	@echo "make <rpm | srpm | image | run | add-node | start | stop | clean | check | env [CMD=command]>"
 	@echo "   rpm:       	build the MicroShift RPMs"
 	@echo "   srpm:      	build the MicroShift SRPM"
 	@echo "   image:     	build the MicroShift bootc container image"
@@ -57,6 +58,8 @@ all:
 	@echo "   stop:      	stop the MicroShift cluster"
 	@echo "   clean:     	clean up the MicroShift cluster and the LVM backend"
 	@echo "   check:     	run the presubmit checks"
+	@echo "   env:       	start a shell with MicroShift kubeconfig environment"
+	@echo "   env CMD=...:  run a command in MicroShift kubeconfig environment"
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
@@ -134,15 +137,15 @@ image:
 
 .PHONY: run
 run:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh create
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=${EXPOSE_KUBEAPI_PORT} ./src/cluster_manager.sh create
 
 .PHONY: add-node
 add-node:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh add-node
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=0 ./src/cluster_manager.sh add-node
 
 .PHONY: start
 start:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh start
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=0 ./src/cluster_manager.sh start
 
 .PHONY: stop
 stop:
@@ -173,6 +176,10 @@ run-healthy:
 .PHONY: run-status
 run-status:
 	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh status
+
+.PHONY: env
+env: run-ready
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=1 ./src/cluster_manager.sh env "${CMD}"
 
 .PHONY: clean
 clean:
