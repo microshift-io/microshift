@@ -37,7 +37,7 @@ else
 OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_X86_64)
 endif
 
-BUILDER_IMAGE := microshift-okd-builder
+RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd
 SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
@@ -78,15 +78,15 @@ rpm:
 
 	@echo "Building the MicroShift RPMs image"
 	sudo podman build \
-        -t "${BUILDER_IMAGE}" \
+        -t "${RPM_IMAGE}" \
         --ulimit nofile=524288:524288 \
-        -f packaging/microshift-builder.Containerfile .
+        -f packaging/rpm.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
-	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
+	mntdir="$$(sudo podman image mount "${RPM_IMAGE}")" && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
-	sudo podman image umount "${BUILDER_IMAGE}" && \
+	sudo podman image umount "${RPM_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
@@ -118,7 +118,7 @@ rpm-to-deb:
 
 .PHONY: image
 image:
-	@if ! sudo podman image exists microshift-okd-builder ; then \
+	@if ! sudo podman image exists "${RPM_IMAGE}" ; then \
 		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
 		exit 1 ; \
 	fi
@@ -135,7 +135,7 @@ image:
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-        -f packaging/microshift-runner.Containerfile .
+        -f packaging/bootc.Containerfile .
 
 .PHONY: run
 run:
@@ -192,7 +192,8 @@ clean-all:
 	@echo "Performing a full cleanup"
 	$(MAKE) clean
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
-	sudo podman rmi -f "${BUILDER_IMAGE}" || true
+	sudo podman rmi -f "${RPM_IMAGE}" || true
+	sudo podman rmi -f "${SRPM_IMAGE}" || true
 
 .PHONY: check
 check: _hadolint _shellcheck

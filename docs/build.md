@@ -69,7 +69,7 @@ The following options can be specified in the make command line using the `NAME=
 make rpm
 ```
 
-If the build completes successfully, the `microshift-okd-builder` container image
+If the build completes successfully, the `microshift-okd-rpm` container image
 is created and the MicroShift RPM repository is copied to the `RPM_OUTDIR` directory
 on the host. The packages from this repository can be used to install MicroShift
 on the supported operating systems.
@@ -132,7 +132,7 @@ The following options can be specified in the make command line using the `NAME=
 
 The `make image` command builds a MicroShift Bootc image based on CentOS Stream 9
 operating system with the default options. The command uses artifacts from the
-`microshift-okd-builder` container image created by `make rpm`.
+`microshift-okd-rpm` container image created by `make rpm`.
 
 ```bash
 make image
