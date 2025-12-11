@@ -71,13 +71,15 @@ all:
 
 .PHONY: rpm
 rpm:
-	@echo "Building the MicroShift builder image"
+	@if ! sudo podman image exists "${SRPM_IMAGE}" ; then \
+		echo "ERROR: Run 'make srpm' to build the MicroShift SRPMs" ; \
+		exit 1 ; \
+	fi
+
+	@echo "Building the MicroShift RPMs image"
 	sudo podman build \
         -t "${BUILDER_IMAGE}" \
         --ulimit nofile=524288:524288 \
-        --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
-        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
         -f packaging/microshift-builder.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
