@@ -111,6 +111,9 @@ runs:
         make run-ready
         make run-healthy
 
+        # Run a test to verify that TopoLVM is functioning properly
+        make env "CMD=./src/topolvm/tests/createWorkloads.sh"
+
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
         done
@@ -120,7 +123,6 @@ runs:
         # Clean is necessary to avoid conflicts with other actions that may
         # potentially run in subsequent actions
         make clean
-
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
     #   if: failure()

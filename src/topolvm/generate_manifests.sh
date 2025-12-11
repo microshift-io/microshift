@@ -119,6 +119,7 @@ resources:
 patches:
   - path: topolvm_mutatingwebhook_patch.yaml
   - path: topolvm_service_patch.yaml
+  - path: topolvm_configmap-lvmd_patch.yaml
 EOF
 }
 
