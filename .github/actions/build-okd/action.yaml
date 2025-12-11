@@ -51,23 +51,30 @@ runs:
         set -euo pipefail
 
         cd ${GITHUB_WORKSPACE}/
+        # The 'staging' mode builds images locally AND pushes them to staging registry
+        # Staging registry is automatically derived as: $(dirname target-registry)/okd-staging
+        # This allows testing before promoting to production
         TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          staging \
           "${{ inputs.okd-version-tag }}" \
           "${{ inputs.ushift-gitref }}" \
           "${{ inputs.target-arch }}"
 
-    - name: Build MicroShift RPMs
+    - name: Build MicroShift RPMs using staging OKD images
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
         # for more information about the build process.
 
-        # Run the RPM build process.
+        # Run the RPM build process using images from staging registry
+        # Staging registry is derived as: $(dirname target-registry)/okd-staging
         cd ${GITHUB_WORKSPACE}/
+        PRODUCTION_REGISTRY="${{ inputs.target-registry }}"
+        STAGING_REGISTRY="$(dirname "${PRODUCTION_REGISTRY}")/okd-staging"
         make rpm \
           USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
-          OKD_RELEASE_IMAGE="${{ inputs.target-registry }}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}" \
+          OKD_RELEASE_IMAGE="${STAGING_REGISTRY}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}:${{ inputs.okd-version-tag }}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
@@ -96,6 +103,30 @@ runs:
         make run-ready
         make run-healthy
         make stop
+
+    - name: Push OKD images to production registry
+      if: success()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${GITHUB_WORKSPACE}/
+        # Only push to production if all tests passed
+        # This ensures we don't publish broken OKD images to production
+        TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          production \
+          "${{ inputs.okd-version-tag }}" \
+          "${{ inputs.ushift-gitref }}" \
+          "${{ inputs.target-arch }}"
+
+    - name: Cleanup staging registry on failure
+      if: failure()
+      shell: bash
+      continue-on-error: true
+      run: |
+        echo "Build or tests failed - staging images were not promoted to production"
+        echo "Staging registry may contain untested images for version ${{ inputs.okd-version-tag }}"
+        echo "These will be overwritten on the next build attempt"
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
