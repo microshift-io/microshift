@@ -16,9 +16,9 @@ Install the software necessary for running the build process:
 sudo dnf install -y make podman
 ```
 
-### Create RPM Packages
+### Create SRPM Package
 
-Create the MicroShift RPM packages by running the `make rpm` command.
+Create the MicroShift SRPM package by running the `make srpm` command.
 
 The following options can be specified in the make command line using the `NAME=VAL` format.
 
@@ -26,11 +26,44 @@ The following options can be specified in the make command line using the `NAME=
 |-----------------|----------|----------|----------|
 | USHIFT_GITREF   | no       | main     | [MicroShift repository branches](https://github.com/openshift/microshift/branches) |
 | OKD_VERSION_TAG | no       | latest   | [OKD version tags](https://quay.io/repository/okd/scos-release?tab=tags) |
-| RPM_OUTDIR      | no       | /tmp/... | RPM repository output directory |
+| SRPM_WORKDIR    | no       | /tmp/... | SRPM repository output directory |
 
-The `make rpm` command builds MicroShift RPMs based on CentOS Stream 9 operating
-system. The `main` MicroShift repository branch and the latest OKD version tag
+The `main` MicroShift repository branch and the latest OKD version tag
 are used by default if unspecified.
+
+```bash
+make srpm
+```
+
+If the build completes successfully, the `microshift-okd-srpm` container image
+is created and the MicroShift SRPM and version.txt file is copied to
+the `SRPM_WORKDIR` directory on the host.
+
+```
+...
+...
+SRPMs are available in '/tmp/microshift-srpms-1tzW3h'
+```
+
+Notes:
+- The MicroShift repository branch and the OKD version tag used to build the
+  SRPM can be overridden by specifying `USHIFT_GITREF` and `OKD_VERSION_TAG`
+  make command line arguments.
+- The path to the `SRPM_WORKDIR` directory (either temporary or specified in
+  the `make srpm` command line) is displayed in the end of the build procedure.
+
+### Create RPM Packages
+
+Create the MicroShift RPM packages by running the `make rpm` command.
+
+The `make rpm` command builds MicroShift RPMs for CentOS Stream 9 operating
+system. RPMs are build from the SRPM built by running `make srpm`.
+
+The following options can be specified in the make command line using the `NAME=VAL` format.
+
+| Name            | Required | Default  | Comments |
+|-----------------|----------|----------|----------|
+| RPM_OUTDIR      | no       | /tmp/... | RPM repository output directory |
 
 ```bash
 make rpm
@@ -49,9 +82,6 @@ RPMs are available in '/tmp/microshift-rpms-EI3IXg'
 ```
 
 Notes:
-- The MicroShift repository branch and the OKD version tag used to build the
-  packages can be overridden by specifying `USHIFT_GITREF` and `OKD_VERSION_TAG`
-  make command line arguments.
 - The path to the `RPM_OUTDIR` directory (either temporary or specified in
   the `make rpm` command line) is displayed in the end of the build procedure.
 
