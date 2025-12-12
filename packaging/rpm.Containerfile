@@ -22,7 +22,7 @@ RUN \
     tar xf ./microshift-*.tar.gz -C /home/microshift/microshift --strip-components=1 && \
     \
     echo "# Build the RPMs from the SRPM" && \
-    rpmbuild --quiet --rebuild ./microshift-*.src.rpm && \
+    rpmbuild --quiet --define 'microshift_variant community' --rebuild ./microshift-*.src.rpm && \
     \
     echo "# Finally, move the RPMs" && \
     mkdir -p ${BUILDER_RPM_REPO_PATH} && \
