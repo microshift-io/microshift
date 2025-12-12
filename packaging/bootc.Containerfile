@@ -2,7 +2,7 @@
 ARG BOOTC_IMAGE_URL=quay.io/centos-bootc/centos-bootc
 ARG BOOTC_IMAGE_TAG=stream9
 
-FROM localhost/microshift-okd-builder:latest AS builder
+FROM localhost/microshift-okd-rpm:latest AS builder
 FROM ${BOOTC_IMAGE_URL}:${BOOTC_IMAGE_TAG}
 
 ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
