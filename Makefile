@@ -2,11 +2,18 @@
 # The following variables can be overriden from the command line
 # using NAME=value make arguments
 #
+ARCH := $(shell uname -m)
 
 # Options used in the 'rpm' target
 USHIFT_GITREF ?= main
-OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest)
+ifeq ($(ARCH),aarch64)
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64)
+else
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64)
+endif
 RPM_OUTDIR ?=
+SRPM_WORKDIR ?=
+
 # Options used in the 'image' target
 BOOTC_IMAGE_URL ?= quay.io/centos-bootc/centos-bootc
 BOOTC_IMAGE_TAG ?= stream9
@@ -14,22 +21,26 @@ WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
 ISOLATED_NETWORK ?= 0
+EXPOSE_KUBEAPI_PORT ?= 1
 
 # Internal variables
 SHELL := /bin/bash
-ARCH := $(shell uname -m)
 # Override the default OKD_RELEASE_IMAGE variable based on the architecture
+OKD_RELEASE_IMAGE_X86_64 ?= quay.io/okd/scos-release
+OKD_RELEASE_IMAGE_AARCH64 ?= ghcr.io/microshift-io/okd/okd-release-arm64
 ifeq ($(ARCH),aarch64)
-OKD_RELEASE_IMAGE ?= ghcr.io/microshift-io/okd/okd-release-arm64
+OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_AARCH64)
 else
-OKD_RELEASE_IMAGE ?= quay.io/okd/scos-release
+OKD_RELEASE_IMAGE ?= $(OKD_RELEASE_IMAGE_X86_64)
 endif
 
-BUILDER_IMAGE := microshift-okd-builder
+RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd
+SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
@@ -38,8 +49,9 @@ VG_NAME := myvg1
 #
 .PHONY: all
 all:
-	@echo "make <rpm | image | run | add-node | start | stop | clean | check>"
+	@echo "make <rpm | srpm | image | run | add-node | start | stop | clean | check | env [CMD=command]>"
 	@echo "   rpm:       	build the MicroShift RPMs"
+	@echo "   srpm:      	build the MicroShift SRPM"
 	@echo "   image:     	build the MicroShift bootc container image"
 	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
 	@echo "   add-node:  	add a new node to the MicroShift cluster in a bootc container"
@@ -47,6 +59,8 @@ all:
 	@echo "   stop:      	stop the MicroShift cluster"
 	@echo "   clean:     	clean up the MicroShift cluster and the LVM backend"
 	@echo "   check:     	run the presubmit checks"
+	@echo "   env:       	start a shell with MicroShift kubeconfig environment"
+	@echo "   env CMD=...:  run a command in MicroShift kubeconfig environment"
 	@echo ""
 	@echo "Sub-targets:"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
@@ -58,23 +72,39 @@ all:
 
 .PHONY: rpm
 rpm:
-	@echo "Building the MicroShift builder image"
+	@if ! sudo podman image exists "${SRPM_IMAGE}" ; then \
+		echo "ERROR: Run 'make srpm' to build the MicroShift SRPMs" ; \
+		exit 1 ; \
+	fi
+
+	@echo "Building the MicroShift RPMs image"
 	sudo podman build \
-        -t "${BUILDER_IMAGE}" \
+        -t "${RPM_IMAGE}" \
         --ulimit nofile=524288:524288 \
-        --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
-        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
-        --build-arg OKD_RELEASE_IMAGE="${OKD_RELEASE_IMAGE}" \
-        -f packaging/microshift-builder.Containerfile .
+        -f packaging/rpm.Containerfile .
 
 	@echo "Extracting the MicroShift RPMs"
 	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
-	mntdir="$$(sudo podman image mount "${BUILDER_IMAGE}")" && \
+	mntdir="$$(sudo podman image mount "${RPM_IMAGE}")" && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
-	sudo podman image umount "${BUILDER_IMAGE}" && \
+	sudo podman image umount "${RPM_IMAGE}" && \
 	echo "" && \
 	echo "Build completed successfully" && \
 	echo "RPMs are available in '$${outdir}'"
+
+.PHONY: srpm
+srpm:
+	@echo "Building the MicroShift SRPM image"
+	outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
+	sudo podman build \
+        -t "${SRPM_IMAGE}" \
+        --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
+        --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
+        --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
+		--volume "$${outdir}:/output:Z" \
+        -f packaging/srpm.Containerfile . && \
+	echo "SRPMs are available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
 rpm-to-deb:
@@ -89,7 +119,7 @@ rpm-to-deb:
 
 .PHONY: image
 image:
-	@if ! sudo podman image exists microshift-okd-builder ; then \
+	@if ! sudo podman image exists "${RPM_IMAGE}" ; then \
 		echo "ERROR: Run 'make rpm' to build the MicroShift RPMs" ; \
 		exit 1 ; \
 	fi
@@ -106,19 +136,19 @@ image:
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-        -f packaging/microshift-runner.Containerfile .
+        -f packaging/bootc.Containerfile .
 
 .PHONY: run
 run:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh create
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=${EXPOSE_KUBEAPI_PORT} ./src/cluster_manager.sh create
 
 .PHONY: add-node
 add-node:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh add-node
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=0 ./src/cluster_manager.sh add-node
 
 .PHONY: start
 start:
-	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh start
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=0 ./src/cluster_manager.sh start
 
 .PHONY: stop
 stop:
@@ -150,6 +180,10 @@ run-healthy:
 run-status:
 	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh status
 
+.PHONY: env
+env: run-ready
+	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} EXPOSE_KUBEAPI_PORT=1 ./src/cluster_manager.sh env "${CMD}"
+
 .PHONY: clean
 clean:
 	@USHIFT_IMAGE=${USHIFT_IMAGE} ISOLATED_NETWORK=${ISOLATED_NETWORK} LVM_DISK=${LVM_DISK} LVM_VOLSIZE=${LVM_VOLSIZE} VG_NAME=${VG_NAME} ./src/cluster_manager.sh delete
@@ -159,7 +193,8 @@ clean-all:
 	@echo "Performing a full cleanup"
 	$(MAKE) clean
 	sudo podman rmi -f "${USHIFT_IMAGE}" || true
-	sudo podman rmi -f "${BUILDER_IMAGE}" || true
+	sudo podman rmi -f "${RPM_IMAGE}" || true
+	sudo podman rmi -f "${SRPM_IMAGE}" || true
 
 .PHONY: check
 check: _hadolint _shellcheck

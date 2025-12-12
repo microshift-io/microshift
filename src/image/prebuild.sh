@@ -2,8 +2,11 @@
 set -euo pipefail
 
 MICROSHIFT_ROOT="/home/microshift/microshift"
-ARCH="$(uname -m)"
+ARCH="${ARCH:-$(uname -m)}"
 declare -A UNAME_TO_GOARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
+
+RELEASE_IMAGE_CACHE=$(mktemp "/tmp/release-image-cache-${ARCH}.XXXXX.json")
+trap 'rm -f "${RELEASE_IMAGE_CACHE}"' EXIT
 
 oc_release_info() {
     local -r okd_url=$1
@@ -15,7 +18,11 @@ oc_release_info() {
         return
     fi
 
-    local -r okd_image="$(oc adm release info --image-for="${image}" "${okd_url}:${okd_releaseTag}")"
+    if [ ! -s "${RELEASE_IMAGE_CACHE}" ] ; then
+        oc adm release info "${okd_url}:${okd_releaseTag}" -o json > "${RELEASE_IMAGE_CACHE}"
+    fi
+
+    local -r okd_image="$(jq -r --arg IMAGE "${image}" '.references.spec.tags[] | select(.name == $IMAGE) | .from.name' "${RELEASE_IMAGE_CACHE}")"
     if [ -z "${okd_image}" ] ; then
         echo "ERROR: No OKD image found for '${image}'"
         exit 1
@@ -49,7 +56,7 @@ replace_base_assets() {
         local new_image
         new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${cur_image}")
 
-        echo "Replacing '${cur_image}' with '${new_image}'"
+        echo "[${ARCH}] Replacing '${cur_image}' with '${new_image}'"
         jq --arg a "${cur_image}" --arg b "${new_image}"  '.images[$a] = $b' "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json" >"${temp_json}"
         mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/release/release-${ARCH}.json"
     done
@@ -93,7 +100,7 @@ EOF
         # Get the new image from OKD release
         local new_image
         new_image=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${container}")
-        echo "Replacing '${container}' with '${new_image}'"
+        echo "[${ARCH}] Replacing '${container}' with '${new_image}'"
         local new_image_name="${new_image%@*}"
         local new_image_digest="${new_image#*@}"
 
@@ -142,7 +149,7 @@ replace_kindnet_assets() {
 
     # Kube proxy is required for kindnet
     local -r image_with_hash=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "kube-proxy")
-    echo "Replacing 'kube-proxy' with '${image_with_hash}'"
+    echo "[${ARCH}] Replacing 'kube-proxy' with '${image_with_hash}'"
     # The OKD image we retrieve is in the format quay.io/okd/scos-content@sha256:<hash>,
     # where the image name and digest (hash) are combined in a single string.
     # However, in the kustomization.${arch}.yaml file, we need the image name (newName) and
