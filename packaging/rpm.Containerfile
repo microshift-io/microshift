@@ -25,7 +25,10 @@ RUN \
     rpmbuild --quiet --define 'microshift_variant community' --rebuild ./microshift-*.src.rpm && \
     \
     echo "# Finally, move the RPMs" && \
-    mkdir -p ${BUILDER_RPM_REPO_PATH} && \
+    mkdir -p ${BUILDER_RPM_REPO_PATH}/ && \
     mv /root/rpmbuild/RPMS ${BUILDER_RPM_REPO_PATH}/ && \
+    mkdir -p ${BUILDER_RPM_REPO_PATH}/RPMS/srpms/ && \
+    mv ./microshift-*.src.rpm ${BUILDER_RPM_REPO_PATH}/RPMS/srpms/ && \
+    mv ./version.txt ${BUILDER_RPM_REPO_PATH}/RPMS/ && \
     createrepo -v ${BUILDER_RPM_REPO_PATH}/RPMS && \
-    rm -rf /root/rpmbuild /tmp/*
+    rm -rf /root/rpmbuild /tmp/* /root/.cache/go-build

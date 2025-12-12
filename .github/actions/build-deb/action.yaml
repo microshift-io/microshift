@@ -39,11 +39,9 @@ runs:
 
         # Run the RPM build process.
         cd ${GITHUB_WORKSPACE}/
-        make srpm \
+        make rpm \
           USHIFT_GITREF=${{ inputs.ushift-gitref }} \
           OKD_VERSION_TAG=${{ inputs.okd-version-tag }}
-
-        make rpm \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Convert the MicroShift RPMs to Debian packages
