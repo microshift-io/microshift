@@ -52,7 +52,7 @@ runs:
         cd ${GITHUB_WORKSPACE}/
         make rpm \
           USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
-          OKD_VERSION_TAG="${{ inputs.okd-version-tag }}"
+          OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image

@@ -80,8 +80,8 @@ rpm: srpm
 
 	@outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${RPM_IMAGE}")" && \
+	trap "sudo podman image umount '${RPM_IMAGE}' >/dev/null" EXIT && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
-	sudo podman image umount "${RPM_IMAGE}" >/dev/null && \
 	echo -e "\nBuild completed successfully\nRPMs are available in '$${outdir}'"
 
 .PHONY: srpm
@@ -97,8 +97,8 @@ srpm:
 
 	@outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${SRPM_IMAGE}")" && \
+	trap "sudo podman image umount '${SRPM_IMAGE}' >/dev/null" EXIT && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/SRPMS/." "$${outdir}" && \
-	sudo podman image umount "${SRPM_IMAGE}" >/dev/null && \
 	echo -e "\nBuild completed successfully\nSRPM is available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
