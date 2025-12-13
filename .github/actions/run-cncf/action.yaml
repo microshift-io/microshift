@@ -1,0 +1,114 @@
+name: run-cncf
+description: Run CNCF conformance tests
+
+inputs:
+  test-mode:
+    description: Sonobuoy test mode
+    required: false
+    default: certified-conformance
+  test-timeout:
+    description: Test timeout in seconds
+    required: false
+    default: "7200"
+  artifact-name-suffix:
+    description: Suffix for artifact name (e.g., bootc, rpm)
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Detect the CPU architecture
+      id: detect-cpu-arch
+      uses: ./.github/actions/arch
+
+    - name: Install Sonobuoy
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./src/cncf/install_sonobuoy.sh ${{ steps.detect-cpu-arch.outputs.go_arch }}
+
+    - name: Run CNCF conformance tests with Sonobuoy
+      shell: bash
+      run: |
+        set -euo pipefail
+        set -x
+
+        # Get the kubeconfig from the MicroShift container
+        # For multi-node clusters, the kubeconfig is stored at a node-specific path
+        KUBECONFIG_PATH="/tmp/kubeconfig"
+        sudo podman exec microshift-okd-1 cat /var/lib/microshift/resources/kubeadmin/microshift-okd-1/kubeconfig > "${KUBECONFIG_PATH}" || {
+          echo "ERROR: Failed to retrieve kubeconfig from microshift-okd-1 container"
+          exit 1
+        }
+        export KUBECONFIG="${KUBECONFIG_PATH}"
+
+        # Verify cluster is accessible and has 2 nodes
+        kubectl get nodes
+        kubectl get pods -A
+
+        # Run Sonobuoy tests
+        echo "Running Sonobuoy in ${{ inputs.test-mode }} mode..."
+        # Skip the session affinity test as it is known to fail in containerized
+        # multi-node environments due to NodePort session affinity limitations.
+        # This skip pattern matches the upstream openshift/microshift test configuration.
+        sonobuoy run \
+          --mode=${{ inputs.test-mode }} \
+          --plugin-env=e2e.E2E_SKIP=".*Services should be able to switch session affinity for NodePort service.*" \
+          --dns-namespace=openshift-dns \
+          --dns-pod-labels=dns.operator.openshift.io/daemonset-dns=default \
+          --wait \
+          --timeout=${{ inputs.test-timeout }}
+
+        # Check status using JSON output
+        sonobuoy status --json > /tmp/sonobuoy-status.json
+        cat /tmp/sonobuoy-status.json
+
+        # Retrieve results
+        RESULTS_FILE=$(sonobuoy retrieve)
+        echo "Results saved to: ${RESULTS_FILE}"
+
+        # Extract and display results
+        mkdir -p /tmp/sonobuoy-results
+        tar xzf "${RESULTS_FILE}" -C /tmp/sonobuoy-results
+
+        # Display test results in human-readable format
+        sonobuoy results "${RESULTS_FILE}"
+
+        # Check if tests passed using JSON status (robust parsing)
+        FAILURES=$(jq '[.plugins[] | select(."result-status" == "failed")] | length' /tmp/sonobuoy-status.json)
+        echo "Number of failed plugins: ${FAILURES}"
+
+        if [ "${FAILURES}" = "0" ]; then
+          echo "All CNCF conformance tests passed!"
+          exit 0
+        else
+          echo "Some CNCF conformance tests failed (${FAILURES} plugin(s) failed)"
+          echo "Check the artifacts for detailed results"
+          exit 1
+        fi
+
+    - name: Upload Sonobuoy results as artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sonobuoy-results-${{ inputs.artifact-name-suffix }}-${{ steps.detect-cpu-arch.outputs.go_arch }}
+        path: |
+          /tmp/sonobuoy-results/
+          /tmp/*.tar.gz
+        retention-days: 30
+
+    - name: Clean up Sonobuoy resources
+      if: always()
+      shell: bash
+      run: |
+        set -x
+
+        # Delete Sonobuoy resources
+        if [ -f /tmp/kubeconfig ]; then
+          export KUBECONFIG=/tmp/kubeconfig
+          sonobuoy delete --wait || true
+        fi
+
+        # Clean up temporary files
+        rm -rf /tmp/kubeconfig /tmp/sonobuoy-results /tmp/sonobuoy-status.json || true
+        rm -f /tmp/*.tar.gz || true
