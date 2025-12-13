@@ -71,40 +71,35 @@ all:
 	@echo ""
 
 .PHONY: rpm
-rpm:
-	@if ! sudo podman image exists "${SRPM_IMAGE}" ; then \
-		echo "ERROR: Run 'make srpm' to build the MicroShift SRPMs" ; \
-		exit 1 ; \
-	fi
-
+rpm: srpm
 	@echo "Building the MicroShift RPMs image"
 	sudo podman build \
         -t "${RPM_IMAGE}" \
         --ulimit nofile=524288:524288 \
         -f packaging/rpm.Containerfile .
 
-	@echo "Extracting the MicroShift RPMs"
-	outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
+	@outdir="$${RPM_OUTDIR:-$$(mktemp -d /tmp/microshift-rpms-XXXXXX)}" && \
 	mntdir="$$(sudo podman image mount "${RPM_IMAGE}")" && \
+	trap "sudo podman image umount '${RPM_IMAGE}' >/dev/null" EXIT && \
 	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/RPMS/." "$${outdir}" && \
-	sudo podman image umount "${RPM_IMAGE}" && \
-	echo "" && \
-	echo "Build completed successfully" && \
-	echo "RPMs are available in '$${outdir}'"
+	echo -e "\nBuild completed successfully\nRPMs are available in '$${outdir}'"
 
 .PHONY: srpm
 srpm:
 	@echo "Building the MicroShift SRPM image"
-	outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
 	sudo podman build \
         -t "${SRPM_IMAGE}" \
         --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
         --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
-		--volume "$${outdir}:/output:Z" \
-        -f packaging/srpm.Containerfile . && \
-	echo "SRPMs are available in '$${outdir}'"
+        -f packaging/srpm.Containerfile .
+
+	@outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
+	mntdir="$$(sudo podman image mount "${SRPM_IMAGE}")" && \
+	trap "sudo podman image umount '${SRPM_IMAGE}' >/dev/null" EXIT && \
+	sudo cp -r "$${mntdir}/home/microshift/microshift/_output/rpmbuild/SRPMS/." "$${outdir}" && \
+	echo -e "\nBuild completed successfully\nSRPM is available in '$${outdir}'"
 
 .PHONY: rpm-to-deb
 rpm-to-deb:

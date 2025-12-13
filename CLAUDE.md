@@ -115,7 +115,7 @@ make check              # Run linters (hadolint + shellcheck)
 
 - `packaging/`: Containerfiles for SRPM, RPM, and bootc builds
 - `src/`: Build scripts and component customizations
-  - `src/image/`: Image build scripts (prebuild.sh replaces OKD images, postbuild.sh configures)
+  - `src/image/`: Image build scripts (prebuild.sh replaces OKD images)
   - `src/okd/`: OKD version detection and ARM builds
   - `src/kindnet/`: Kindnet CNI assets and spec
   - `src/topolvm/`: TopoLVM CSI assets and spec

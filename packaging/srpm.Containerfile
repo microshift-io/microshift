@@ -32,9 +32,8 @@ RUN [ "$(uname -m)" = "aarch64" ] && ARCH="-arm64" || ARCH="" ; \
     OKD_CLIENT_URL="https://github.com/okd-project/okd/releases/download/${OKD_VERSION_TAG}/openshift-client-linux${ARCH}-${OKD_VERSION_TAG}.tar.gz" && \
     echo "OKD_CLIENT_URL: ${OKD_CLIENT_URL}" && \
     curl -L --retry 5 -o /tmp/okd-client.tar.gz "${OKD_CLIENT_URL}" && \
-    tar -xzf /tmp/okd-client.tar.gz -C /tmp && \
-    mv /tmp/oc /usr/local/bin/oc && \
-    rm -rf /tmp/okd-client.tar.gz ;
+    tar -xzf /tmp/okd-client.tar.gz -C /usr/local/bin/ && \
+    rm -rf /tmp/okd-client.tar.gz
 
 WORKDIR ${HOME}
 
@@ -68,5 +67,4 @@ RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/ma
     "${USHIFT_MODIFY_SPEC_SCRIPT}" ./packaging/rpm/microshift.spec "${SPEC_KINDNET}" "${SPEC_TOPOLVM}"
 
 COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
-RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm && \
-    cp ./_output/rpmbuild/SRPMS/* /output/
+RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm
