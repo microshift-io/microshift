@@ -2,6 +2,7 @@
 set -euo pipefail
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
+LVM_CONFIG="/etc/systemd/system/microshift.service.d/99-lvm-config.conf"
 VG_NAME="myvg1"
 
 # Check if the script is running as root
@@ -20,6 +21,13 @@ fi
 # Clean up the MicroShift data and uninstall RPMs
 if rpm -q microshift &>/dev/null ; then
     echo y | microshift-cleanup-data --all
+
+    # Remove the LVM configuration
+    if [ -f "${LVM_CONFIG}" ] ; then
+        rm -f "${LVM_CONFIG}"
+        systemctl daemon-reload
+    fi
+
     dnf remove -y 'microshift*'
     # Undo post-installation configuration
     rm -f /etc/sysctl.d/99-microshift.conf
