@@ -93,9 +93,19 @@ function prepare_lvm_disk() {
 
     mkdir -p "$(dirname "${lvm_disk}")"
     truncate --size=1G "${lvm_disk}"
+}
 
-    local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
-    vgcreate -f -y "${vg_name}" "${device_name}"
+function setup_lvm_service() {
+    local -r lvm_disk="$1"
+    local -r vg_name="$2"
+
+    # Note that escaping quotes is necessary to avoid systemd parsing issues
+    mkdir -p /etc/systemd/system/microshift.service.d
+    cat > /etc/systemd/system/microshift.service.d/99-lvm-config.conf <<EOF
+[Service]
+ExecStartPre=/bin/bash -c 'vgs "${vg_name}" || vgcreate -f -y "${vg_name}" "\$(losetup --find --show --nooverlap "${lvm_disk}")"'
+EOF
+    systemctl daemon-reload
 }
 
 function start_microshift() {
@@ -123,7 +133,8 @@ fi
 check_prerequisites
 centos10_cni_plugins
 install_rpms
-prepare_lvm_disk "${LVM_DISK}" "${VG_NAME}"
+prepare_lvm_disk  "${LVM_DISK}" "${VG_NAME}"
+setup_lvm_service "${LVM_DISK}" "${VG_NAME}"
 start_microshift
 
 # Follow-up instructions

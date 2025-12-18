@@ -48,6 +48,8 @@ jobs:
         with:
           ushift-gitref: ${{ inputs.ushift-gitref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream10
           build: ${{ inputs.build }}
 
       # Test the local container image with the quick start and clean procedures

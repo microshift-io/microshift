@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Following script modifies downstream microshift.spec to remove packages not yet supported by the upstream.

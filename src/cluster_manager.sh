@@ -10,9 +10,12 @@ USHIFT_MULTINODE_CLUSTER="${USHIFT_MULTINODE_CLUSTER:-microshift-okd-multinode}"
 NODE_BASE_NAME="${NODE_BASE_NAME:-microshift-okd-}"
 USHIFT_IMAGE="${USHIFT_IMAGE:-microshift-okd}"
 LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
+EXTRA_CONFIG="${EXTRA_CONFIG:-/var/lib/microshift-okd/custom_config.yaml}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
+API_SERVER_PORT="${API_SERVER_PORT:-6443}"
 VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
+EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
 
 _is_cluster_created() {
     if sudo podman container exists "${NODE_BASE_NAME}1"; then
@@ -80,6 +83,15 @@ _get_ip_address() {
     echo "$subnet" | awk -F. -v new="$node_id" 'NF==4{$4=new+10; printf "%s.%s.%s.%s", $1,$2,$3,$4} NF!=4{print $0}'
 }
 
+_get_hostname() {
+    local -r hostname=$(hostname -f 2>/dev/null)        
+    if [ -z "$hostname" ]; then
+        echo "ERROR: Could not determine local FQDN hostname" >&2
+        exit 1
+    fi
+    echo "$hostname"
+}
+
 # Notes:
 # - The container joins the cluster network and gets the cluster network IP
 #   address when the ISOLATED_NETWORK environment variable is set to 0.
@@ -102,11 +114,21 @@ _add_node() {
         network_opts="${network_opts} --ip ${ip_address}"
     fi
 
+    local port_opts=""
+    local mount_opts=""
+    if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
+        port_opts="-p ${API_SERVER_PORT}:${API_SERVER_PORT}"
+        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" | sudo tee "${EXTRA_CONFIG}" >/dev/null
+        mount_opts="--volume ${EXTRA_CONFIG}:/etc/microshift/config.d/api_server.yaml:ro"
+    fi
+
     # shellcheck disable=SC2086
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
         ${vol_opts} \
         ${network_opts} \
+        ${port_opts} \
+        ${mount_opts} \
         --tmpfs /var/lib/containers \
         --name "${name}" \
         --hostname "${name}" \
@@ -347,6 +369,42 @@ cluster_status() {
     return 0
 }
 
+
+cluster_env() {
+    local command="${1:-}"
+   
+    # Set first_container from the first value of containers array
+    local -r first_container=$(_get_running_containers | head -n1)
+    if [ -z "${first_container}" ]; then
+        echo "ERROR: No running cluster containers found." >&2
+        exit 1
+    fi
+    # Verify that ${API_SERVER_PORT} is open for connections on the host
+    if ! sudo ss -ltn "( sport = :${API_SERVER_PORT} )" | grep -q ":${API_SERVER_PORT}"; then
+        echo "ERROR: API server port ${API_SERVER_PORT} is closed, make sure EXPOSE_KUBEAPI_PORT is set to 1." >&2
+        exit 1
+    fi
+
+    local -r workdir=$(mktemp -d /tmp/kubeconfig-XXXXXX)
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir}'" RETURN
+
+    echo "Copying kubeconfig from ${first_container}..."
+    sudo podman cp "${first_container}:/var/lib/microshift/resources/kubeadmin/$(_get_hostname)/kubeconfig" "${workdir}/kubeconfig"
+    sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
+    export KUBECONFIG="${workdir}/kubeconfig"
+    
+    if [ -n "${command}" ]; then
+        # Execute the command and exit
+        echo "Executing command in environment with kubeconfig..."
+        sh -c "${command}"
+    else
+        # Start interactive shell
+        echo "Starting shell environment with kubeconfig..."
+        bash -li 
+    fi
+}
+
 main() {
     case "${1:-}" in
         create)
@@ -381,6 +439,10 @@ main() {
             shift
             cluster_status
             ;;
+        env)
+            shift
+            cluster_env "$@"
+            ;;
         topolvm-create)
             shift
             create_topolvm_backend
@@ -390,7 +452,7 @@ main() {
             delete_topolvm_backend
             ;;
         *)
-            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|topolvm-create|topolvm-delete}"
+            echo "Usage: $0 {create|add-node|start|stop|delete|ready|healthy|status|env|topolvm-create|topolvm-delete}"
             exit 1
             ;;
     esac
