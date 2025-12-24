@@ -1,0 +1,126 @@
+name: cncf-conformance
+# Workflow to run CNCF conformance tests on MicroShift upstream latest release
+#
+# This workflow runs the CNCF conformance test suite using Sonobuoy in 'certified-conformance'
+# mode for official Kubernetes conformance certification.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      version:
+        default: "latest"
+        description: MicroShift version to test (e.g., 4.21.0_ga9cd00b34_4.21.0_okd_scos.ec.5 or 'latest' for most recent release)
+        type: string
+      registry:
+        default: "ghcr.io/microshift-io"
+        description: Container registry to pull bootc images from
+        type: string
+      test-timeout:
+        default: "8400"
+        description: Sonobuoy test timeout in seconds (8400 = ~2.5 hours)
+        type: string
+
+env:
+  VERSION: ${{ github.event.inputs.version || 'latest' }}
+  REGISTRY: ${{ github.event.inputs.registry || 'ghcr.io/microshift-io' }}
+  TEST_TIMEOUT: ${{ github.event.inputs.test-timeout || '8400' }}
+
+jobs:
+  cncf-conformance:
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: Run CNCF conformance tests (${{ matrix.runners }})
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect CPU architecture
+        id: detect-cpu-arch
+        uses: ./.github/actions/arch
+
+      - name: Prepare the test environment
+        uses: ./.github/actions/prebuild
+
+      - name: Pull pre-built bootc image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          IMAGE="${{ env.REGISTRY }}/microshift:${{ env.VERSION }}"
+
+          echo "Pulling ${IMAGE}"
+          sudo podman pull "${IMAGE}"
+          sudo podman tag "${IMAGE}" localhost/microshift-okd:latest
+
+      - name: Setup 2-node cluster for CNCF tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          make run
+          make run-ready
+          # Ensure first node is healthy before adding second node
+          make run-healthy
+          make add-node
+          # Ensure both nodes are healthy before running conformance tests
+          make run-healthy
+
+      - name: Configure cluster for CNCF conformance tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Disable firewalld on cluster nodes to avoid blocking multi-node traffic
+          echo "Disabling firewalld on cluster nodes..."
+          for node in microshift-okd-1 microshift-okd-2; do
+            echo "  - Disabling firewalld on ${node}"
+            sudo podman exec "${node}" systemctl stop firewalld || true
+            sudo podman exec "${node}" systemctl disable firewalld || true
+          done
+
+          # Set default storage class for CNCF conformance tests
+          echo "Setting default storage class annotation..."
+          make env CMD="kubectl annotate storageclass topolvm-provisioner storageclass.kubernetes.io/is-default-class=true"
+
+          # Verify the annotation was applied
+          echo "Verifying default storage class:"
+          make env CMD="kubectl get storageclass topolvm-provisioner -o yaml | grep -A2 annotations"
+
+      - name: Run CNCF conformance tests with Sonobuoy
+        id: run-sonobuoy
+        shell: bash
+        env:
+          SONOBUOY_VERSION: v0.57.3
+          SYSTEMD_LOGS_VERSION: v0.4
+          TEST_MODE: certified-conformance
+          TIMEOUT_TEST: ${{ env.TEST_TIMEOUT }}
+          RESULTS_DIR: /tmp/sonobuoy-output
+        run: |
+          set -euo pipefail
+          make env CMD="./src/cncf/run_sonobuoy_tests.sh"
+
+      - name: Upload Sonobuoy results as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonobuoy-results-${{ steps.detect-cpu-arch.outputs.go_arch }}
+          path: /tmp/sonobuoy-output/
+          retention-days: 30
+
+      - name: Clean up Sonobuoy resources
+        if: always()
+        shell: bash
+        run: |
+          make env CMD="~/go/bin/sonobuoy delete --wait" || true
+          rm -rf /tmp/sonobuoy-output || true
+
+      - name: Collect debug information after tests
+        if: always()
+        uses: ./.github/actions/debug-info
+
+      - name: Collect MicroShift container sos-report on failure
+        if: failure()
+        uses: ./.github/actions/sos-report
