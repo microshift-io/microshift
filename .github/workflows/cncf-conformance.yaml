@@ -81,14 +81,6 @@ jobs:
             sudo podman exec "${node}" systemctl disable firewalld || true
           done
 
-          # Set default storage class for CNCF conformance tests
-          echo "Setting default storage class annotation..."
-          make env CMD="kubectl annotate storageclass topolvm-provisioner storageclass.kubernetes.io/is-default-class=true"
-
-          # Verify the annotation was applied
-          echo "Verifying default storage class:"
-          make env CMD="kubectl get storageclass topolvm-provisioner -o yaml | grep -A2 annotations"
-
       - name: Run CNCF conformance tests with Sonobuoy
         id: run-sonobuoy
         shell: bash
