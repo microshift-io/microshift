@@ -122,6 +122,7 @@ _add_node() {
         mount_opts="--volume ${EXTRA_CONFIG}:/etc/microshift/config.d/api_server.yaml:ro"
     fi
 
+    local rc=0
     # shellcheck disable=SC2086
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
@@ -134,7 +135,26 @@ _add_node() {
         --hostname "${name}" \
         "${USHIFT_IMAGE}"
 
-    return $?
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        return $rc
+    fi
+
+    # Wait up to 60 seconds for the container to activate the dbus service.
+    # It is necessary to prevent subsequent systemctl commands to fail with dbus errors.
+    local is_active=false
+    for _ in {1..60}; do
+        if sudo podman exec -i "${name}" systemctl is-active -q dbus.service ; then
+            is_active=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "${is_active}" = "false" ]; then
+        echo "ERROR: The container did not activate the dbus service within 60 seconds"
+        return 1
+    fi
+    return 0
 }
 
 
