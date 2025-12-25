@@ -79,6 +79,10 @@ function install_rpms() {
     dnf install -y --setopt=install_weak_deps=False \
         microshift microshift-kindnet microshift-topolvm
     "${WORKDIR}/create_repos.sh" -delete
+
+    # Pin the greenboot package to 0.15.z until the following issue is resolved:
+    # https://github.com/fedora-iot/greenboot-rs/issues/132
+    dnf install -y 'greenboot-0.15.*'
 }
 
 function prepare_lvm_disk() {
