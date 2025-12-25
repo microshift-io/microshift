@@ -83,6 +83,7 @@ kind: StorageClass
 metadata:
   name: topolvm-provisioner
   annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
   labels:
     helm.sh/chart: topolvm-15.5.2
     app.kubernetes.io/name: topolvm

@@ -42,7 +42,12 @@ EOF
   # Patch replicas to 1
   # shellcheck disable=SC2016
   yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/02-topolvm.yaml"
-  
+
+  # Annotate topolvm-provisioner StorageClass as default
+  yq 'with(select(.kind == "StorageClass" and .metadata.name == "topolvm-provisioner");
+  .metadata.annotations."storageclass.kubernetes.io/is-default-class" = "true"
+  )' -i "${ASSETS_DIR}/02-topolvm.yaml"
+
   # Patch topolvm-controller manifest with longer startup delay to allow dns to start
   yq 'with(select(.kind == "Deployment" and .metadata.name == "topolvm-controller").spec.template.spec.containers[] | select(.name == "topolvm-controller");
   .livenessProbe.failureThreshold = 3 |
