@@ -50,7 +50,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          IMAGE="${{ env.REGISTRY }}/microshift:${{ env.VERSION }}"
+          # Update the 'latest' tag to the latest released version from the
+          # MicroShift GitHub repository.
+          # Note: To test images from other repositories, override the 'VERSION'
+          # and 'REGISTRY' settings to point to a custom multi-arch manifest.
+          TAG="${{ env.VERSION }}"
+          if [ "${TAG}" = "latest" ] ; then
+            TAG="$(curl -s --max-time 60 "https://api.github.com/repos/microshift-io/microshift/releases/latest" | jq -r .tag_name)"
+            if [ -z "${TAG}" ] || [ "${TAG}" = "null" ] ; then
+              echo "ERROR: Could not determine the latest release tag from GitHub"
+              exit 1
+            fi
+          fi
+
+          IMAGE="${{ env.REGISTRY }}/microshift:${TAG}"
 
           echo "Pulling ${IMAGE}"
           sudo podman pull "${IMAGE}"
