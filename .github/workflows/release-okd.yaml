@@ -29,6 +29,7 @@ env:
 jobs:
   build-okd-release:
     name: Build OKD release images for ARM
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Check out MicroShift upstream repository
