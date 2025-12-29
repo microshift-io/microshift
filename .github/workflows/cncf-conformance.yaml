@@ -95,6 +95,39 @@ jobs:
             sudo podman exec "${node}" systemctl disable firewalld || true
           done
 
+      - name: Configure hostname resolution for cluster nodes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Add cluster node hostnames to /etc/hosts to enable hostname resolution
+          # from the host where tests run. This is needed because Sonobuoy e2e tests
+          # access kubelet APIs using node names (microshift-okd-1, microshift-okd-2)
+          # which are only resolvable within the podman network by default.
+          # We extract the IP address from the first network interface of each container.
+          echo "Adding cluster node hostnames to /etc/hosts..."
+          for node in $(sudo podman ps --filter name=microshift-okd- --format '{{.Names}}'); do
+            ip=$(sudo podman inspect "$node" | jq -r '.[].NetworkSettings.Networks | to_entries[0].value.IPAddress')
+            if [ -n "$ip" ] && [ "$ip" != "null" ]; then
+              echo "$ip $node" | sudo tee -a /etc/hosts
+              echo "  ✓ Added: $ip $node"
+            else
+              echo "ERROR: Could not get IP address for node: $node"
+              exit 1
+            fi
+          done
+
+          echo ""
+          echo "Verifying hostname resolution:"
+          for node in microshift-okd-1 microshift-okd-2; do
+            if getent hosts "$node" > /dev/null 2>&1; then
+              echo "  ✓ $node resolves successfully"
+            else
+              echo "ERROR: Hostname resolution failed for node: $node"
+              exit 1
+            fi
+          done
+
       - name: Run CNCF conformance tests with Sonobuoy
         id: run-sonobuoy
         shell: bash
