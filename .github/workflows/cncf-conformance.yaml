@@ -29,6 +29,7 @@ env:
 
 jobs:
   cncf-conformance:
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     strategy:
       matrix:
         runners: [ubuntu-24.04, ubuntu-24.04-arm]
