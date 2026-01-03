@@ -53,6 +53,7 @@ all:
 	@echo "   rpm:       	build the MicroShift RPMs"
 	@echo "   srpm:      	build the MicroShift SRPM"
 	@echo "   image:     	build the MicroShift bootc container image"
+	@echo "   iso:       	create a bootable ISO from the MicroShift bootc image"
 	@echo "   run:       	create and run a MicroShift cluster (1 node) in a bootc container"
 	@echo "   add-node:  	add a new node to the MicroShift cluster in a bootc container"
 	@echo "   start:     	start the MicroShift cluster that was already created"
@@ -132,6 +133,17 @@ image:
     	--env WITH_OLM="${WITH_OLM}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/bootc.Containerfile .
+
+.PHONY: iso
+iso:
+	@if ! sudo podman image exists "$${BOOTC_IMAGE:-localhost/${USHIFT_IMAGE}}" ; then \
+		echo "ERROR: Run 'make image' to build the MicroShift bootc image" ; \
+		exit 1 ; \
+	fi
+
+	@echo "Creating a bootable ISO from the MicroShift bootc image"
+	@outdir="$${ISO_OUTDIR:-$$(mktemp -d /tmp/microshift-iso-XXXXXX)}" && \
+	sudo ./src/iso/makeiso.sh "$${BOOTC_IMAGE:-localhost/${USHIFT_IMAGE}}" "$${outdir}"
 
 .PHONY: run
 run:
