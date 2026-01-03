@@ -150,10 +150,10 @@ Create a bootable ISO from the MicroShift Bootc image by running the `make iso` 
 
 The following options can be specified in the make command line using the `NAME=VAL` format.
 
-| Name       | Required | Default  | Comments |
-|------------|----------|----------|----------|
-| ISO_OUTDIR | no       | /tmp/... | ISO image output directory |
-
+| Name        | Required | Default                  | Comments |
+|-------------|----------|--------------------------|----------|
+| ISO_OUTDIR  | no       | /tmp/...                 | ISO image output directory |
+| BOOTC_IMAGE | no       | localhost/microshift-okd | Bootc image used for ISO build |
 
 The `make iso` command uses the latest bootc image to create a bootable ISO with
 [Bootc Image Builder](https://github.com/osbuild/bootc-image-builder).

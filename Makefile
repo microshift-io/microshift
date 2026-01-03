@@ -143,7 +143,7 @@ iso:
 
 	@echo "Creating a bootable ISO from the MicroShift bootc image"
 	@outdir="$${ISO_OUTDIR:-$$(mktemp -d /tmp/microshift-iso-XXXXXX)}" && \
-	sudo ./src/iso/makeiso.sh "localhost/${USHIFT_IMAGE}" "$${outdir}"
+	sudo ./src/iso/makeiso.sh "$${BOOTC_IMAGE:-localhost/${USHIFT_IMAGE}}" "$${outdir}"
 
 .PHONY: run
 run:
