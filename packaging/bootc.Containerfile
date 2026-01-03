@@ -66,3 +66,8 @@ RUN systemctl enable microshift-make-rshared.service
 # The /var directory is shared with the container as an anonymous volume to enable
 # idmap mounts under /var/lib/kubelet for containers using 'hostUsers: false'
 VOLUME ["/var"]
+
+# Disable the bootc-publish-rhsm-facts.service if it exists
+RUN if systemctl list-unit-files bootc-publish-rhsm-facts.service >/dev/null 2>&1 ; then \
+        systemctl disable bootc-publish-rhsm-facts.service ; \
+    fi
