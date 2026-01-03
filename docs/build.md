@@ -165,7 +165,7 @@ make iso
 If the ISO creation completes successfully, the `install.iso` file is created at
 the `${ISO_OUTDIR}/bootiso` directory on the host.
 
-```bash
+```
 ...
 ...
 ISO image created at '/tmp/microshift-iso-niQwAN/bootiso/install.iso'

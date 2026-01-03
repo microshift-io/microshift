@@ -19,8 +19,8 @@ toolkit for managing virtualization platforms is used for starting virtual machi
 MicroShift ISO uses [Anaconda Installer](https://anaconda-installer.readthedocs.io/),
 which can be customized using [Kickstart](https://anaconda-installer.readthedocs.io/en/latest/kickstart.html).
 
-It is recommended to customize the system with user-specific settings like host
-name, user names and passwords, SSH keys, disk partitioning, etc.
+It is recommended to customize the system with user-specific settings like
+hostname, user names and passwords, SSH keys, disk partitioning, etc.
 
 An opinionated example of such a customization can be found at [kickstart.ks.template](../src/iso/kickstart.ks.template).
 The file is used during the installation procedures described below.
@@ -48,8 +48,8 @@ When using a stock ISO installer, download it from one of the following sites.
 
 ## Installation
 
-Follow instructions in one of `Custom ISO` or `Stock ISO` sections below, depending
-on the installation type of choice.
+Follow instructions in one of [Custom ISO](#custom-iso) or [Stock ISO](#stock-iso)
+sections below, depending on the installation type of choice.
 
 ### Custom ISO
 
@@ -124,7 +124,7 @@ KSFILE=/tmp/kickstart-stock-iso.ks
 
 # Loading the bootc image from a container registry
 export BOOTC_IMAGE_TRANSPORT=registry
-export BOOTC_IMAGE_URL="ghcr.io/microshift-io/microshift:4.21.0_g29f429c21_4.21.0_okd_scos.ec.15"
+export BOOTC_IMAGE_URL="ghcr.io/microshift-io/microshift:<IMAGE_TAG>"
 
 envsubst '${BOOTC_IMAGE_TRANSPORT} ${BOOTC_IMAGE_URL}' \
     < "${KSTEMP}" > "${KSFILE}"
@@ -178,4 +178,5 @@ Run the following commands to shut down and delete the virtual machine.
 ```bash
 sudo virsh destroy "${VMNAME}"
 sudo virsh undefine "${VMNAME}"
+sudo rm -f "/var/lib/libvirt/images/${VMNAME}.qcow2"
 ```

@@ -136,7 +136,7 @@ image:
 
 .PHONY: iso
 iso:
-	@if ! sudo podman image exists "${USHIFT_IMAGE}" ; then \
+	@if ! sudo podman image exists "$${BOOTC_IMAGE:-localhost/${USHIFT_IMAGE}}" ; then \
 		echo "ERROR: Run 'make image' to build the MicroShift bootc image" ; \
 		exit 1 ; \
 	fi

@@ -43,7 +43,8 @@ ostreecontainer --transport $BOOTC_IMAGE_TRANSPORT --url $BOOTC_IMAGE_URL
 
 %post --log=/dev/console --erroronfail
 
-# Create a default microshift user, allowing it to run sudo commands without password
+# Create a default microshift user, allowing it to run sudo commands without password.
+# NOTE: Remove or change the password hash for production deployments.
 useradd -m -p \$5\$XCVQ6AZVF6D5YW6V\$7wV451u/3oxvWA8vlqX.bWiBAYO/M8VRpZidA0vmzj5 microshift
 echo -e 'microshift\tALL=(ALL)\tNOPASSWD: ALL' > /etc/sudoers.d/microshift
 
@@ -54,9 +55,9 @@ if [ ! -d /root ]; then
     # entrypoint starts (before systemd). So it needs to be pre-populated,
     # so it exists when /var/roothome is mounted.
     mkdir -p /var/roothome/
-    echo -e 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig' >> /var/roothome/.profile
+    echo -e 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig' >> /var/roothome/.bash_profile
 else
-    echo -e 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig' >> /root/.profile
+    echo -e 'export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig' >> /root/.bash_profile
 fi
 
 # Configure systemd journal service to persist logs between boots and limit their size to 1G

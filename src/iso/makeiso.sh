@@ -11,7 +11,6 @@ usage() {
 #
 # Main
 #
-
 if [ $# -ne 2 ] ; then
     usage
 fi
@@ -32,9 +31,6 @@ fi
 echo "Creating ISO image from '${IMAGE_IN}'"
 echo "Output ISO path: '${ISO_OUT}'"
 
-# Pull the bootc image builder image
-sudo podman pull "${BIB_IMAGE}"
-
 # Create the ISO image
 sudo podman run --rm -i \
     --privileged \
@@ -46,11 +42,11 @@ sudo podman run --rm -i \
     --type anaconda-iso \
     "${IMAGE_IN}"
 
-ISO_FILE="$(find "${ISO_OUT}" -name "install.iso")"
+ISO_FILE="$(find "${ISO_OUT}" -name "install.iso" -print -quit)"
 if [ -z "${ISO_FILE}" ] ; then
     echo "ERROR: ISO image not found in '${ISO_OUT}'"
     exit 1
 fi
 
-# Exit with the status of the ISO image creation
+# Exit with the ISO image path
 echo "ISO image created at '${ISO_FILE}'"
