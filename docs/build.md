@@ -61,9 +61,9 @@ system. RPMs are build from the SRPM built by running `make srpm`.
 
 The following options can be specified in the make command line using the `NAME=VAL` format.
 
-| Name            | Required | Default  | Comments |
-|-----------------|----------|----------|----------|
-| RPM_OUTDIR      | no       | /tmp/... | RPM repository output directory |
+| Name       | Required | Default  | Comments |
+|------------|----------|----------|----------|
+| RPM_OUTDIR | no       | /tmp/... | RPM repository output directory |
 
 ```bash
 make rpm
@@ -143,3 +143,30 @@ If the build completes successfully, the `microshift-okd` image is created.
 > The base operating system image used to run MicroShift can be overriden by
 > specifying `BOOTC_IMAGE_URL=value` and `BOOTC_IMAGE_TAG=value` make command line
 > arguments.
+
+### Create ISO
+
+Create a bootable ISO from the MicroShift Bootc image by running the `make iso` command.
+
+The following options can be specified in the make command line using the `NAME=VAL` format.
+
+| Name        | Required | Default                  | Comments |
+|-------------|----------|--------------------------|----------|
+| ISO_OUTDIR  | no       | /tmp/...                 | ISO image output directory |
+| BOOTC_IMAGE | no       | localhost/microshift-okd | Bootc image used for ISO build |
+
+The `make iso` command uses the latest bootc image to create a bootable ISO with
+[Bootc Image Builder](https://github.com/osbuild/bootc-image-builder).
+
+```bash
+make iso
+```
+
+If the ISO creation completes successfully, the `install.iso` file is created at
+the `${ISO_OUTDIR}/bootiso` directory on the host.
+
+```
+...
+...
+ISO image created at '/tmp/microshift-iso-niQwAN/bootiso/install.iso'
+```
