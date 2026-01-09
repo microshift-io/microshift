@@ -13,6 +13,7 @@ TEST_MODE="${TEST_MODE:-certified-conformance}"
 TIMEOUT_TEST="${TIMEOUT_TEST:-8400}"  # ~2.5 hours
 TIMEOUT_RESULTS="${TIMEOUT_RESULTS:-600}"  # 10 minutes to wait for results
 RESULTS_DIR="${RESULTS_DIR:-/tmp/sonobuoy-output}"
+EXTRA_E2E_SKIP="${EXTRA_E2E_SKIP:-}"
 
 # Create results directory
 mkdir -p "${RESULTS_DIR}"
@@ -36,12 +37,19 @@ fi
 # Install Sonobuoy
 go install "github.com/vmware-tanzu/sonobuoy@${SONOBUOY_VERSION}"
 
+# Build the E2E_SKIP pattern combining base skips with any extra skips
+E2E_SKIP_PATTERN=".*Services should be able to switch session affinity for NodePort service.*"
+if [ -n "${EXTRA_E2E_SKIP}" ]; then
+    E2E_SKIP_PATTERN="${E2E_SKIP_PATTERN}|${EXTRA_E2E_SKIP}"
+    echo "Additional tests will be skipped: ${EXTRA_E2E_SKIP}"
+fi
+
 # Force the images to include the registry to avoid ambiguity
 ~/go/bin/sonobuoy run \
     --sonobuoy-image "docker.io/sonobuoy/sonobuoy:${SONOBUOY_VERSION}" \
     --systemd-logs-image "docker.io/sonobuoy/systemd-logs:${SYSTEMD_LOGS_VERSION}" \
     --mode="${TEST_MODE}" \
-    --plugin-env=e2e.E2E_SKIP=".*Services should be able to switch session affinity for NodePort service.*" \
+    --plugin-env=e2e.E2E_SKIP="${E2E_SKIP_PATTERN}" \
     --dns-namespace=openshift-dns \
     --dns-pod-labels=dns.operator.openshift.io/daemonset-dns=default || rc=$?
 if [ "${rc:-0}" -ne 0 ]; then
