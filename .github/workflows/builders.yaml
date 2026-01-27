@@ -23,7 +23,6 @@ jobs:
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream9
-          build: bootc-image
           node-count: 2
 
   centos10-bootc:
@@ -44,7 +43,6 @@ jobs:
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: quay.io/centos-bootc/centos-bootc
           bootc-image-tag: stream10
-          build: bootc-image
           node-count: 2
 
   fedora-bootc:
@@ -68,7 +66,6 @@ jobs:
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
           bootc-image-tag: 42
-          build: bootc-image
           node-count: 2
 
   ubuntu-rpm2deb:
@@ -115,4 +112,3 @@ jobs:
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           isolated-network: 1
           ovnk-networking: ${{ matrix.ovnk-networking }}
-          build: bootc-image
