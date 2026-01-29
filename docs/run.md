@@ -10,6 +10,19 @@ inside a Bootc container.
 
 ### Install RPM
 
+The following optional RPM packages are available in the repository. It is
+mandatory to install either `microshift-kindnet` or `microshift-networking`
+to enable the Kindnet or OVN-K networking support.
+
+| Package               | Description                | Comments |
+|-----------------------|----------------------------|----------|
+| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K |
+| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K |
+| microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
+| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
+
+#### RPMs from Releases or built locally
+
 Run the following commands to install MicroShift RPM packages from a local repository.
 This repository should be either [built locally](../docs/build.md#create-rpm-packages)
 or downloaded from [Releases](https://github.com/microshift-io/microshift/releases).
@@ -22,16 +35,17 @@ sudo dnf install -y microshift microshift-kindnet
 sudo ./src/rpm/create_repos.sh -delete
 ```
 
-The following optional RPM packages are available in the repository. It is
-mandatory to install either `microshift-kindnet` or `microshift-networking`
-to enable the Kindnet or OVN-K networking support.
+#### RPMs from the COPR
 
-| Package               | Description                | Comments |
-|-----------------------|----------------------------|----------|
-| microshift-kindnet    | Kindnet CNI                | Overrides OVN-K |
-| microshift-networking | OVN-K CNI                  | Uninstall Kindnet to enable OVN-K |
-| microshift-topolvm    | TopoLVM CSI                | Install to enable storage support |
-| microshift-olm        | Operator Lifecycle Manager | See [Operator Hub Catalogs](https://okd.io/docs/operators/) |
+Run the following commands to install MicroShift nightly RPM packages from the COPR.
+Before installing MicroShift, RHOCP beta mirror must be enabled to provide dependencies.
+
+```bash
+sudo dnf copr enable -y @microshift-io/microshift-nightly
+XY=$(sudo dnf repoquery --repo='copr*microshift-nightly' --qf '%{VERSION}' microshift --latest-limit=1 2>/dev/null | cut -d. -f1,2)
+sudo ./src/rpm/create_repos.sh -rhocp-mirror "${XY}"
+sudo dnf install -y microshift microshift-kindnet
+```
 
 ### Start MicroShift Service
 

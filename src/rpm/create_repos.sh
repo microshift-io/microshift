@@ -5,8 +5,21 @@ USHIFT_LOCAL_REPO_FILE=/etc/yum.repos.d/microshift-local.repo
 OCP_MIRROR_REPO_FILE=/etc/yum.repos.d/openshift-mirror-beta.repo
 
 function usage() {
-    echo "Usage: $(basename "$0") [-create <repo_path>] | [-delete]"
+    echo "Usage: $(basename "$0") [-create <repo_path>] | [-rhocp-mirror <version>] | [-delete]"
     exit 1
+}
+
+function create_rhocp_repo() {
+    local -r repo_version=$1
+
+    cat > "${OCP_MIRROR_REPO_FILE}" <<EOF
+[openshift-mirror-beta]
+name=OpenShift Mirror Beta Repository
+baseurl=https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/dependencies/rpms/${repo_version}-el9-beta/
+enabled=1
+gpgcheck=0
+skip_if_unavailable=0
+EOF
 }
 
 function create_repos() {
@@ -22,14 +35,7 @@ gpgcheck=0
 skip_if_unavailable=0
 EOF
 
-    cat > "${OCP_MIRROR_REPO_FILE}" <<EOF
-[openshift-mirror-beta]
-name=OpenShift Mirror Beta Repository
-baseurl=https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/dependencies/rpms/${repo_version}-el9-beta/
-enabled=1
-gpgcheck=0
-skip_if_unavailable=0
-EOF
+    create_rhocp_repo "${repo_version}"
 }
 
 function delete_repos() {
@@ -63,6 +69,15 @@ case $1 in
         exit 1
     fi
     create_repos "${repo_path}" "${repo_version}"
+    ;;
+
+-rhocp-mirror)
+    repo_version="${2:-}"
+    if [ -z "${repo_version}" ] ; then
+        echo "ERROR: Version argument is required for -rhocp-mirror. Example: -rhocp-mirror 4.21"
+        usage
+    fi
+    create_rhocp_repo "${repo_version}"
     ;;
 
 -delete)

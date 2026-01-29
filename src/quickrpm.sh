@@ -5,6 +5,8 @@ OWNER=${OWNER:-microshift-io}
 REPO=${REPO:-microshift}
 BRANCH=${BRANCH:-main}
 TAG=${TAG:-latest}
+RPM_SOURCE=${RPM_SOURCE:-github}  # Accepted values: github, copr-nightly
+COPR_REPO=${COPR_REPO:-@microshift-io/microshift-nightly}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
@@ -57,6 +59,52 @@ function centos10_cni_plugins() {
         containernetworking-plugins
 }
 
+function download_script() {
+    local -r script=$1
+    curl -fSsL --retry 5 --max-time 60 \
+        "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/rpm/${script}" \
+        -o "${WORKDIR}/${script}"
+    chmod +x "${WORKDIR}/${script}"
+}
+
+function install_microshift_packages() {
+    # Disable weak dependencies to avoid the deployment of the microshift-networking
+    # RPM, which is not necessary when microshift-kindnet RPM is installed.
+    dnf install -y --setopt=install_weak_deps=False \
+        microshift microshift-kindnet microshift-topolvm
+
+    # shellcheck disable=SC1091
+    source /etc/os-release
+    if [ "${ID}" == "fedora" ]; then
+        # Fedora doesn't have old packages - downgrading greenboot is not possible.
+        return 0
+    fi
+
+    # Pin the greenboot package to 0.15.z until the following issue is resolved:
+    # https://github.com/fedora-iot/greenboot-rs/issues/132
+    dnf install -y 'greenboot-0.15.*'
+}
+
+function install_rpms_copr() {
+    dnf copr enable -y "${COPR_REPO}"
+
+    # Transform:
+    # "@microshift-io/microshift-nightly" -> "copr:copr.fedorainfracloud.org:group_microshift-io:microshift-nightly"
+    # "USER/PROJECT" -> "copr:copr.fedorainfracloud.org:USER:PROJECT"
+    local -r repo_name="copr:copr.fedorainfracloud.org:$(echo "${COPR_REPO}" | sed -e 's,/,:,g' -e 's,@,group_,g')"
+
+    # Query the MicroShift version from COPR to determine the OpenShift mirror version
+    local repo_version
+    repo_version=$(dnf repoquery --repo="${repo_name}" --qf '%{VERSION}' --latest-limit=1 microshift 2>/dev/null | cut -d. -f1,2)
+    if [ -z "${repo_version:-}" ] ; then
+        echo "ERROR: Could not determine the MicroShift version from COPR repository"
+        exit 1
+    fi
+
+    "${WORKDIR}/create_repos.sh" -rhocp-mirror "${repo_version}"
+    install_microshift_packages
+}
+
 function install_rpms() {
     # Download the RPMs from the release
     mkdir -p "${WORKDIR}/rpms"
@@ -64,25 +112,10 @@ function install_rpms() {
         "https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/microshift-rpms-$(uname -m).tgz" | \
         tar zxf - -C "${WORKDIR}/rpms"
 
-    # Download the installation scripts
-    for script in create_repos.sh postinstall.sh ; do
-        curl -fSsL --retry 5 --max-time 60 \
-            "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/rpm/${script}" \
-            -o "${WORKDIR}/${script}"
-        chmod +x "${WORKDIR}/${script}"
-    done
-
     # Create the RPM repository and install the RPMs
     "${WORKDIR}/create_repos.sh" -create "${WORKDIR}/rpms"
-    # Disable weak dependencies to avoid the deployment of the microshift-networking
-    # RPM, which is not necessary when microshift-kindnet RPM is installed.
-    dnf install -y --setopt=install_weak_deps=False \
-        microshift microshift-kindnet microshift-topolvm
+    install_microshift_packages
     "${WORKDIR}/create_repos.sh" -delete
-
-    # Pin the greenboot package to 0.15.z until the following issue is resolved:
-    # https://github.com/fedora-iot/greenboot-rs/issues/132
-    dnf install -y 'greenboot-0.15.*'
 }
 
 function prepare_lvm_disk() {
@@ -123,8 +156,8 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# Update the 'latest' tag to the latest released version
-if [ "${TAG}" == "latest" ] ; then
+# Update the 'latest' tag to the latest released version (only for github source)
+if [ "${RPM_SOURCE}" == "github" ] && [ "${TAG}" == "latest" ] ; then
     dnf install -y jq
     TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
@@ -136,7 +169,21 @@ fi
 # Run the procedures
 check_prerequisites
 centos10_cni_plugins
-install_rpms
+download_script create_repos.sh
+download_script postinstall.sh
+
+case "${RPM_SOURCE}" in
+github)
+    install_rpms
+    ;;
+copr-nightly)
+    install_rpms_copr
+    ;;
+*)
+    echo "ERROR: Unsupported RPM_SOURCE: ${RPM_SOURCE}. Use 'github' or 'copr-nightly'."
+    exit 1
+    ;;
+esac
 prepare_lvm_disk  "${LVM_DISK}" "${VG_NAME}"
 setup_lvm_service "${LVM_DISK}" "${VG_NAME}"
 start_microshift
