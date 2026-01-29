@@ -1,5 +1,5 @@
 # Using Fedora for easy access to the dependencies (no need to install EPEL or use pip)
-FROM quay.io/fedora/fedora:42
+FROM quay.io/fedora/fedora:latest
 
 RUN dnf install -y \
         --setopt=install_weak_deps=False \

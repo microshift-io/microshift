@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora:42
+FROM quay.io/fedora/fedora:latest
 
 RUN dnf install -y \
         --setopt=install_weak_deps=False \
