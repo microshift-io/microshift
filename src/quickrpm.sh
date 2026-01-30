@@ -98,21 +98,10 @@ function install_microshift_packages() {
 function install_rpms_copr() {
     dnf copr enable -y "${COPR_REPO}"
 
-    # Transform:
-    # "@microshift-io/microshift-nightly" -> "copr:copr.fedorainfracloud.org:group_microshift-io:microshift-nightly"
-    # "USER/PROJECT" -> "copr:copr.fedorainfracloud.org:USER:PROJECT"
-    local -r repo_name="copr:copr.fedorainfracloud.org:$(echo "${COPR_REPO}" | sed -e 's,/,:,g' -e 's,@,group_,g')"
-
-    # Query the MicroShift version from COPR to determine the OpenShift mirror version
-    local repo_version
-    repo_version=$(dnf repoquery --repo="${repo_name}" --qf '%{VERSION}' --latest-limit=1 microshift 2>/dev/null | cut -d. -f1,2)
-    if [ -z "${repo_version:-}" ] ; then
-        echo "ERROR: Could not determine the MicroShift version from COPR repository"
-        exit 1
-    fi
-
-    "${WORKDIR}/create_repos.sh" -rhocp-mirror "${repo_version}"
+    "${WORKDIR}/create_repos.sh" -rhocp-mirror
     install_microshift_packages
+    # Keep the repos, so the `dnf update` works for updated MicroShift RPMs and
+    # updated dependencies.
 }
 
 function install_rpms() {
