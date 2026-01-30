@@ -61,10 +61,20 @@ function centos10_cni_plugins() {
 
 function download_script() {
     local -r script=$1
-    curl -fSsL --retry 5 --max-time 60 \
-        "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/rpm/${script}" \
-        -o "${WORKDIR}/${script}"
-    chmod +x "${WORKDIR}/${script}"
+    local -r scriptpath="src/rpm/${script}"
+
+    curscriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+    # If the quickrpm.sh is executed from the repository, copy local script.
+    # Otherwise, fetch them from the github.
+    if [ -f "${curscriptdir}/../${scriptpath}" ]; then
+        cp -v "${curscriptdir}/../${scriptpath}" "${WORKDIR}/${script}"
+    else
+        curl -fSsL --retry 5 --max-time 60 \
+            "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/rpm/${script}" \
+            -o "${WORKDIR}/${script}"
+        chmod +x "${WORKDIR}/${script}"
+    fi
 }
 
 function install_microshift_packages() {
