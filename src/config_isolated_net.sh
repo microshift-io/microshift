@@ -64,8 +64,6 @@ fi
 systemctl restart NetworkManager
 wait_for_network_manager
 
-# Restart the MicroShift and Greenboot services
+# Enable and restart the MicroShift service
 systemctl enable microshift
-for unit in microshift greenboot-healthcheck ; do
-  systemctl restart --no-block ${unit}
-done
+systemctl restart --no-block microshift
