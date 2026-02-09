@@ -117,11 +117,13 @@ function setup_topolvm_config() {
     local -r vg_name="$1"
     local -r spare_gb="$2"
 
-    # Download and install the TopoLVM configuration patch script
-    curl -fSsL --retry 5 --max-time 60 \
-        "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/topolvm/patch_lvmd_config.sh" \
-        -o /usr/local/bin/patch_lvmd_config.sh
-    chmod +x /usr/local/bin/patch_lvmd_config.sh
+    # Install the TopoLVM configuration patch script if not already present
+    if [ ! -x /usr/local/bin/patch_lvmd_config.sh ]; then
+        curl -fSsL --retry 5 --max-time 60 \
+            "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/topolvm/patch_lvmd_config.sh" \
+            -o /usr/local/bin/patch_lvmd_config.sh
+        chmod +x /usr/local/bin/patch_lvmd_config.sh
+    fi
 
     # Create systemd drop-in to run the patch script with VG_NAME and SPARE_GB
     mkdir -p /etc/systemd/system/microshift.service.d

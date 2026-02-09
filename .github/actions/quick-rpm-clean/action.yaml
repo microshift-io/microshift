@@ -62,6 +62,10 @@ runs:
         set -euo pipefail
         set -x
 
+        # Pre-install the patch script since it may not exist on main branch yet
+        sudo podman cp ./src/topolvm/patch_lvmd_config.sh microshift-okd:/usr/local/bin/patch_lvmd_config.sh
+        sudo podman exec microshift-okd chmod +x /usr/local/bin/patch_lvmd_config.sh
+
         sudo podman exec -i microshift-okd \
           env TAG="${{ inputs.install-tag }}" \
           bash -xeuo pipefail < ./src/quickrpm.sh
