@@ -67,7 +67,7 @@ runs:
         sudo podman exec microshift-okd chmod +x /usr/local/bin/patch_lvmd_config.sh
 
         sudo podman exec -i microshift-okd \
-          env TAG="${{ inputs.install-tag }}" \
+          env TAG="${{ inputs.install-tag }}" VG_NAME="${VG_NAME:-myvg1}" SPARE_GB="${SPARE_GB:-10}" \
           bash -xeuo pipefail < ./src/quickrpm.sh
 
         # Restart the greenboot service synchronously to check the health of the system.
