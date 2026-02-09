@@ -14,6 +14,7 @@ EXTRA_CONFIG="${EXTRA_CONFIG:-/var/lib/microshift-okd/custom_config.yaml}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
 API_SERVER_PORT="${API_SERVER_PORT:-6443}"
 VG_NAME="${VG_NAME:-myvg1}"
+SPARE_GB="${SPARE_GB:-10}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
 EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
 
@@ -130,6 +131,8 @@ _add_node() {
         ${network_opts} \
         ${port_opts} \
         ${mount_opts} \
+        -e VG_NAME="${VG_NAME}" \
+        -e SPARE_GB="${SPARE_GB}" \
         --tmpfs /var/lib/containers \
         --name "${name}" \
         --hostname "${name}" \

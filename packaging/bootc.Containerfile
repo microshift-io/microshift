@@ -47,6 +47,13 @@ RUN dnf install -y 'greenboot-0.15.*' && dnf clean all
 COPY --chmod=755 ./src/rpm/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
 RUN ${USHIFT_POSTINSTALL_SCRIPT} && rm -vf "${USHIFT_POSTINSTALL_SCRIPT}"
 
+# Install TopoLVM configuration patching script and systemd drop-in
+# This allows runtime configuration of VG_NAME and SPARE_GB via environment variables
+COPY --chmod=755 ./src/topolvm/patch_lvmd_config.sh /usr/local/bin/patch_lvmd_config.sh
+RUN mkdir -p /etc/systemd/system/microshift.service.d && \
+    printf '[Service]\nExecStartPre=/usr/local/bin/patch_lvmd_config.sh\n' \
+    > /etc/systemd/system/microshift.service.d/00-patch-lvmd.conf
+
 # If the EMBED_CONTAINER_IMAGES environment variable is set to 1, temporarily
 # configure user namespace UID and GID mappings. This allows the skopeo command
 # to operate without errors when copying the container images.

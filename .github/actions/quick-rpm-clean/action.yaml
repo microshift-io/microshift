@@ -76,8 +76,9 @@ runs:
         set -euo pipefail
         set -x
 
+        VG_NAME="${VG_NAME:-myvg1}"
         sudo podman exec -i microshift-okd systemctl stop microshift.service
-        sudo podman exec -i microshift-okd vgremove myvg1
+        sudo podman exec -i microshift-okd vgremove "${VG_NAME}"
         sudo podman exec -i microshift-okd systemctl start microshift.service
 
         # Restart the greenboot service synchronously to check the health of the system.

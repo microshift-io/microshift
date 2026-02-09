@@ -12,6 +12,7 @@ microshift_download_dir: "./cache/microshift_assets"
 lvm_disk_size_in_giga: 20
 
 # logical volume group name
-# WARNING: the name is default for the topolvm driver,it shouldn't be changed.
-lvm_vg_name: myvg1
+lvm_vg_name: "{{ lvm_vg_name | default('myvg1') }}"
+# spare GB to reserve in TopoLVM
+lvm_spare_gb: "{{ lvm_spare_gb | default(10) }}"
 lvm_thinpool_size_giga: 6
