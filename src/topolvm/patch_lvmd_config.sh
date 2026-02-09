@@ -18,6 +18,12 @@ fi
 VG_NAME="${VG_NAME:-myvg1}"
 SPARE_GB="${SPARE_GB:-10}"
 
+# Validate SPARE_GB is a non-negative integer
+if ! [[ "${SPARE_GB}" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: SPARE_GB must be a non-negative integer, got '${SPARE_GB}'" >&2
+    exit 1
+fi
+
 PATCH_DIR="/etc/microshift/manifests.d/001-microshift-topolvm"
 
 # Only create the patch if non-default values are specified
