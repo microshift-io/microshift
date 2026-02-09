@@ -22,6 +22,8 @@ PATCH_DIR="/etc/microshift/manifests.d/001-microshift-topolvm"
 
 # Only create the patch if non-default values are specified
 if [ "${VG_NAME}" = "myvg1" ] && [ "${SPARE_GB}" = "10" ]; then
+    # Clean up any stale patch files from previous runs with custom values
+    rm -rf "${PATCH_DIR}"
     exit 0
 fi
 

@@ -24,6 +24,7 @@ EMBED_CONTAINER_IMAGES ?= 0
 
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
+VG_NAME ?= myvg1
 SPARE_GB ?= 10
 ISOLATED_NETWORK ?= 0
 EXPOSE_KUBEAPI_PORT ?= 1
@@ -38,7 +39,6 @@ RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd
 SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
-VG_NAME := myvg1
 
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 include $(PROJECT_DIR)/src/copr/copr.mk
