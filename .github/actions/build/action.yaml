@@ -29,7 +29,7 @@ inputs:
     required: false
     default: 1
   build:
-    description: Types of artifacts to build (all, rpms, bootc-image)
+    description: Types of artifacts to build (all, packages, bootc-image)
     required: false
     default: all
   skip-prebuild:
@@ -49,7 +49,7 @@ runs:
       uses: ./.github/actions/prebuild
 
     - name: Build MicroShift RPMs
-      if: contains(fromJSON('["all", "rpms"]'), inputs.build)
+      if: contains(fromJSON('["all", "packages"]'), inputs.build)
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
