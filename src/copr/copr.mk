@@ -61,7 +61,7 @@ copr-cli:
 	@echo "Building the COPR CLI container"
 	sudo podman build \
 		--tag "${COPR_CLI_IMAGE}" \
-		--file src/copr/copr-cli.Containerfile .
+		--file src/copr/copr-cli.Containerfile src/copr/
 
 .PHONY: copr-delete-build
 copr-delete-build: copr-cfg-ensure-podman-secret copr-cli
@@ -109,3 +109,11 @@ copr-watch-build: copr-cli
 		--volume "${SRPM_WORKDIR}:/srpms:Z" \
 		"${COPR_CLI_IMAGE}" \
 		bash -c "copr-cli watch-build ${COPR_BUILD_ID}"
+
+copr-dependencies: copr-cfg-ensure-podman-secret copr-cli
+	@echo "Building RPM with MicroShift dependencies repositories configuration"
+	sudo podman run \
+		--rm -ti \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
+		"${COPR_CLI_IMAGE}" \
+		/microshift-io-dependencies.sh "${OKD_VERSION_TAG}" "${COPR_REPO_NAME}"
