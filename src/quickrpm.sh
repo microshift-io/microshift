@@ -98,10 +98,8 @@ function install_microshift_packages() {
 function install_rpms_copr() {
     dnf copr enable -y "${COPR_REPO}"
 
-    "${WORKDIR}/create_repos.sh" -rhocp-mirror
+    dnf install -y microshift-io-dependencies
     install_microshift_packages
-    # Keep the repos, so the `dnf update` works for updated MicroShift RPMs and
-    # updated dependencies.
 }
 
 function install_rpms() {
