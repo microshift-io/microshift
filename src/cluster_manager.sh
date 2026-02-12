@@ -118,7 +118,11 @@ _add_node() {
     local mount_opts=""
     if [ "${EXPOSE_KUBEAPI_PORT}" = "1" ]; then
         port_opts="-p ${API_SERVER_PORT}:${API_SERVER_PORT}"
-        echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" | sudo tee "${EXTRA_CONFIG}" >/dev/null
+        sudo mkdir -p "$(dirname "${EXTRA_CONFIG}")"  
+        if ! echo -e "apiServer:\n  subjectAltNames:\n    - $(_get_hostname)" | sudo tee "${EXTRA_CONFIG}" >/dev/null; then  
+            echo "ERROR: Failed to write API server configuration to ${EXTRA_CONFIG}" >&2  
+            exit 1  
+        fi  
         mount_opts="--volume ${EXTRA_CONFIG}:/etc/microshift/config.d/api_server.yaml:ro"
     fi
 
