@@ -65,7 +65,7 @@ jobs:
           ushift-gitref: main
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
-          bootc-image-tag: 42
+          bootc-image-tag: latest
           node-count: 2
 
   ubuntu-rpm2deb:

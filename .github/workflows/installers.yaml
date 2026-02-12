@@ -37,7 +37,7 @@ jobs:
         uses: ./.github/actions/quick-rpm-clean
         with:
           bootc-image-url: registry.fedoraproject.org/fedora-bootc
-          bootc-image-tag: 42
+          bootc-image-tag: latest
 
       - name: Run the quick RPM installation and clean scripts (CentOS 10)
         uses: ./.github/actions/quick-rpm-clean

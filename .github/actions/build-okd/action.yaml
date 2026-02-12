@@ -45,29 +45,46 @@ runs:
       with:
         token: ${{ inputs.token }}
 
-    - name: Build OKD images
+    - name: Build and push OKD images to staging registry
       shell: bash
       run: |
         set -euo pipefail
 
         cd ${GITHUB_WORKSPACE}/
+        # The 'staging' mode builds images locally AND pushes them to staging registry
+        # Staging registry is automatically derived as: $(dirname target-registry)/okd-staging
+        # This allows testing before promoting to production
         TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          staging \
           "${{ inputs.okd-version-tag }}" \
           "${{ inputs.ushift-gitref }}" \
           "${{ inputs.target-arch }}"
 
-    - name: Build MicroShift RPMs
+    - name: Build MicroShift RPMs using staging OKD images
       shell: bash
       run: |
         # See https://github.com/microshift-io/microshift/blob/main/docs/build.md
         # for more information about the build process.
 
-        # Run the RPM build process.
+        # Run the RPM build process using images from staging registry
+        # Staging registry is derived as: $(dirname target-registry)/okd-staging
         cd ${GITHUB_WORKSPACE}/
+        PRODUCTION_REGISTRY="${{ inputs.target-registry }}"
+        STAGING_REGISTRY="$(dirname "${PRODUCTION_REGISTRY}")/okd-staging"
+
+        # Set the correct architecture-specific variable for staging override
+        if [ "${{ inputs.target-arch }}" = "arm64" ]; then
+          OKD_OVERRIDE="OKD_RELEASE_IMAGE_AARCH64=${STAGING_REGISTRY}/okd-release-arm64"
+        elif [ "${{ inputs.target-arch }}" = "amd64" ]; then
+          OKD_OVERRIDE="OKD_RELEASE_IMAGE_X86_64=${STAGING_REGISTRY}/okd-release-amd64"
+        else
+          echo "ERROR: Unsupported target-arch: ${{ inputs.target-arch }}" ; exit 1
+        fi
+
         make rpm \
           USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
-          OKD_RELEASE_IMAGE="${{ inputs.target-registry }}/okd-release-${{ steps.detect-cpu-arch.outputs.go_arch }}" \
+          "${OKD_OVERRIDE}" \
           RPM_OUTDIR=/mnt/rpms
 
     - name: Build MicroShift bootc container image
@@ -96,6 +113,21 @@ runs:
         make run-ready
         make run-healthy
         make stop
+
+    - name: Push OKD images to production registry
+      if: success()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${GITHUB_WORKSPACE}/
+        # Only push to production if all tests passed
+        # This ensures we don't publish broken OKD images to production
+        TARGET_REGISTRY="${{ inputs.target-registry }}" ./src/okd/build_images.sh \
+          production \
+          "${{ inputs.okd-version-tag }}" \
+          "${{ inputs.ushift-gitref }}" \
+          "${{ inputs.target-arch }}"
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session

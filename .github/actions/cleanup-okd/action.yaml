@@ -1,0 +1,57 @@
+name: cleanup-okd-staging
+description: Cleanup staging OKD images from the container registry
+
+inputs:
+  okd-version-tag:
+    description: OKD version tag from https://quay.io/repository/okd/scos-release?tab=tags
+    required: true
+  token:
+    description: Token for the GitHub Container Registry
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cleanup staging registry
+      shell: bash
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # GitHub Container Registry cleanup using gh CLI
+        # Deletes known staging packages
+        echo "Cleaning up staging packages..."
+
+        OWNER="${{ github.repository_owner }}"
+
+        # Detect if owner is an organization or user account
+        if gh api "/orgs/${OWNER}" --silent 2>/dev/null; then
+          OWNER_TYPE="orgs"
+          echo "Detected organization: ${OWNER}"
+        else
+          OWNER_TYPE="users"
+          echo "Detected user account: ${OWNER}"
+        fi
+
+        # Get list of staging packages from the build script
+        cd "${GITHUB_WORKSPACE}"
+        mapfile -t packages < <(./src/okd/build_images.sh list-packages "${{ inputs.okd-version-tag }}")
+
+        # Delete each package
+        for package in "${packages[@]}"; do
+          # URL-encode package name (replace / with %2F)
+          encoded_package="${package//\//%2F}"
+
+          echo "Deleting package: ${package}"
+          # Use appropriate endpoint based on owner type
+          if gh api --method DELETE "/${OWNER_TYPE}/${OWNER}/packages/container/${encoded_package}" \
+             -H "Accept: application/vnd.github+json" 2>&1; then
+            echo "  ✓ Deleted successfully"
+          else
+            echo "  ⚠ Failed to delete (may not exist or already deleted)"
+          fi
+        done
+
+        echo "Staging registry cleanup completed"
