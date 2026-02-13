@@ -117,3 +117,11 @@ copr-dependencies: copr-cfg-ensure-podman-secret copr-cli
 		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
 		"${COPR_CLI_IMAGE}" \
 		/microshift-io-dependencies.sh "${OKD_VERSION_TAG}" "${COPR_REPO_NAME}"
+
+copr-cni: copr-cfg-ensure-podman-secret copr-cli
+	@echo "Building RPM with CNI plugins"
+	sudo podman run \
+		--rm -ti \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
+		"${COPR_CLI_IMAGE}" \
+		/cni/build.sh "${COPR_REPO_NAME}"
