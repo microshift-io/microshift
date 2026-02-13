@@ -6,5 +6,5 @@ RUN dnf install \
         copr-cli jq rpmbuild \
     && dnf clean all
 
-COPY microshift-io-dependencies.sh /microshift-io-dependencies.sh
+COPY create-build.sh microshift-io-dependencies.sh cni/containernetworking-plugins.spec /
 COPY cni/build.sh cni/containernetworking-plugins.spec /cni/
