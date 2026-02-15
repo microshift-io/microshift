@@ -38,19 +38,13 @@ sudo ./src/rpm/create_repos.sh -delete
 #### RPMs from the COPR
 
 Run the following commands to install MicroShift nightly RPM packages from the COPR.
-Before installing MicroShift, RHOCP beta mirror must be enabled to provide dependencies.
-
-> Note: By skipping `create_repos.sh -delete` users can keep the RPM repositories configuration
-> and use `dnf update` to update MicroShift and its dependencies (withing single Major.Minor release
-> when new MicroShift minor version is released, rerunning the `create_repos.sh -rhocp-mirror` might be necessary
-> to enable newer dependency repository).
 
 ```bash
 sudo dnf copr enable -y @microshift-io/microshift-nightly
-sudo ./src/rpm/create_repos.sh -rhocp-mirror
+# microshift-io-dependencies must be installed
+# before microshift in order to setup dependencies repositories.
+sudo dnf install -y microshift-io-dependencies-repo
 sudo dnf install -y microshift microshift-kindnet
-# Optionally run the following command to remove the configured MicroShift COPR and dependencies repositories.
-# sudo ./src/rpm/create_repos.sh -delete
 ```
 
 ### Start MicroShift Service
