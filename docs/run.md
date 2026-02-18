@@ -69,7 +69,7 @@ Verify that all the MicroShift pods are up and running successfully.
 mkdir -p ~/.kube
 sudo cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
 
-oc get pods -A
+kubectl get pods -A
 ```
 
 ## MicroShift DEB Packages
@@ -109,7 +109,7 @@ Verify that all the MicroShift pods are up and running successfully.
 mkdir -p ~/.kube
 sudo cat /var/lib/microshift/resources/kubeadmin/kubeconfig > ~/.kube/config
 
-oc get pods -A
+kubectl get pods -A
 ```
 
 ## Cleanup
