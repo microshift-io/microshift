@@ -145,11 +145,6 @@ function install_ctl_tools() {
     local -r relkey="https://pkgs.k8s.io/core:/stable:/v${pkgver}/deb/Release.key"
     install_debpkg "kubectl" "${pkgver}" "${relkey}" cri-tools
 
-    # Create a symlink to the kubectl command as 'oc'
-    if [ ! -f /usr/bin/oc ] ; then
-        ln -s "$(which kubectl)" /usr/bin/oc
-    fi
-
     # Set the kubectl configuration
     if [ ! -e ~/.kube/config ] && [ ! -L ~/.kube/config ] ; then
         mkdir -p ~/.kube
