@@ -391,7 +391,7 @@ cluster_status() {
 
     local -r first_container=$(echo "${running_containers}" | head -n1)
     echo "Cluster is running."
-    sudo podman exec -i "${first_container}" oc get nodes,pods -A -o wide 2>/dev/null || echo "Unable to retrieve cluster status"
+    sudo podman exec -i "${first_container}" kubectl get nodes,pods -A -o wide 2>/dev/null || echo "Unable to retrieve cluster status"
     return 0
 }
 

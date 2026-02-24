@@ -194,7 +194,7 @@ echo "LVM disk:  ${LVM_DISK}"
 echo "VG name:   ${VG_NAME}"
 echo
 echo "To verify that MicroShift pods are up and running, run the following command:"
-echo " - sudo oc get pods -A --kubeconfig /var/lib/microshift/resources/kubeadmin/kubeconfig"
+echo " - sudo kubectl get pods -A --kubeconfig /var/lib/microshift/resources/kubeadmin/kubeconfig"
 echo
 echo "To uninstall MicroShift, run the following command:"
 echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo bash"
