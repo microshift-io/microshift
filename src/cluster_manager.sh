@@ -110,8 +110,13 @@ _add_node() {
     done
 
     local network_opts="--network ${network_name}"
+    local dns_opts=""
     if [ "${ISOLATED_NETWORK}" = "0" ]; then
         network_opts="${network_opts} --ip ${ip_address}"
+        # Prevent podman from adding 'dns.podman' to the container's
+        # /etc/resolv.conf search domains. The extra search domain
+        # breaks CNCF DNS conformance tests with older dig versions.
+        dns_opts="--dns-search=."
     fi
 
     local port_opts=""
@@ -126,6 +131,7 @@ _add_node() {
     # shellcheck disable=SC2086
     sudo podman run --privileged -d \
         --ulimit nofile=524288:524288 \
+        ${dns_opts} \
         ${vol_opts} \
         ${network_opts} \
         ${port_opts} \
