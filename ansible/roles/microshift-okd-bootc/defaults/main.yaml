@@ -1,0 +1,5 @@
+---
+# Default values for TopoLVM configuration
+# These can be overridden via inventory or --extra-vars
+lvm_vg_name: myvg1
+lvm_spare_gb: 10

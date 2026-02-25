@@ -159,6 +159,22 @@ TopoLVM CSI provides persistent storage:
 - Configure size via `LVM_VOLSIZE` (default: 1G)
 - Install `microshift-topolvm` package for host deployments
 
+### TopoLVM Configuration
+
+The following environment variables can be used to customize TopoLVM:
+
+- `VG_NAME`: LVM volume group name (default: `myvg1`)
+- `SPARE_GB`: Spare GB to reserve in the volume group (default: `10`)
+
+Example usage:
+```bash
+# Use custom volume group name and smaller spare for testing
+make run VG_NAME=testvg SPARE_GB=2 LVM_VOLSIZE=5G
+
+# Using quickstart scripts
+VG_NAME=customvg SPARE_GB=5 sudo -E ./src/quickstart.sh
+```
+
 ## Cluster Manager
 
 `src/cluster_manager.sh` manages multi-node bootc clusters:
@@ -166,7 +182,7 @@ TopoLVM CSI provides persistent storage:
 - Manages TopoLVM LVM backend
 - Supports operations: create, add-node, start, stop, delete, ready, healthy, status, env
 - Node naming: `microshift-okd-1`, `microshift-okd-2`, etc.
-- Environment variables: `USHIFT_IMAGE`, `LVM_DISK`, `VG_NAME`, `ISOLATED_NETWORK`, `EXPOSE_KUBEAPI_PORT`
+- Environment variables: `USHIFT_IMAGE`, `LVM_DISK`, `VG_NAME`, `SPARE_GB`, `ISOLATED_NETWORK`, `EXPOSE_KUBEAPI_PORT`
 
 ## Important Notes
 

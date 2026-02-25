@@ -11,7 +11,4 @@ microshift_download_dir: "./cache/microshift_assets"
 # size of the lvm loopback disk
 lvm_disk_size_in_giga: 20
 
-# logical volume group name
-# WARNING: the name is default for the topolvm driver,it shouldn't be changed.
-lvm_vg_name: myvg1
 lvm_thinpool_size_giga: 6

@@ -3,7 +3,10 @@ set -euo pipefail
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 LVM_CONFIG="/etc/systemd/system/microshift.service.d/99-lvm-config.conf"
-VG_NAME="myvg1"
+TOPOLVM_CONFIG="/etc/systemd/system/microshift.service.d/00-patch-lvmd.conf"
+TOPOLVM_PATCH_SCRIPT="/usr/local/bin/patch_lvmd_config.sh"
+TOPOLVM_PATCH_DIR="/etc/microshift/manifests.d/001-microshift-topolvm"
+VG_NAME="${VG_NAME:-myvg1}"
 
 # Check if the script is running as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -25,8 +28,13 @@ if rpm -q microshift &>/dev/null ; then
     # Remove the LVM configuration
     if [ -f "${LVM_CONFIG}" ] ; then
         rm -f "${LVM_CONFIG}"
-        systemctl daemon-reload
     fi
+
+    # Remove the TopoLVM configuration
+    rm -f "${TOPOLVM_CONFIG}"
+    rm -f "${TOPOLVM_PATCH_SCRIPT}"
+    rm -rf "${TOPOLVM_PATCH_DIR}"
+    systemctl daemon-reload
 
     dnf remove -y 'microshift*'
     # Undo post-installation configuration
