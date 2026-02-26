@@ -73,6 +73,33 @@ function run_bootc_image() {
         fi
         sleep 1
     done
+
+    # Verify that DNS resolution works inside the container.
+    # VPN connections or custom DNS configurations on the host may
+    # prevent the container from resolving external hostnames, causing
+    # pods to stay in ContainerCreating while image pulls time out.
+    # Skip this check for local images, which may run air-gapped with
+    # pre-loaded container images (EMBED_CONTAINER_IMAGES=1).
+    if [[ "${image_ref}" != localhost/* ]]; then
+        if ! podman exec microshift-okd getent hosts quay.io &>/dev/null ; then
+            # Retry once after a brief pause to avoid false positives
+            # from transient DNS delays during container startup.
+            sleep 5
+            if ! podman exec microshift-okd getent hosts quay.io &>/dev/null ; then
+                echo
+                echo "ERROR: DNS resolution for 'quay.io' failed inside the container."
+                echo "MicroShift pods will not be able to pull container images."
+                echo
+                echo "This is commonly caused by VPN connections or custom DNS settings"
+                echo "on the host that are not available inside the container."
+                echo "Consider disconnecting from VPN or configuring DNS manually."
+                echo
+                echo "Stopping the container..."
+                podman stop microshift-okd &>/dev/null || true
+                exit 1
+            fi
+        fi
+    fi
 }
 
 # Check if the script is running as root
