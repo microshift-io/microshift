@@ -6,7 +6,7 @@ if [[ -z "${COPR_REPO_NAME:-}" ]]; then
     exit 1
 fi
 
-out="$(copr-cli --config /run/secrets/copr-cfg build --nowait "${COPR_REPO_NAME}" /srpms/microshift*.src.rpm)"
+out="$(copr-cli build --nowait "${COPR_REPO_NAME}" /srpms/microshift*.src.rpm)"
 echo "${out}"
 build=$(echo "${out}" | grep "Created builds" | cut -d: -f2 | xargs)
 if [[ -z "${build}" ]]; then

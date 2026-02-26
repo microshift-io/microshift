@@ -4,11 +4,57 @@ on:
   schedule:
      - cron: "0 1 * * *"
   workflow_dispatch:
+    inputs:
+      copr-repo-name:
+        description: COPR repository name
+        default: "@microshift-io/microshift-nightly"
+        type: string
 
 env:
-  COPR_REPO_NAME: "@microshift-io/microshift-nightly"
+  COPR_REPO_NAME: ${{ github.event.inputs.copr-repo-name || '@microshift-io/microshift-nightly' }}
 
 jobs:
+  build-dependencies-rpm:
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Build dependencies RPM
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+
+          make copr-dependencies \
+            OKD_VERSION_TAG=${{ steps.detect-okd-version.outputs.okd-version-tag }} \
+            COPR_REPO_NAME=${{ env.COPR_REPO_NAME }} \
+            COPR_CONFIG=/tmp/copr-config
+
+      - name: Build CNI plugins RPM
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+
+          make copr-cni \
+            COPR_REPO_NAME=${{ env.COPR_REPO_NAME }} \
+            COPR_CONFIG=/tmp/copr-config
+
+
   build-rpms:
     if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     runs-on: ubuntu-24.04

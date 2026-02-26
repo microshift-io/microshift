@@ -61,25 +61,25 @@ copr-cli:
 	@echo "Building the COPR CLI container"
 	sudo podman build \
 		--tag "${COPR_CLI_IMAGE}" \
-		--file src/copr/copr-cli.Containerfile .
+		--file src/copr/copr-cli.Containerfile src/copr/
 
 .PHONY: copr-delete-build
 copr-delete-build: copr-cfg-ensure-podman-secret copr-cli
 	@echo "Deleting the COPR build ${COPR_BUILD_ID}"
 	sudo podman run \
 		--rm \
-		--secret ${COPR_SECRET_NAME} \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
 		"${COPR_CLI_IMAGE}" \
-		bash -c "copr-cli --config /run/secrets/${COPR_SECRET_NAME} delete-build ${COPR_BUILD_ID}"
+		bash -c "copr-cli delete-build ${COPR_BUILD_ID}"
 
 .PHONY: copr-regenerate-repos
 copr-regenerate-repos: copr-cfg-ensure-podman-secret copr-cli
 	@echo "Regenerating the COPR repository"
 	sudo podman run \
 		--rm \
-		--secret ${COPR_SECRET_NAME} \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
 		"${COPR_CLI_IMAGE}" \
-		bash -c "copr-cli --config /run/secrets/${COPR_SECRET_NAME} regenerate-repos ${COPR_REPO_NAME}"
+		bash -c "copr-cli regenerate-repos ${COPR_REPO_NAME}"
 
 .PHONY: copr-create-build
 copr-create-build: copr-cfg-ensure-podman-secret copr-cli
@@ -94,10 +94,9 @@ copr-create-build: copr-cfg-ensure-podman-secret copr-cli
 	fi
 	sudo podman run \
 		--rm \
-		--secret ${COPR_SECRET_NAME} \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
 		--env COPR_REPO_NAME="${COPR_REPO_NAME}" \
 		--volume "${SRPM_WORKDIR}:/srpms:Z" \
-		--volume "./src/copr/create-build.sh:/create-build.sh:Z" \
 		"${COPR_CLI_IMAGE}" \
 		bash -c "bash -x /create-build.sh"
 
@@ -109,3 +108,19 @@ copr-watch-build: copr-cli
 		--volume "${SRPM_WORKDIR}:/srpms:Z" \
 		"${COPR_CLI_IMAGE}" \
 		bash -c "copr-cli watch-build ${COPR_BUILD_ID}"
+
+copr-dependencies: copr-cfg-ensure-podman-secret copr-cli
+	@echo "Building RPM with MicroShift dependencies repositories configuration"
+	sudo podman run \
+		--rm -ti \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
+		"${COPR_CLI_IMAGE}" \
+		/microshift-io-dependencies.sh "${OKD_VERSION_TAG}" "${COPR_REPO_NAME}"
+
+copr-cni: copr-cfg-ensure-podman-secret copr-cli
+	@echo "Building RPM with CNI plugins"
+	sudo podman run \
+		--rm -ti \
+		--secret ${COPR_SECRET_NAME},target=/root/.config/copr \
+		"${COPR_CLI_IMAGE}" \
+		/cni/build.sh "${COPR_REPO_NAME}"
