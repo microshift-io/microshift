@@ -43,13 +43,33 @@ jobs:
         id: detect-okd-version
         uses: ./.github/actions/okd-version
 
+      - name: Determine bootc stream version
+        id: set-bootc-image-tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -x
+
+          ref="${{ inputs.ushift-gitref }}"
+          tag="stream10"
+
+          # Prior to version 4.21, crio depends on containernetworking-plugins
+          # which is not available in CentOS Stream 10
+          if [[ "${ref}" =~ release-4\.([0-9]+) ]]; then
+            yver="${BASH_REMATCH[1]}"
+            if [ "${yver}" -lt 21 ]; then
+              tag="stream9"
+            fi
+          fi
+          echo "bootc-image-tag=${tag}" >> "${GITHUB_OUTPUT}"
+
       - name: Run the build action
         uses: ./.github/actions/build
         with:
           ushift-gitref: ${{ inputs.ushift-gitref }}
           okd-version-tag: ${{ inputs.okd-version-tag != 'latest' && inputs.okd-version-tag || steps.detect-okd-version.outputs.okd-version-tag }}
           bootc-image-url: quay.io/centos-bootc/centos-bootc
-          bootc-image-tag: stream10
+          bootc-image-tag: ${{ steps.set-bootc-image-tag.outputs.bootc-image-tag }}
           build: ${{ inputs.build }}
 
       # Test the local container image with the quick start and clean procedures

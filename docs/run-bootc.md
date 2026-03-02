@@ -55,8 +55,8 @@ sudo podman exec -it microshift-okd-1 /bin/bash -l
 Verify that all the MicroShift services are up and running successfully.
 ```bash
 export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig
-oc get nodes
-oc get pods -A
+kubectl get nodes
+kubectl get pods -A
 ```
 
 ### Add Node to Cluster

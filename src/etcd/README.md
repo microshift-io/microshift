@@ -58,8 +58,8 @@ Run the following command to verify that MicroShift is up and running successful
 ```bash
 sudo podman exec -it microshift-okd /bin/bash -e <<EOF
 export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig
-oc get nodes
-oc get pods -A
+kubectl get nodes
+kubectl get pods -A
 exit
 EOF
 ```
@@ -115,8 +115,8 @@ Run the following command to verify that MicroShift is up and running successful
 ```bash
 sudo podman exec -it microshift-okd /bin/bash -e <<EOF
 export KUBECONFIG=/var/lib/microshift/resources/kubeadmin/kubeconfig
-oc get nodes
-oc get pods -A
+kubectl get nodes
+kubectl get pods -A
 exit
 EOF
 ```

@@ -1,0 +1,149 @@
+name: nightly-copr
+
+on:
+  schedule:
+     - cron: "0 1 * * *"
+  workflow_dispatch:
+
+env:
+  COPR_REPO_NAME: "@microshift-io/microshift-nightly"
+
+jobs:
+  build-rpms:
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Detect OKD version tag
+        id: detect-okd-version
+        uses: ./.github/actions/okd-version
+
+      - name: Build SRPM
+        shell: bash
+        run: |
+          cd ${GITHUB_WORKSPACE}/
+          make srpm \
+            USHIFT_GITREF=main \
+            OKD_VERSION_TAG=${{ steps.detect-okd-version.outputs.okd-version-tag }} \
+            SRPM_WORKDIR=/mnt/srpm
+
+      - name: Create copr-cli image and secret
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+          ls -lah /tmp/copr-config
+
+          make copr-cli
+
+          make copr-cfg-ensure-podman-secret \
+            COPR_CONFIG=/tmp/copr-config
+
+      - name: Create COPR build
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+
+          make copr-create-build \
+            SRPM_WORKDIR=/mnt/srpm \
+            COPR_REPO_NAME=${{ env.COPR_REPO_NAME }} \
+            COPR_CONFIG=/tmp/copr-config
+
+          make copr-watch-build \
+            SRPM_WORKDIR=/mnt/srpm \
+            COPR_REPO_NAME=${{ env.COPR_REPO_NAME }}
+
+      - name: Persist version and build ID
+        uses: actions/upload-artifact@v4
+        with:
+          name: srpm-artifacts
+          path: |
+            /mnt/srpm/version.txt
+            /mnt/srpm/build.txt
+          overwrite: true
+
+
+  build-and-test-microshift:
+    needs: build-rpms
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    strategy:
+      matrix:
+        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+    name: Build RPM images based on COPR build
+    runs-on: ${{ matrix.runners }}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: srpm-artifacts
+          path: /tmp/srpm
+
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: Prepare the build and run environment
+        uses: ./.github/actions/prebuild
+
+      - name: Detect the CPU architecture
+        id: detect-cpu-arch
+        uses: ./.github/actions/arch
+
+      - name: Create RPMs image with RPMs from COPR
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ${GITHUB_WORKSPACE}/
+
+          make rpm-copr \
+            SRPM_WORKDIR=/tmp/srpm \
+            RPM_OUTDIR=/mnt/rpms \
+            COPR_CHROOT="epel-10-$(uname -m)"
+
+      - name: Run the build action
+        uses: ./.github/actions/build
+        with:
+          ushift-gitref: nil    # RPMs are not built, so no need for git ref or OKD version
+          okd-version-tag: nil
+          bootc-image-url: quay.io/centos-bootc/centos-bootc
+          bootc-image-tag: stream10
+          skip-prebuild: "true"
+          build: bootc-image
+
+      # Test the local container image with the quick start and clean procedures
+      # before releasing the artifacts. Make sure not to run the clean scripts
+      # because the images are needed for the release process.
+      - name: Run the quick start script and clean scripts
+        uses: ./.github/actions/quick-start-clean
+        with:
+          image-ref: localhost/microshift-okd:latest
+          run-clean: false
+
+
+  regenerate-copr-repo:
+    needs: build-and-test-microshift
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out MicroShift upstream repository
+        uses: actions/checkout@v4
+
+      - name: COPR - Regenerate RPM repo
+        shell: bash
+        env:
+          COPR_CONFIG: |
+            ${{ secrets.COPR_CONFIG }}
+        run : |
+          echo "${COPR_CONFIG}" > /tmp/copr-config
+          make copr-regenerate-repos \
+            COPR_CONFIG=/tmp/copr-config \
+            COPR_REPO_NAME=${{ env.COPR_REPO_NAME }}

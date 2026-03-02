@@ -39,10 +39,6 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     rm -rvf ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
 
-# Pin the greenboot package to 0.15.z until the following issue is resolved:
-# https://github.com/fedora-iot/greenboot-rs/issues/132
-RUN dnf install -y 'greenboot-0.15.*' && dnf clean all
-
 # Post-install MicroShift configuration
 COPY --chmod=755 ./src/rpm/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}
 RUN ${USHIFT_POSTINSTALL_SCRIPT} && rm -vf "${USHIFT_POSTINSTALL_SCRIPT}"
@@ -66,3 +62,8 @@ RUN systemctl enable microshift-make-rshared.service
 # The /var directory is shared with the container as an anonymous volume to enable
 # idmap mounts under /var/lib/kubelet for containers using 'hostUsers: false'
 VOLUME ["/var"]
+
+# Disable the bootc-publish-rhsm-facts.service if it exists
+RUN if systemctl list-unit-files bootc-publish-rhsm-facts.service >/dev/null 2>&1 ; then \
+        systemctl disable bootc-publish-rhsm-facts.service ; \
+    fi
