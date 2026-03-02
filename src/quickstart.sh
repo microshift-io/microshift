@@ -67,12 +67,40 @@ function run_bootc_image() {
 
     echo "Waiting for MicroShift to start"
     local -r kubeconfig="/var/lib/microshift/resources/kubeadmin/kubeconfig"
-    while true ; do
+    local -r max_wait=300
+    local waited=0
+    while [ "${waited}" -lt "${max_wait}" ] ; do
         if podman exec microshift-okd /bin/test -f "${kubeconfig}" &>/dev/null ; then
             break
         fi
         sleep 1
+        waited=$((waited + 1))
     done
+    if [ "${waited}" -ge "${max_wait}" ]; then
+        echo "ERROR: Timed out waiting for MicroShift to start after ${max_wait}s"
+        echo
+        echo "Stopping the container..."
+        podman stop microshift-okd &>/dev/null || true
+        exit 1
+    fi
+
+    # Verify that DNS resolution works inside the container.
+    # VPN connections or custom DNS configurations on the host may
+    # prevent the container from resolving external hostnames, causing
+    # pods to stay in ContainerCreating while image pulls time out.
+    if ! podman exec microshift-okd getent hosts quay.io &>/dev/null ; then
+        echo
+        echo "ERROR: DNS resolution for 'quay.io' failed inside the container."
+        echo "MicroShift pods will not be able to pull container images."
+        echo
+        echo "This is commonly caused by VPN connections or custom DNS settings"
+        echo "on the host that are not available inside the container."
+        echo "Consider disconnecting from VPN or configuring DNS manually."
+        echo
+        echo "Stopping the container..."
+        podman stop microshift-okd &>/dev/null || true
+        exit 1
+    fi
 }
 
 # Check if the script is running as root
