@@ -53,17 +53,17 @@
   - name: Debug loop device path
     ansible.builtin.debug:
       var: loop_device_path
-  - name: Create volume group 'myvg1' on {{ loop_device_path }}
+  - name: Create volume group '{{ lvm_vg_name }}' on {{ loop_device_path }}
     community.general.lvg:
-      vg: myvg1
+      vg: "{{ lvm_vg_name }}"
       pvs: "{{ loop_device_path }}"
       state: present
       force: true # Corresponds to vgcreate -f. Use with care if PVs might be in use by other VGs.
     become: true
-  
-  - name: Create {{ lvm_thinpool_size_giga }}G thin pool 'thinpool' in volume group 'myvg1'
+
+  - name: Create {{ lvm_thinpool_size_giga }}G thin pool 'thinpool' in volume group '{{ lvm_vg_name }}'
     community.general.lvol:
-      vg: myvg1
+      vg: "{{ lvm_vg_name }}"
       lv: thinpool
       size: "{{ lvm_thinpool_size_giga }}G"
       opts: "--type thin-pool" # This creates a thin pool

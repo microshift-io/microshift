@@ -9,7 +9,8 @@ RPM_SOURCE=${RPM_SOURCE:-github}  # Accepted values: github, copr-nightly
 COPR_REPO=${COPR_REPO:-@microshift-io/microshift-nightly}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
-VG_NAME="myvg1"
+VG_NAME="${VG_NAME:-myvg1}"
+SPARE_GB="${SPARE_GB:-10}"
 
 WORKDIR=$(mktemp -d /tmp/microshift-quickrpm-XXXXXX)
 trap 'rm -rf "${WORKDIR}"' EXIT
@@ -144,6 +145,29 @@ EOF
     systemctl daemon-reload
 }
 
+function setup_topolvm_config() {
+    local -r vg_name="$1"
+    local -r spare_gb="$2"
+
+    # Install the TopoLVM configuration patch script if not already present
+    if [ ! -x /usr/local/bin/patch_lvmd_config.sh ]; then
+        curl -fSsL --retry 5 --max-time 60 \
+            "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/topolvm/patch_lvmd_config.sh" \
+            -o /usr/local/bin/patch_lvmd_config.sh
+        chmod +x /usr/local/bin/patch_lvmd_config.sh
+    fi
+
+    # Create systemd drop-in to run the patch script with VG_NAME and SPARE_GB
+    mkdir -p /etc/systemd/system/microshift.service.d
+    cat > /etc/systemd/system/microshift.service.d/00-patch-lvmd.conf <<EOF
+[Service]
+Environment=VG_NAME=${vg_name}
+Environment=SPARE_GB=${spare_gb}
+ExecStartPre=/usr/local/bin/patch_lvmd_config.sh
+EOF
+    systemctl daemon-reload
+}
+
 function start_microshift() {
     "${WORKDIR}/postinstall.sh"
     systemctl start microshift.service
@@ -185,6 +209,7 @@ copr-nightly)
 esac
 prepare_lvm_disk  "${LVM_DISK}" "${VG_NAME}"
 setup_lvm_service "${LVM_DISK}" "${VG_NAME}"
+setup_topolvm_config "${VG_NAME}" "${SPARE_GB}"
 start_microshift
 
 # Follow-up instructions
@@ -192,6 +217,7 @@ echo
 echo "MicroShift is running on the host"
 echo "LVM disk:  ${LVM_DISK}"
 echo "VG name:   ${VG_NAME}"
+echo "Spare GB:  ${SPARE_GB}"
 echo
 echo "To verify that MicroShift pods are up and running, run the following command:"
 echo " - sudo kubectl get pods -A --kubeconfig /var/lib/microshift/resources/kubeadmin/kubeconfig"
