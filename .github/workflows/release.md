@@ -31,3 +31,7 @@ sudo podman pull ${IMAGE}:${TAG}
 ```
 
 Review the instructions in [MicroShift Bootc Deployment](https://github.com/microshift-io/microshift/blob/main/docs/run-bootc.md) to run the image.
+
+#### ISO
+
+Review the instructions in [MicroShift ISO Deployment](https://github.com/microshift-io/microshift/blob/main/docs/run-iso.md) to install from ISO and run MicroShift.
