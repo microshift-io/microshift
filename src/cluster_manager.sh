@@ -222,8 +222,18 @@ cluster_create() {
     if [ "${ISOLATED_NETWORK}" = "1" ] ; then
         echo "Configuring isolated network for node: ${node_name}"
         sudo podman cp ./src/config_isolated_net.sh "${node_name}:/tmp/config_isolated_net.sh"
-        sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh
+        local config_rc=0
+        sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh || config_rc=$?
         sudo podman exec -i "${node_name}" rm -vf /tmp/config_isolated_net.sh
+
+        if [ "${config_rc}" -ne 0 ]; then
+            echo "ERROR: config_isolated_net.sh failed with exit code ${config_rc}" >&2
+            echo "The container is left running for troubleshooting."
+            exit "${config_rc}"
+        fi
+
+        # Restart the container so greenboot runs its health checks on boot.
+        sudo podman restart "${node_name}"
     fi
 
     echo "Cluster created successfully. To access the node container, run:"
