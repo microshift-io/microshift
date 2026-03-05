@@ -50,14 +50,23 @@ fi
 
 wait_for_network_manager
 
+# Stop greenboot before reconfiguring the network. This prevents a race
+# condition where greenboot checks MicroShift health during reconfiguration.
+# MicroShift is stopped by the cleanup command below.
+systemctl stop greenboot-healthcheck 2>/dev/null || true
+
 # Cleanup the configuration and stop the MicroShift service
 echo 1 | microshift-cleanup-data --all
 
-# Select the appropriate network configuration
+# Configure the network with 10.44 prefix (outside the service CIDR
+# 10.43.0.0/16) to avoid a conflict in containers where the router-default
+# LoadBalancer claims the same IP as the kubernetes ClusterIP (issue #94).
+configure_offline_network "10.44"
+
+# Kindnet requires a persistent route for the service CIDR via loopback
+# so that ClusterIP traffic reaches the kube-proxy iptables rules.
 if rpm -q microshift-kindnet &>/dev/null; then
-  configure_offline_network "10.43"
-else
-  configure_offline_network "10.44"
+  nmcli conn modify stable-microshift +ipv4.routes "10.43.0.0/16"
 fi
 
 # Restart the NetworkManager service to apply the new network configuration
@@ -66,4 +75,4 @@ wait_for_network_manager
 
 # Enable and restart the MicroShift service
 systemctl enable microshift
-systemctl restart --no-block microshift
+echo "Reboot to start MicroShift in the isolated network configuration"
