@@ -156,6 +156,7 @@ fi
 # Update the 'latest' tag to the latest released version (only for github source)
 if [ "${RPM_SOURCE}" == "github" ] && [ "${TAG}" == "latest" ] ; then
     dnf install -y jq
+    curl --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
     TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
