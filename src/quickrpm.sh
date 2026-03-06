@@ -98,10 +98,8 @@ function install_microshift_packages() {
 function install_rpms_copr() {
     dnf copr enable -y "${COPR_REPO}"
 
-    "${WORKDIR}/create_repos.sh" -rhocp-mirror
+    dnf install -y microshift-io-dependencies
     install_microshift_packages
-    # Keep the repos, so the `dnf update` works for updated MicroShift RPMs and
-    # updated dependencies.
 }
 
 function install_rpms() {
@@ -158,6 +156,7 @@ fi
 # Update the 'latest' tag to the latest released version (only for github source)
 if [ "${RPM_SOURCE}" == "github" ] && [ "${TAG}" == "latest" ] ; then
     dnf install -y jq
+    curl --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"
     TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
