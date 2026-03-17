@@ -92,6 +92,25 @@ _get_hostname() {
     echo "$hostname"
 }
 
+# Wait up to 60 seconds for the container to activate the dbus service.
+# It is necessary to prevent subsequent systemctl commands to fail with dbus errors.
+_wait_for_dbus() {
+    local -r name="${1}"
+    local is_active=false
+    for _ in {1..60}; do
+        if sudo podman exec -i "${name}" systemctl is-active -q dbus.service ; then
+            is_active=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "${is_active}" = "false" ]; then
+        echo "ERROR: The container did not activate the dbus service within 60 seconds"
+        return 1
+    fi
+    return 0
+}
+
 # Notes:
 # - The container joins the cluster network and gets the cluster network IP
 #   address when the ISOLATED_NETWORK environment variable is set to 0.
@@ -146,18 +165,7 @@ _add_node() {
         return $rc
     fi
 
-    # Wait up to 60 seconds for the container to activate the dbus service.
-    # It is necessary to prevent subsequent systemctl commands to fail with dbus errors.
-    local is_active=false
-    for _ in {1..60}; do
-        if sudo podman exec -i "${name}" systemctl is-active -q dbus.service ; then
-            is_active=true
-            break
-        fi
-        sleep 1
-    done
-    if [ "${is_active}" = "false" ]; then
-        echo "ERROR: The container did not activate the dbus service within 60 seconds"
+    if ! _wait_for_dbus "${name}"; then
         return 1
     fi
     return 0
@@ -222,8 +230,21 @@ cluster_create() {
     if [ "${ISOLATED_NETWORK}" = "1" ] ; then
         echo "Configuring isolated network for node: ${node_name}"
         sudo podman cp ./src/config_isolated_net.sh "${node_name}:/tmp/config_isolated_net.sh"
-        sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh
+        local config_rc=0
+        sudo podman exec -i "${node_name}" /tmp/config_isolated_net.sh || config_rc=$?
         sudo podman exec -i "${node_name}" rm -vf /tmp/config_isolated_net.sh
+
+        if [ "${config_rc}" -ne 0 ]; then
+            echo "ERROR: config_isolated_net.sh failed with exit code ${config_rc}" >&2
+            echo "The container is left running for troubleshooting."
+            exit "${config_rc}"
+        fi
+
+        # Restart the container so greenboot runs its health checks on boot.
+        sudo podman restart "${node_name}"
+        if ! _wait_for_dbus "${node_name}"; then
+            exit 1
+        fi
     fi
 
     echo "Cluster created successfully. To access the node container, run:"

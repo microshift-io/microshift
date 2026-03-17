@@ -27,6 +27,8 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     dnf install -y microshift microshift-release-info && \
     if [ "${WITH_KINDNET}" = "1" ] ; then \
         dnf install -y microshift-kindnet microshift-kindnet-release-info ; \
+    else \
+        dnf install -y microshift-networking ; \
     fi && \
     if [ "${WITH_TOPOLVM}" = "1" ] ; then \
         dnf install -y microshift-topolvm microshift-topolvm-release-info ; \
