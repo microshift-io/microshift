@@ -5,6 +5,7 @@
 ARCH := $(shell uname -m)
 
 # Options used in the 'rpm' target
+USHIFT_GIT_URL ?= https://github.com/openshift/microshift.git
 USHIFT_GITREF ?= main
 ifeq ($(ARCH),aarch64)
 OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64)
@@ -87,6 +88,7 @@ srpm:
 	@echo "Building the MicroShift SRPM image"
 	sudo podman build \
         -t "${SRPM_IMAGE}" \
+        --build-arg USHIFT_GIT_URL="${USHIFT_GIT_URL}" \
         --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
