@@ -55,7 +55,7 @@ Release:        1%{?dist}
 Summary:        RPM repository configurations for MicroShift dependencies
 
 License:        Apache-2.0
-URL:            https://github.com/microshift-io/microshift-io
+URL:            https://github.com/microshift-io/microshift
 BuildArch:      noarch
 
 %description
