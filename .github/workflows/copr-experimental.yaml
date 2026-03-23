@@ -18,7 +18,7 @@ on:
 
 jobs:
   copr-pipeline:
-    uses: ./.github/workflows/copr-build-test.yaml
+    uses: ./.github/workflows/copr-build-and-test.yaml
     with:
       ushift-git-url: "https://github.com/${{ inputs.fork-repo }}.git"
       ushift-gitref: ${{ inputs.branch }}

@@ -13,7 +13,7 @@ on:
 jobs:
   copr-pipeline:
     if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
-    uses: ./.github/workflows/copr-build-test.yaml
+    uses: ./.github/workflows/copr-build-and-test.yaml
     with:
       copr-repo-name: ${{ github.event.inputs.copr-repo-name || '@microshift-io/microshift-nightly' }}
       bootc-image-tag: stream10
