@@ -1,0 +1,28 @@
+name: experimental-copr
+
+on:
+  workflow_dispatch:
+    inputs:
+      fork-repo:
+        description: "Fork repository (e.g., pmtk/microshift)"
+        required: true
+        type: string
+      branch:
+        description: "Branch name to build"
+        required: true
+        type: string
+      copr-repo:
+        description: "COPR repository name (e.g., @microshift-io/experimental-c2cc)"
+        required: true
+        type: string
+
+jobs:
+  copr-pipeline:
+    uses: ./.github/workflows/copr-build-and-test.yaml
+    with:
+      ushift-git-url: "https://github.com/${{ inputs.fork-repo }}.git"
+      ushift-gitref: ${{ inputs.branch }}
+      copr-repo-name: ${{ inputs.copr-repo }}
+      bootc-image-tag: stream9
+    secrets:
+      COPR_CONFIG: ${{ secrets.COPR_CONFIG }}

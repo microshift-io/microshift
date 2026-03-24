@@ -1,21 +1,34 @@
-name: nightly-copr
+name: copr-build-test
 
 on:
-  schedule:
-     - cron: "0 1 * * *"
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      copr-repo-name:
-        description: COPR repository name
-        default: "@microshift-io/microshift-nightly"
+      ushift-git-url:
+        description: "MicroShift git repository URL"
         type: string
+        default: "https://github.com/openshift/microshift.git"
+      ushift-gitref:
+        description: "MicroShift git ref (branch or tag)"
+        type: string
+        default: "main"
+      copr-repo-name:
+        description: "COPR repository name"
+        type: string
+        required: true
+      bootc-image-tag:
+        description: "Bootc base image tag"
+        type: string
+        default: "stream10"
+
+    secrets:
+      COPR_CONFIG:
+        required: true
 
 env:
-  COPR_REPO_NAME: ${{ github.event.inputs.copr-repo-name || '@microshift-io/microshift-nightly' }}
+  COPR_REPO_NAME: ${{ inputs.copr-repo-name }}
 
 jobs:
   build-dependencies-rpm:
-    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -56,7 +69,6 @@ jobs:
 
 
   build-rpms:
-    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -71,7 +83,8 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/
           make srpm \
-            USHIFT_GITREF=main \
+            USHIFT_GIT_URL="${{ inputs.ushift-git-url }}" \
+            USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
             OKD_VERSION_TAG=${{ steps.detect-okd-version.outputs.okd-version-tag }} \
             SRPM_WORKDIR=/mnt/srpm
 
@@ -122,7 +135,6 @@ jobs:
 
   build-and-test-microshift:
     needs: build-rpms
-    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     strategy:
       matrix:
         runners: [ubuntu-24.04, ubuntu-24.04-arm]
@@ -161,7 +173,7 @@ jobs:
           ushift-gitref: nil    # RPMs are not built, so no need for git ref or OKD version
           okd-version-tag: nil
           bootc-image-url: quay.io/centos-bootc/centos-bootc
-          bootc-image-tag: stream10
+          bootc-image-tag: ${{ inputs.bootc-image-tag }}
           skip-prebuild: "true"
           build: bootc-image
 
@@ -177,7 +189,6 @@ jobs:
 
   regenerate-copr-repo:
     needs: build-and-test-microshift
-    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
     runs-on: ubuntu-24.04
     steps:
       - name: Check out MicroShift upstream repository
@@ -188,7 +199,7 @@ jobs:
         env:
           COPR_CONFIG: |
             ${{ secrets.COPR_CONFIG }}
-        run : |
+        run: |
           echo "${COPR_CONFIG}" > /tmp/copr-config
           make copr-regenerate-repos \
             COPR_CONFIG=/tmp/copr-config \

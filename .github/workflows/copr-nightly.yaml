@@ -1,0 +1,21 @@
+name: nightly-copr
+
+on:
+  schedule:
+     - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      copr-repo-name:
+        description: COPR repository name
+        default: "@microshift-io/microshift-nightly"
+        type: string
+
+jobs:
+  copr-pipeline:
+    if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    uses: ./.github/workflows/copr-build-and-test.yaml
+    with:
+      copr-repo-name: ${{ github.event.inputs.copr-repo-name || '@microshift-io/microshift-nightly' }}
+      bootc-image-tag: stream10
+    secrets:
+      COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
