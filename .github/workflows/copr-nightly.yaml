@@ -1,4 +1,4 @@
-name: nightly-copr
+name: copr-nightly
 
 on:
   schedule:

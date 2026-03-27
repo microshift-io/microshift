@@ -1,4 +1,4 @@
-name: copr-build-test
+name: copr-build-and-test
 
 on:
   workflow_call:

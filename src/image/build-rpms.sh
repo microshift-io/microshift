@@ -49,9 +49,11 @@ if [[ $(git tag -l "${USHIFT_GITREF}") ]]; then
     MICROSHIFT_VERSION="${USHIFT_GITREF}"
 else
     MICROSHIFT_VERSION="$(awk -F'[=.-]' '{print $2 "." $3 "." $4}' Makefile.version.aarch64.var | sed -e 's/ //g')"
+    # After the X.Y.Z, add build timestamp for correct ordering of the RPMs based on the version.
+    MICROSHIFT_VERSION="${MICROSHIFT_VERSION}-$(date -u +%Y%m%d%H%M)"
 fi
 # Example results:
-# - 4.21.0_ga9cd00b34_4.21.0_okd_scos.ec.5                for build against HEAD of main which was 4.21 at the time.
+# - 4.21.0-202511271015-ga9cd00b34_4.21.0_okd_scos.ec.5   for build against HEAD of main which was 4.21 at the time.
 # - 4.20.0-202510201126.p0-g1c4675ace_4.20.0-okd-scos.6   for build against a specific tag.
 MICROSHIFT_VERSION="${MICROSHIFT_VERSION}-g${SOURCE_GIT_COMMIT}-${OKD_VERSION_TAG}"
 # MicroShift's make-rpm.sh makes this substitution. Although we don't use the script,
@@ -80,4 +82,3 @@ if [[ "${target}" == "all" || "${target}" == "srpm" ]]; then
     ./packaging/rpm/make-rpm.sh srpm local
     echo "${MICROSHIFT_VERSION}" > _output/rpmbuild/SRPMS/version.txt
 fi
-
