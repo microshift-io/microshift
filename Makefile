@@ -21,6 +21,7 @@ BOOTC_IMAGE_TAG ?= stream9
 WITH_KINDNET ?= 1
 WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
+WITH_MULTUS ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 
 # Options used in the 'run' target
@@ -130,6 +131,7 @@ image:
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
+    	--env WITH_MULTUS="${WITH_MULTUS}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
         -f packaging/bootc.Containerfile .
 

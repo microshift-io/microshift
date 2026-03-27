@@ -12,7 +12,6 @@ from itertools import product
 
 # Subpackages to remove
 pkgs_to_remove = [
-    'multus',
     'low-latency',
     'gateway-api',
     'ai-model-serving',
