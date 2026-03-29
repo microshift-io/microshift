@@ -7,7 +7,8 @@ IMAGE=${IMAGE:-"ghcr.io/${OWNER}/${REPO}"}
 TAG=${TAG:-latest}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
-VG_NAME="myvg1"
+VG_NAME="${VG_NAME:-myvg1}"
+SPARE_GB="${SPARE_GB:-10}"
 
 function pull_bootc_image() {
     local -r image_ref="$1"
@@ -61,6 +62,8 @@ function run_bootc_image() {
     podman run --privileged --rm -d \
         --replace \
         ${vol_opts} \
+        -e VG_NAME="${VG_NAME}" \
+        -e SPARE_GB="${SPARE_GB}" \
         --name microshift-okd \
         --hostname 127.0.0.1.nip.io \
         "${image_ref}"
