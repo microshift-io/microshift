@@ -58,7 +58,9 @@ COPY ./src/topolvm/greenboot/ ./packaging/greenboot/
 COPY ./src/topolvm/release/ ./assets/optional/topolvm/
 
 RUN ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}" && \
-    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
+    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}" && \
+    ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace-multus "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}" && \
+    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-multus "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
 
 COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
 # Disable the RPM and SRPM checks in the make-rpm.sh script

@@ -212,6 +212,21 @@ cli_image() {
   podman build --platform "linux/${TARGET_ARCH}" -t "${images[cli]}" -f "${dockerfile_path}" .
 }
 
+# Function to handle cli-artifacts-image repository (same repo as cli)
+cli_artifacts_image() {
+  local -r dockerfile_path="images/cli-artifacts/Dockerfile.rhel"
+  local -r repo="${WORKDIR}/oc"
+
+  # Reuse the already cloned oc repository from cli_image()
+  cd "${repo}" || { echo "Failed to access oc repository directory"; return 1; }
+  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang|FROM registry.ci.openshift.org/openshift/release:rhel-8-release-golang|' "${dockerfile_path}"
+  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:cli|FROM ${images[cli]}|" "${dockerfile_path}"
+
+  podman build --platform "linux/${TARGET_ARCH}" -t "${images[cli-artifacts]}" -f "${dockerfile_path}" .
+}
+
 # Function to handle service-ca-operator-image repository
 service_ca_operator_image() {
   local -r repo_url="https://github.com/openshift/service-ca-operator"
@@ -263,6 +278,32 @@ ovn_kubernetes_microshift_image() {
   podman build --platform "linux/${TARGET_ARCH}" -t "${images[ovn-kubernetes-microshift]}" -f "${dockerfile_microshift_path}" .
 }
 
+# Function to handle multus-cni-microshift image repository
+multus_cni_microshift_image() {
+  local -r repo_url="https://github.com/openshift/multus-cni"
+  local -r dockerfile_path="Dockerfile.microshift"
+  local -r repo="${WORKDIR}/$(basename "${repo_url}")"
+
+  git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
+  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
+
+  podman build --platform "linux/${TARGET_ARCH}" -t "${images[multus-cni-microshift]}" -f "${dockerfile_path}" .
+}
+
+# Function to handle containernetworking-plugins-microshift image repository
+containernetworking_plugins_microshift_image() {
+  local -r repo_url="https://github.com/openshift/containernetworking-plugins"
+  local -r dockerfile_path="Dockerfile.microshift"
+  local -r repo="${WORKDIR}/$(basename "${repo_url}")"
+
+  git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
+  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
+
+  podman build --platform "linux/${TARGET_ARCH}" -t "${images[containernetworking-plugins-microshift]}" -f "${dockerfile_path}" .
+}
+
 # Run all the image creation procedures
 create_images() {
   base_image
@@ -273,8 +314,11 @@ create_images() {
   kube_rbac_proxy_image
   pod_image
   cli_image
+  cli_artifacts_image
   service_ca_operator_image
   operator_lifecycle_manager_image
+  multus_cni_microshift_image
+  containernetworking_plugins_microshift_image
   # ovn_kubernetes_microshift_image
 }
 
@@ -327,6 +371,7 @@ create_new_okd_release() {
   oc adm release new --from-release "quay.io/okd/scos-release:${OKD_VERSION}" \
       --keep-manifest-list \
       "cli=${images_sha[cli]}" \
+      "cli-artifacts=${images_sha[cli-artifacts]}" \
       ${haproxy_router_image} \
       "kube-proxy=${images_sha[kube-proxy]}" \
       "coredns=${images_sha[coredns]}" \
@@ -336,6 +381,8 @@ create_new_okd_release() {
       "service-ca-operator=${images_sha[service-ca-operator]}" \
       "operator-lifecycle-manager=${images_sha[operator-lifecycle-manager]}" \
       "operator-registry=${images_sha[operator-registry]}" \
+      "multus-cni-microshift=${images_sha[multus-cni-microshift]}" \
+      "containernetworking-plugins-microshift=${images_sha[containernetworking-plugins-microshift]}" \
       --to-image "${OKD_RELEASE_IMAGE}"
 
       # "ovn-kubernetes-base=${images_sha[ovn-kubernetes-base]}" \
@@ -508,6 +555,7 @@ fi
 images=(
     [base]="${TARGET_REGISTRY}/scos-${OKD_VERSION}:base-stream9-${TARGET_ARCH}"
     [cli]="${TARGET_REGISTRY}/cli:${OKD_VERSION}-${TARGET_ARCH}"
+    [cli-artifacts]="${TARGET_REGISTRY}/cli-artifacts:${OKD_VERSION}-${TARGET_ARCH}"
     [haproxy-router-base]="${TARGET_REGISTRY}/haproxy-router-base:${OKD_VERSION}-${TARGET_ARCH}"
     [haproxy-router]="${TARGET_REGISTRY}/haproxy-router:${OKD_VERSION}-${TARGET_ARCH}"
     [kube-proxy]="${TARGET_REGISTRY}/kube-proxy:${OKD_VERSION}-${TARGET_ARCH}"
@@ -518,6 +566,8 @@ images=(
     [service-ca-operator]="${TARGET_REGISTRY}/service-ca-operator:${OKD_VERSION}-${TARGET_ARCH}"
     [operator-lifecycle-manager]="${TARGET_REGISTRY}/operator-lifecycle-manager:${OKD_VERSION}-${TARGET_ARCH}"
     [operator-registry]="${TARGET_REGISTRY}/operator-registry:${OKD_VERSION}-${TARGET_ARCH}"
+    [multus-cni-microshift]="${TARGET_REGISTRY}/multus-cni-microshift:${OKD_VERSION}-${TARGET_ARCH}"
+    [containernetworking-plugins-microshift]="${TARGET_REGISTRY}/containernetworking-plugins-microshift:${OKD_VERSION}-${TARGET_ARCH}"
     # [ovn-kubernetes-base]="${TARGET_REGISTRY}/ovn-kubernetes-base:${OKD_VERSION}-${TARGET_ARCH}"
     # [ovn-kubernetes-microshift]="${TARGET_REGISTRY}/ovn-kubernetes-microshift:${OKD_VERSION}-${TARGET_ARCH}"
 )

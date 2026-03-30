@@ -93,9 +93,15 @@ jobs:
           - name: kindnet
             runner: ubuntu-24.04
             ovnk-networking: 0
+            with-multus: 0
           - name: ovnk
             runner: ubuntu-24.04
             ovnk-networking: 1
+            with-multus: 0
+          - name: ovnk-multus
+            runner: ubuntu-24.04
+            ovnk-networking: 1
+            with-multus: 1
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out MicroShift upstream repository
@@ -112,3 +118,4 @@ jobs:
           okd-version-tag: ${{ steps.detect-okd-version.outputs.okd-version-tag }}
           isolated-network: 1
           ovnk-networking: ${{ matrix.ovnk-networking }}
+          with-multus: ${{ matrix.with-multus }}

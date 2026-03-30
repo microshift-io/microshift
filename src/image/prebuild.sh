@@ -168,6 +168,36 @@ replace_kindnet_assets() {
     mv "${temp_json}" "${MICROSHIFT_ROOT}/assets/optional/kube-proxy/release-kube-proxy-${ARCH}.json"
 }
 
+replace_multus_assets() {
+    local -r okd_url=$1
+    local -r okd_releaseTag=$2
+    local -r temp_json="$(mktemp "/tmp/release-multus-${ARCH}.XXXXX.json")"
+
+    # Install the yq tool
+    "${MICROSHIFT_ROOT}"/scripts/fetch_tools.sh yq
+
+    local -r multus_release_json="${MICROSHIFT_ROOT}/assets/components/multus/release-multus-${ARCH}.json"
+    local -r kustomization_arch_file="${MICROSHIFT_ROOT}/assets/components/multus/kustomization.${ARCH}.yaml"
+
+    for container in multus-cni-microshift containernetworking-plugins-microshift ; do
+        local image_with_hash
+        image_with_hash=$(oc_release_info "${okd_url}" "${okd_releaseTag}" "${container}")
+        echo "[${ARCH}] Replacing '${container}' with '${image_with_hash}'"
+        local image_name="${image_with_hash%%@*}"
+        local image_hash="${image_with_hash##*@}"
+
+        # Update the kustomization file with the new image name and digest
+        "${MICROSHIFT_ROOT}"/_output/bin/yq eval \
+            ".images[] |= select(.name == \"${container}\") |= (.newName = \"${image_name}\" | .digest = \"${image_hash}\")" \
+            -i "${kustomization_arch_file}"
+
+        # Update the release JSON file
+        jq --arg container "${container}" --arg img "${image_with_hash}" \
+            '.images[$container] = $img' "${multus_release_json}" >"${temp_json}"
+        mv "${temp_json}" "${multus_release_json}"
+    done
+}
+
 fix_rpm_spec() {
     # Fix the RPM spec by removing the microshift-networking package hard dependency
     sed -i 's/Requires: microshift-networking/Recommends: microshift-networking/' "${MICROSHIFT_ROOT}/packaging/rpm/microshift.spec"
@@ -178,6 +208,7 @@ usage() {
     echo "$(basename "$0") --verify          OKD_URL RELEASE_TAG    verify OKD upstream release"
     echo "$(basename "$0") --replace         OKD_URL RELEASE_TAG    replace MicroShift assets with OKD upstream images"
     echo "$(basename "$0") --replace-kindnet OKD_URL RELEASE_TAG    replace Kindnet assets with OKD upstream images"
+    echo "$(basename "$0") --replace-multus  OKD_URL RELEASE_TAG    replace Multus assets with OKD upstream images"
     exit 1
 }
 
@@ -198,6 +229,10 @@ case "$1" in
 --replace-kindnet)
     verify_okd_release     "$2" "$3"
     replace_kindnet_assets "$2" "$3"
+    ;;
+--replace-multus)
+    verify_okd_release    "$2" "$3"
+    replace_multus_assets "$2" "$3"
     ;;
 --verify)
     verify_okd_release "$2" "$3"

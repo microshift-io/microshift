@@ -24,6 +24,10 @@ inputs:
     description: Use OVN-K networking
     required: false
     default: 0
+  with-multus:
+    description: Enable Multus CNI
+    required: false
+    default: 0
   node-count:
     description: Number of nodes in the MicroShift cluster
     required: false
@@ -76,6 +80,7 @@ runs:
         make_opts=()
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
+        [ "${{ inputs.with-multus }}"     = "1" ] && make_opts+=("WITH_MULTUS=1")
 
         make image \
           BOOTC_IMAGE_URL="${{ inputs.bootc-image-url }}" \

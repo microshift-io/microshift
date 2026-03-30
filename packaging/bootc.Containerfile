@@ -18,6 +18,7 @@ ARG BUILDER_RSHARED_SERVICE=/home/microshift/microshift/packaging/imagemode/syst
 ENV WITH_KINDNET=${WITH_KINDNET:-1}
 ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
+ENV WITH_MULTUS=${WITH_MULTUS:-0}
 ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
 
 # Run repository configuration script, install MicroShift and cleanup
@@ -35,6 +36,9 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     fi && \
     if [ "${WITH_OLM}" = "1" ] ; then \
         dnf install -y microshift-olm microshift-olm-release-info ; \
+    fi && \
+    if [ "${WITH_MULTUS}" = "1" ] ; then \
+        dnf install -y microshift-multus microshift-multus-release-info ; \
     fi && \
     ${REPO_CONFIG_SCRIPT} -delete && \
     rm -vf  ${REPO_CONFIG_SCRIPT} && \
