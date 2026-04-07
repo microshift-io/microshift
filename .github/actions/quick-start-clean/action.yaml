@@ -52,7 +52,8 @@ runs:
         sudo podman image exists microshift-okd && exit 1
 
         # Verify the LVM volume group and backing storage are removed
-        sudo vgs | grep myvg1 && exit 1
+        VG_NAME="${VG_NAME:-myvg1}"
+        sudo vgs | grep "${VG_NAME}" && exit 1
         if [ -e /var/lib/microshift-okd ]; then
           ls -la /var/lib/microshift-okd/
           exit 1
