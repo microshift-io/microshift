@@ -8,6 +8,38 @@ TAG=${TAG:-latest}
 
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
+PODMAN_VMAJOR=5
+
+function check_prerequisites() {
+    for tool in "$@"; do
+        if ! command -v "${tool}" &>/dev/null; then
+            echo "ERROR: '${tool}' is not installed."
+            echo "Install it with:"
+            if command -v dnf &>/dev/null; then
+                echo "  sudo dnf install -y ${tool}"
+            elif command -v apt-get &>/dev/null; then
+                echo "  sudo apt-get install -y ${tool}"
+            elif command -v zypper &>/dev/null; then
+                echo "  sudo zypper install -y ${tool}"
+            else
+                echo "  Install '${tool}' using your system package manager"
+            fi
+            exit 1
+        fi
+    done
+}
+
+function check_podman_version() {
+    local podman_version
+    podman_version="$(podman --version | awk '/^podman version /{print $3}')"
+    local podman_major
+    podman_major="$(echo "${podman_version}" | cut -d. -f1)"
+    if [ -z "${podman_major}" ] || [ "${podman_major}" -lt "${PODMAN_VMAJOR}" ]; then
+        echo "ERROR: podman ${podman_version:-unknown} is too old (minimum required: ${PODMAN_VMAJOR}.0)"
+        echo "Please upgrade podman and try again."
+        exit 1
+    fi
+}
 
 function pull_bootc_image() {
     local -r image_ref="$1"
@@ -109,8 +141,12 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+check_prerequisites podman
+check_podman_version
+
 # For remote images with the 'latest' tag, update the tag to the latest released version
 if [[ "${IMAGE}" != localhost/* ]] && [ "${TAG}" == "latest" ]; then
+    check_prerequisites curl jq
     TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
