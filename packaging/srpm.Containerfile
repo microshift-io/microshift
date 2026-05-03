@@ -3,7 +3,7 @@ FROM quay.io/fedora/fedora:latest
 
 RUN dnf install -y \
         --setopt=install_weak_deps=False \
-        git rpm-build jq python3-pip python3-specfile && \
+        git rpm-build jq python3-pip python3-specfile skopeo && \
     dnf clean all
 
 # Variables controlling the source of MicroShift components to build
@@ -17,6 +17,7 @@ ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV HOME=/home/microshift
 ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
 ARG USHIFT_BUILDRPMS_SCRIPT=/tmp/build-rpms.sh
+ARG OKD_GET_VERSION_SCRIPT=/tmp/get_version.sh
 ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 ARG SPEC_KINDNET=/tmp/kindnet.spec
 ARG SPEC_TOPOLVM=/tmp/topolvm.spec
@@ -27,6 +28,19 @@ RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
         echo "See quay.io/okd/scos-release for a list of tags"; \
         exit 1; \
     fi
+
+# Resolve per-architecture OKD version tags
+# OKD_VERSION_TAG is for the host arch; the cross-arch version is auto-detected
+COPY --chmod=755 ./src/okd/get_version.sh ${OKD_GET_VERSION_SCRIPT}
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+        echo "${OKD_VERSION_TAG}" > /tmp/okd_version_aarch64 ; \
+        "${OKD_GET_VERSION_SCRIPT}" latest-amd64 > /tmp/okd_version_x86_64 ; \
+    else \
+        echo "${OKD_VERSION_TAG}" > /tmp/okd_version_x86_64 ; \
+        "${OKD_GET_VERSION_SCRIPT}" latest-arm64 > /tmp/okd_version_aarch64 ; \
+    fi && \
+    echo "OKD version x86_64:  $(cat /tmp/okd_version_x86_64)" && \
+    echo "OKD version aarch64: $(cat /tmp/okd_version_aarch64)"
 
 RUN [ "$(uname -m)" = "aarch64" ] && ARCH="-arm64" || ARCH="" ; \
     OKD_CLIENT_URL="https://github.com/okd-project/okd/releases/download/${OKD_VERSION_TAG}/openshift-client-linux${ARCH}-${OKD_VERSION_TAG}.tar.gz" && \
@@ -41,8 +55,8 @@ RUN git clone --branch "${USHIFT_GITREF}" --single-branch "${USHIFT_GIT_URL}" "$
 
 # Replace component images with OKD image references
 COPY --chmod=755 ./src/image/prebuild.sh ${USHIFT_PREBUILD_SCRIPT}
-RUN ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}" && \
-    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
+RUN ARCH="x86_64"  "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_X86_64}"  "$(cat /tmp/okd_version_x86_64)" && \
+    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace "${OKD_RELEASE_IMAGE_AARCH64}" "$(cat /tmp/okd_version_aarch64)"
 
 WORKDIR ${HOME}/microshift/
 
@@ -57,10 +71,10 @@ COPY ./src/topolvm/dropins/ ./packaging/microshift/dropins/
 COPY ./src/topolvm/greenboot/ ./packaging/greenboot/
 COPY ./src/topolvm/release/ ./assets/optional/topolvm/
 
-RUN ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}" && \
-    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}" && \
-    ARCH="x86_64" "${USHIFT_PREBUILD_SCRIPT}" --replace-multus "${OKD_RELEASE_IMAGE_X86_64}" "${OKD_VERSION_TAG}" && \
-    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-multus "${OKD_RELEASE_IMAGE_AARCH64}" "${OKD_VERSION_TAG}"
+RUN ARCH="x86_64"  "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_X86_64}"  "$(cat /tmp/okd_version_x86_64)" && \
+    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "$(cat /tmp/okd_version_aarch64)" && \
+    ARCH="x86_64"  "${USHIFT_PREBUILD_SCRIPT}" --replace-multus  "${OKD_RELEASE_IMAGE_X86_64}"  "$(cat /tmp/okd_version_x86_64)" && \
+    ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-multus  "${OKD_RELEASE_IMAGE_AARCH64}" "$(cat /tmp/okd_version_aarch64)"
 
 COPY --chmod=755 ./src/image/modify-spec.py ${USHIFT_MODIFY_SPEC_SCRIPT}
 # Disable the RPM and SRPM checks in the make-rpm.sh script
