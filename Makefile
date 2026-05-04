@@ -4,7 +4,7 @@
 #
 ARCH := $(shell uname -m)
 
-# Options used in the 'rpm' target
+# Options used in the 'srpm' and 'rpm' targets
 USHIFT_GIT_URL ?= https://github.com/openshift/microshift.git
 USHIFT_GITREF ?= main
 ifeq ($(ARCH),aarch64)
@@ -41,9 +41,6 @@ SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
 VG_NAME := myvg1
 
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-include $(PROJECT_DIR)/src/copr/copr.mk
-
 #
 # Define the main targets
 #
@@ -63,12 +60,18 @@ all:
 	@echo "   env CMD=...:  run a command in MicroShift kubeconfig environment"
 	@echo ""
 	@echo "Sub-targets:"
+	@echo "   copr-help: 	show the help message for the COPR sub-targets"
 	@echo "   rpm-to-deb:	convert the MicroShift RPMs to Debian packages"
 	@echo "   run-ready: 	wait until the MicroShift service is ready across the cluster"
 	@echo "   run-healthy:	wait until the MicroShift service is healthy across the cluster"
 	@echo "   run-status:	show the status of the MicroShift cluster"
 	@echo "   clean-all:	perform a full cleanup, including the container images"
 	@echo ""
+
+# Additional targets must be included after the 'all' target to make sure proper
+# help message is generated when running 'make' without any arguments.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+include $(PROJECT_DIR)/src/copr/copr.mk
 
 .PHONY: rpm
 rpm: srpm
