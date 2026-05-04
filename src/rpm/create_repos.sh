@@ -68,6 +68,10 @@ case $1 in
         echo "ERROR: Could not determine the MicroShift version from the RPM repository at '${repo_path}'"
         exit 1
     fi
+    # TODO: Remove this workaround once 5.0 mirror repositories are available
+    if [ "${repo_version}" = "5.0" ]; then
+        repo_version="4.22"
+    fi
     create_rhocp_repo "${repo_version}"
     ;;
 
