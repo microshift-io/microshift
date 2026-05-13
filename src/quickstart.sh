@@ -6,6 +6,7 @@ REPO=${REPO:-microshift}
 IMAGE=${IMAGE:-"ghcr.io/${OWNER}/${REPO}"}
 TAG=${TAG:-latest}
 
+CONTAINER_NAME="${CONTAINER_NAME:-microshift-okd}"
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
 PODMAN_VMAJOR=4
@@ -118,7 +119,7 @@ function run_bootc_image() {
     podman run --privileged --rm -d \
         --replace \
         ${vol_opts} \
-        --name "microshift-okd" \
+        --name "${CONTAINER_NAME}" \
         --hostname 127.0.0.1.nip.io \
         "${image_ref}"
 
@@ -127,7 +128,7 @@ function run_bootc_image() {
     local -r max_wait=300
     local waited=0
     while [ "${waited}" -lt "${max_wait}" ] ; do
-        if podman exec "microshift-okd" /bin/test -f "${kubeconfig}" &>/dev/null ; then
+        if podman exec "${CONTAINER_NAME}" /bin/test -f "${kubeconfig}" &>/dev/null ; then
             break
         fi
         sleep 1
@@ -137,7 +138,7 @@ function run_bootc_image() {
         echo "ERROR: Timed out waiting for MicroShift to start after ${max_wait}s"
         echo
         echo "Stopping the container..."
-        podman stop "microshift-okd" &>/dev/null || true
+        podman stop "${CONTAINER_NAME}" &>/dev/null || true
         exit 1
     fi
 
@@ -145,7 +146,7 @@ function run_bootc_image() {
     # VPN connections or custom DNS configurations on the host may
     # prevent the container from resolving external hostnames, causing
     # pods to stay in ContainerCreating while image pulls time out.
-    if ! podman exec "microshift-okd" getent hosts quay.io &>/dev/null ; then
+    if ! podman exec "${CONTAINER_NAME}" getent hosts quay.io &>/dev/null ; then
         echo
         echo "ERROR: DNS resolution for 'quay.io' failed inside the container."
         echo "MicroShift pods will not be able to pull container images."
@@ -155,7 +156,7 @@ function run_bootc_image() {
         echo "Consider disconnecting from VPN or configuring DNS manually."
         echo
         echo "Stopping the container..."
-        podman stop "microshift-okd" &>/dev/null || true
+        podman stop "${CONTAINER_NAME}" &>/dev/null || true
         exit 1
     fi
 }
@@ -207,15 +208,15 @@ run_bootc_image      "${IMAGE}:${TAG}"
 echo
 echo "MicroShift is running in a bootc container"
 echo "Hostname:  127.0.0.1.nip.io"
-echo "Container: microshift-okd"
+echo "Container: ${CONTAINER_NAME}"
 echo "LVM disk:  ${LVM_DISK}"
 echo "VG name:   ${VG_NAME}"
 echo
 echo "To access the container, run the following command:"
-echo " - sudo podman exec -it microshift-okd /bin/bash -l"
+echo " - sudo podman exec -it ${CONTAINER_NAME} /bin/bash -l"
 echo
 echo "To verify that MicroShift pods are up and running, run the following command:"
-echo " - sudo podman exec -it microshift-okd kubectl get pods -A"
+echo " - sudo podman exec -it ${CONTAINER_NAME} kubectl get pods -A"
 echo
 echo "To uninstall MicroShift, run the following command:"
-echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo bash -s ${CONTAINER_NAME}"
+echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo CONTAINER_NAME=${CONTAINER_NAME} bash"

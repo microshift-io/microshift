@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+CONTAINER_NAME="${CONTAINER_NAME:-microshift-okd}"
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 LVM_CONFIG="/etc/systemd/system/microshift.service.d/99-lvm-config.conf"
 VG_NAME="myvg1"
@@ -12,9 +13,9 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Clean up the MicroShift container and image
-image_ref="$(podman inspect --format '{{.Image}}' "microshift-okd" 2>/dev/null || true)"
+image_ref="$(podman inspect --format '{{.Image}}' "${CONTAINER_NAME}" 2>/dev/null || true)"
 if [ -n "${image_ref:-}" ]; then
-    podman rm -f --time 0 "microshift-okd" || true
+    podman rm -f --time 0 "${CONTAINER_NAME}" || true
     podman rmi -f "${image_ref}" || true
 fi
 
