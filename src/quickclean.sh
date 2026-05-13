@@ -18,28 +18,45 @@ if [ -n "${image_ref:-}" ]; then
     podman rmi -f "${image_ref}" || true
 fi
 
-# Clean up the MicroShift data and uninstall RPMs
-if rpm -q microshift &>/dev/null ; then
-    echo y | microshift-cleanup-data --all
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    # macOS: clean up LVM inside the podman machine VM
+    MACHINE_SSH="podman machine ssh"
+    if [ -n "${SUDO_USER:-}" ]; then
+        MACHINE_SSH="sudo -u ${SUDO_USER} podman machine ssh"
+    fi
+    ${MACHINE_SSH} "
+        if [ -f '${LVM_DISK}' ]; then
+            sudo lvremove -y '${VG_NAME}' || true
+            sudo vgremove -y '${VG_NAME}' || true
+            DEVICE_NAME=\$(sudo losetup -j '${LVM_DISK}' | cut -d: -f1)
+            [ -n \"\${DEVICE_NAME}\" ] && sudo losetup -d \${DEVICE_NAME}
+            sudo rm -rf '$(dirname "${LVM_DISK}")'
+        fi
+    " </dev/null
+else
+    # Linux: clean up MicroShift data and uninstall RPMs
+    if rpm -q microshift &>/dev/null ; then
+        echo y | microshift-cleanup-data --all
 
-    # Remove the LVM configuration
-    if [ -f "${LVM_CONFIG}" ] ; then
-        rm -f "${LVM_CONFIG}"
-        systemctl daemon-reload
+        # Remove the LVM configuration
+        if [ -f "${LVM_CONFIG}" ] ; then
+            rm -f "${LVM_CONFIG}"
+            systemctl daemon-reload
+        fi
+
+        dnf remove -y 'microshift*'
+        # Undo post-installation configuration
+        rm -f /etc/sysctl.d/99-microshift.conf
+        rm -f /root/.kube/config
     fi
 
-    dnf remove -y 'microshift*'
-    # Undo post-installation configuration
-    rm -f /etc/sysctl.d/99-microshift.conf
-    rm -f /root/.kube/config
-fi
-
-# Remove the LVM disk
-if [ -f "${LVM_DISK}" ]; then
-    lvremove -y "${VG_NAME}" || true
-    vgremove -y "${VG_NAME}" || true
-    DEVICE_NAME="$(losetup -j "${LVM_DISK}" | cut -d: -f1)"
-    # shellcheck disable=SC2086
-    [ -n "${DEVICE_NAME}" ] && losetup -d ${DEVICE_NAME}
-    rm -rf "$(dirname "${LVM_DISK}")"
+    # Remove the LVM disk
+    if [ -f "${LVM_DISK}" ]; then
+        lvremove -y "${VG_NAME}" || true
+        vgremove -y "${VG_NAME}" || true
+        DEVICE_NAME="$(losetup -j "${LVM_DISK}" | cut -d: -f1)"
+        # shellcheck disable=SC2086
+        [ -n "${DEVICE_NAME}" ] && losetup -d ${DEVICE_NAME}
+        rm -rf "$(dirname "${LVM_DISK}")"
+    fi
 fi

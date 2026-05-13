@@ -52,10 +52,12 @@ runs:
         sudo podman image exists microshift-okd && exit 1
 
         # Verify the LVM volume group and backing storage are removed
-        sudo vgs | grep myvg1 && exit 1
-        if [ -e /var/lib/microshift-okd ]; then
-          ls -la /var/lib/microshift-okd/
-          exit 1
+        if [ "$(uname -s)" != "Darwin" ]; then
+          sudo vgs | grep myvg1 && exit 1
+          if [ -e /var/lib/microshift-okd ]; then
+            ls -la /var/lib/microshift-okd/
+            exit 1
+          fi
         fi
 
     # Uncomment this to enable tmate-debug on failure

@@ -9,11 +9,19 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
-        runners: [ubuntu-24.04, ubuntu-24.04-arm]
+        runners: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
     runs-on: ${{ matrix.runners }}
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
+
+      - name: Install and configure podman (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install podman
+          podman machine init --memory 4096
+          podman machine set --rootful
+          podman machine start
 
       # Test the quick Bootc image installation and clean procedures with the latest
       # published build of the MicroShift container image.

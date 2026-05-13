@@ -17,6 +17,8 @@ function check_prerequisites() {
             echo "Install it with:"
             if command -v dnf &>/dev/null; then
                 echo "  sudo dnf install -y ${tool}"
+            elif command -v brew &>/dev/null; then
+                echo "  brew install ${tool}"
             elif command -v apt-get &>/dev/null; then
                 echo "  sudo apt-get install -y ${tool}"
             elif command -v zypper &>/dev/null; then
@@ -57,17 +59,41 @@ function prepare_lvm_disk() {
     local -r lvm_disk="$1"
     local -r vg_name="$2"
 
-    if [ -f "${lvm_disk}" ]; then
-        echo "INFO: '${lvm_disk}' already exists. Clearing and reusing it."
-        dd if=/dev/zero of="${lvm_disk}" bs=1M count=100 >/dev/null
-        return 0
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        local lvm_dir machine_ssh
+        lvm_dir="$(dirname "${lvm_disk}")"
+        machine_ssh="podman machine ssh"
+        if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+            machine_ssh="sudo -u ${SUDO_USER} podman machine ssh"
+        fi
+        ${machine_ssh} "
+            sudo mkdir -p '${lvm_dir}'
+            if [ -f '${lvm_disk}' ]; then
+                echo 'INFO: LVM disk already exists, reusing'
+            else
+                sudo truncate --size=1G '${lvm_disk}'
+            fi
+            if sudo vgs '${vg_name}' &>/dev/null; then
+                echo 'INFO: Volume group ${vg_name} already exists, reusing'
+            else
+                DEVICE=\$(sudo losetup --find --show --nooverlap '${lvm_disk}')
+                sudo vgcreate -f -y '${vg_name}' \"\${DEVICE}\"
+                echo 'INFO: Created volume group ${vg_name}'
+            fi
+        " </dev/null
+    else
+        if [ -f "${lvm_disk}" ]; then
+            echo "INFO: '${lvm_disk}' already exists. Clearing and reusing it."
+            dd if=/dev/zero of="${lvm_disk}" bs=1M count=100 >/dev/null
+            return 0
+        fi
+
+        mkdir -p "$(dirname "${lvm_disk}")"
+        truncate --size=1G "${lvm_disk}"
+
+        local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
+        vgcreate -f -y "${vg_name}" "${device_name}"
     fi
-
-    mkdir -p "$(dirname "${lvm_disk}")"
-    truncate --size=1G "${lvm_disk}"
-
-    local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
-    vgcreate -f -y "${vg_name}" "${device_name}"
 }
 
 function run_bootc_image() {
@@ -93,7 +119,7 @@ function run_bootc_image() {
     podman run --privileged --rm -d \
         --replace \
         ${vol_opts} \
-        --name microshift-okd \
+        --name "microshift-okd" \
         --hostname 127.0.0.1.nip.io \
         "${image_ref}"
 
@@ -102,7 +128,7 @@ function run_bootc_image() {
     local -r max_wait=300
     local waited=0
     while [ "${waited}" -lt "${max_wait}" ] ; do
-        if podman exec microshift-okd /bin/test -f "${kubeconfig}" &>/dev/null ; then
+        if podman exec "microshift-okd" /bin/test -f "${kubeconfig}" &>/dev/null ; then
             break
         fi
         sleep 1
@@ -112,7 +138,7 @@ function run_bootc_image() {
         echo "ERROR: Timed out waiting for MicroShift to start after ${max_wait}s"
         echo
         echo "Stopping the container..."
-        podman stop microshift-okd &>/dev/null || true
+        podman stop "microshift-okd" &>/dev/null || true
         exit 1
     fi
 
@@ -120,7 +146,7 @@ function run_bootc_image() {
     # VPN connections or custom DNS configurations on the host may
     # prevent the container from resolving external hostnames, causing
     # pods to stay in ContainerCreating while image pulls time out.
-    if ! podman exec microshift-okd getent hosts quay.io &>/dev/null ; then
+    if ! podman exec "microshift-okd" getent hosts quay.io &>/dev/null ; then
         echo
         echo "ERROR: DNS resolution for 'quay.io' failed inside the container."
         echo "MicroShift pods will not be able to pull container images."
@@ -130,15 +156,36 @@ function run_bootc_image() {
         echo "Consider disconnecting from VPN or configuring DNS manually."
         echo
         echo "Stopping the container..."
-        podman stop microshift-okd &>/dev/null || true
+        podman stop "microshift-okd" &>/dev/null || true
         exit 1
     fi
 }
 
-# Check if the script is running as root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "ERROR: This script must be run as root (use sudo)"
-    exit 1
+# Platform-specific initialization
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if ! podman info &>/dev/null </dev/null; then
+        echo "ERROR: Cannot connect to podman."
+        echo "Set up a podman machine with rootful mode:"
+        echo "  podman machine init --memory 4096"
+        echo "  podman machine set --rootful"
+        echo "  podman machine start"
+        exit 1
+    fi
+
+    if [ "$(id -u)" -ne 0 ]; then
+        local_rootful="$(podman machine inspect --format '{{.Rootful}}' 2>/dev/null || echo "false")"
+        if [[ "${local_rootful}" != "true" ]]; then
+            echo "ERROR: Podman machine must be in rootful mode (required for MicroShift)."
+            echo "  podman machine stop && podman machine set --rootful && podman machine start"
+            exit 1
+        fi
+    fi
+else
+    # Linux: must run as root
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "ERROR: This script must be run as root (use sudo)"
+        exit 1
+    fi
 fi
 
 check_prerequisites podman
