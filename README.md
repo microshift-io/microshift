@@ -27,10 +27,11 @@ run on the following operating systems.
 | CentOS 10 |  RPM  |  Y  |  Y  |   Y   |   Y   |    Y    | Latest version in Stream 10 |
 | Fedora    |  RPM  |  Y  |  N  |   Y   |   Y   |    Y    | Latest released version (e.g. 42) |
 | Ubuntu    |  DEB  |  N  |  N  |   Y   |   Y   |    N    | Latest LTS version (e.g. 24.04) |
+| macOS     |   N   |  Y  |  N  |   Y   |   Y   |    N    | Via Podman machine in rootful mode |
 
 Notes:
 - MicroShift Bootc container images can be run on `x86_64` and `aarch64` systems
-  using any OS supported by [Podman](https://podman.io/).
+  using any OS supported by [Podman](https://podman.io/), including macOS.
 - OKD builds for the `aarch64` architecture are performed using MicroShift-specific
   build procedure until [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215)
   is implemented by the OKD team.

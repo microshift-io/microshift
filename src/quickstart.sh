@@ -6,6 +6,7 @@ REPO=${REPO:-microshift}
 IMAGE=${IMAGE:-"ghcr.io/${OWNER}/${REPO}"}
 TAG=${TAG:-latest}
 
+CONTAINER_NAME="${CONTAINER_NAME:-microshift-okd}"
 LVM_DISK="/var/lib/microshift-okd/lvmdisk.image"
 VG_NAME="myvg1"
 PODMAN_VMAJOR=4
@@ -17,6 +18,8 @@ function check_prerequisites() {
             echo "Install it with:"
             if command -v dnf &>/dev/null; then
                 echo "  sudo dnf install -y ${tool}"
+            elif command -v brew &>/dev/null; then
+                echo "  brew install ${tool}"
             elif command -v apt-get &>/dev/null; then
                 echo "  sudo apt-get install -y ${tool}"
             elif command -v zypper &>/dev/null; then
@@ -57,17 +60,39 @@ function prepare_lvm_disk() {
     local -r lvm_disk="$1"
     local -r vg_name="$2"
 
-    if [ -f "${lvm_disk}" ]; then
-        echo "INFO: '${lvm_disk}' already exists. Clearing and reusing it."
-        dd if=/dev/zero of="${lvm_disk}" bs=1M count=100 >/dev/null
-        return 0
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        local lvm_dir
+        lvm_dir="$(dirname "${lvm_disk}")"
+        # Podman machine is per-user; run as the invoking user, not root
+        sudo -u "${SUDO_USER}" podman machine ssh "
+            sudo mkdir -p '${lvm_dir}'
+            if [ -f '${lvm_disk}' ]; then
+                echo 'INFO: LVM disk already exists. Clearing and reusing it.'
+                sudo dd if=/dev/zero of='${lvm_disk}' bs=1M count=100 >/dev/null
+            else
+                sudo truncate --size=1G '${lvm_disk}'
+            fi
+            if sudo vgs '${vg_name}' &>/dev/null; then
+                echo 'INFO: Volume group ${vg_name} already exists, reusing'
+            else
+                DEVICE=\$(sudo losetup --find --show --nooverlap '${lvm_disk}')
+                sudo vgcreate -f -y '${vg_name}' \"\${DEVICE}\"
+                echo 'INFO: Created volume group ${vg_name}'
+            fi
+        " </dev/null
+    else
+        if [ -f "${lvm_disk}" ]; then
+            echo "INFO: '${lvm_disk}' already exists. Clearing and reusing it."
+            dd if=/dev/zero of="${lvm_disk}" bs=1M count=100 >/dev/null
+            return 0
+        fi
+
+        mkdir -p "$(dirname "${lvm_disk}")"
+        truncate --size=1G "${lvm_disk}"
+
+        local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
+        vgcreate -f -y "${vg_name}" "${device_name}"
     fi
-
-    mkdir -p "$(dirname "${lvm_disk}")"
-    truncate --size=1G "${lvm_disk}"
-
-    local -r device_name="$(losetup --find --show --nooverlap "${lvm_disk}")"
-    vgcreate -f -y "${vg_name}" "${device_name}"
 }
 
 function run_bootc_image() {
@@ -79,7 +104,9 @@ function run_bootc_image() {
     # - If the TopoLVM CSI driver is used (`WITH_TOPOLVM=1` default image build
     #   option), the /dev/dm-* device must be shared with the container.
     echo "Running '${image_ref}'"
-    modprobe openvswitch || true
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+        modprobe openvswitch || true
+    fi
 
     # Share the /dev directory with the container to enable TopoLVM CSI driver.
     # Mask the devices that may conflict with the host by sharing them on a
@@ -93,7 +120,7 @@ function run_bootc_image() {
     podman run --privileged --rm -d \
         --replace \
         ${vol_opts} \
-        --name microshift-okd \
+        --name "${CONTAINER_NAME}" \
         --hostname 127.0.0.1.nip.io \
         "${image_ref}"
 
@@ -102,7 +129,7 @@ function run_bootc_image() {
     local -r max_wait=300
     local waited=0
     while [ "${waited}" -lt "${max_wait}" ] ; do
-        if podman exec microshift-okd /bin/test -f "${kubeconfig}" &>/dev/null ; then
+        if podman exec "${CONTAINER_NAME}" /bin/test -f "${kubeconfig}" &>/dev/null ; then
             break
         fi
         sleep 1
@@ -112,7 +139,7 @@ function run_bootc_image() {
         echo "ERROR: Timed out waiting for MicroShift to start after ${max_wait}s"
         echo
         echo "Stopping the container..."
-        podman stop microshift-okd &>/dev/null || true
+        podman stop "${CONTAINER_NAME}" &>/dev/null || true
         exit 1
     fi
 
@@ -120,7 +147,7 @@ function run_bootc_image() {
     # VPN connections or custom DNS configurations on the host may
     # prevent the container from resolving external hostnames, causing
     # pods to stay in ContainerCreating while image pulls time out.
-    if ! podman exec microshift-okd getent hosts quay.io &>/dev/null ; then
+    if ! podman exec "${CONTAINER_NAME}" getent hosts quay.io &>/dev/null ; then
         echo
         echo "ERROR: DNS resolution for 'quay.io' failed inside the container."
         echo "MicroShift pods will not be able to pull container images."
@@ -130,7 +157,7 @@ function run_bootc_image() {
         echo "Consider disconnecting from VPN or configuring DNS manually."
         echo
         echo "Stopping the container..."
-        podman stop microshift-okd &>/dev/null || true
+        podman stop "${CONTAINER_NAME}" &>/dev/null || true
         exit 1
     fi
 }
@@ -139,6 +166,32 @@ function run_bootc_image() {
 if [ "$(id -u)" -ne 0 ]; then
     echo "ERROR: This script must be run as root (use sudo)"
     exit 1
+fi
+
+# Platform-specific initialization
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    if [ -z "${SUDO_USER:-}" ]; then
+        echo "ERROR: SUDO_USER is not set. Run this script with 'sudo', not as root directly."
+        exit 1
+    fi
+
+    # Podman machine is per-user; run as the invoking user, not root
+    if ! sudo -u "${SUDO_USER}" podman info &>/dev/null </dev/null; then
+        echo "ERROR: Cannot connect to podman."
+        echo "Set up a podman machine with rootful mode (as ${SUDO_USER}, not root):"
+        echo "  podman machine init --memory 4096"
+        echo "  podman machine set --rootful"
+        echo "  podman machine start"
+        exit 1
+    fi
+
+    # Podman machine is per-user; run as the invoking user, not root
+    local_rootful="$(sudo -u "${SUDO_USER}" podman machine inspect --format '{{.Rootful}}' 2>/dev/null || echo "false")"
+    if [[ "${local_rootful}" != "true" ]]; then
+        echo "ERROR: Podman machine must be in rootful mode (required for MicroShift)."
+        echo "  podman machine stop && podman machine set --rootful && podman machine start"
+        exit 1
+    fi
 fi
 
 check_prerequisites podman
@@ -163,15 +216,15 @@ run_bootc_image      "${IMAGE}:${TAG}"
 echo
 echo "MicroShift is running in a bootc container"
 echo "Hostname:  127.0.0.1.nip.io"
-echo "Container: microshift-okd"
+echo "Container: ${CONTAINER_NAME}"
 echo "LVM disk:  ${LVM_DISK}"
 echo "VG name:   ${VG_NAME}"
 echo
 echo "To access the container, run the following command:"
-echo " - sudo podman exec -it microshift-okd /bin/bash -l"
+echo " - sudo podman exec -it ${CONTAINER_NAME} /bin/bash -l"
 echo
 echo "To verify that MicroShift pods are up and running, run the following command:"
-echo " - sudo podman exec -it microshift-okd kubectl get pods -A"
+echo " - sudo podman exec -it ${CONTAINER_NAME} kubectl get pods -A"
 echo
 echo "To uninstall MicroShift, run the following command:"
-echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo bash"
+echo " - curl -s https://${OWNER}.github.io/${REPO}/quickclean.sh | sudo CONTAINER_NAME=${CONTAINER_NAME} bash"
