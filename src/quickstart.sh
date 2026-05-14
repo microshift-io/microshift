@@ -63,6 +63,7 @@ function prepare_lvm_disk() {
     if [[ "$(uname -s)" == "Darwin" ]]; then
         local lvm_dir
         lvm_dir="$(dirname "${lvm_disk}")"
+        # Podman machine is per-user; run as the invoking user, not root
         sudo -u "${SUDO_USER}" podman machine ssh "
             sudo mkdir -p '${lvm_dir}'
             if [ -f '${lvm_disk}' ]; then
@@ -169,15 +170,22 @@ fi
 
 # Platform-specific initialization
 if [[ "$(uname -s)" == "Darwin" ]]; then
+    if [ -z "${SUDO_USER:-}" ]; then
+        echo "ERROR: SUDO_USER is not set. Run this script with 'sudo', not as root directly."
+        exit 1
+    fi
+
+    # Podman machine is per-user; run as the invoking user, not root
     if ! sudo -u "${SUDO_USER}" podman info &>/dev/null </dev/null; then
         echo "ERROR: Cannot connect to podman."
-        echo "Set up a podman machine with rootful mode:"
+        echo "Set up a podman machine with rootful mode (as ${SUDO_USER}, not root):"
         echo "  podman machine init --memory 4096"
         echo "  podman machine set --rootful"
         echo "  podman machine start"
         exit 1
     fi
 
+    # Podman machine is per-user; run as the invoking user, not root
     local_rootful="$(sudo -u "${SUDO_USER}" podman machine inspect --format '{{.Rootful}}' 2>/dev/null || echo "false")"
     if [[ "${local_rootful}" != "true" ]]; then
         echo "ERROR: Podman machine must be in rootful mode (required for MicroShift)."

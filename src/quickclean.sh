@@ -20,7 +20,13 @@ if [ -n "${image_ref:-}" ]; then
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
+    if [ -z "${SUDO_USER:-}" ]; then
+        echo "ERROR: SUDO_USER is not set. Run this script with 'sudo', not as root directly."
+        exit 1
+    fi
+
     # macOS: clean up LVM inside the podman machine VM
+    # Podman machine is per-user; run as the invoking user, not root
     sudo -u "${SUDO_USER}" podman machine ssh "
         if [ -f '${LVM_DISK}' ]; then
             sudo lvremove -y '${VG_NAME}' || true
