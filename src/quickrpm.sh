@@ -70,7 +70,7 @@ function download_script() {
     if [ -f "${curscriptdir}/../${scriptpath}" ]; then
         cp -v "${curscriptdir}/../${scriptpath}" "${WORKDIR}/${script}"
     else
-        curl -fSsL --retry 5 --max-time 60 \
+        curl -fsSL --retry 5 --max-time 60 \
             "https://github.com/${OWNER}/${REPO}/raw/${BRANCH}/src/rpm/${script}" \
             -o "${WORKDIR}/${script}"
         chmod +x "${WORKDIR}/${script}"
@@ -105,7 +105,7 @@ function install_rpms_copr() {
 function install_rpms() {
     # Download the RPMs from the release
     mkdir -p "${WORKDIR}/rpms"
-    curl -L -s --retry 5 \
+    curl -fsSL --retry 5 \
         "https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/microshift-rpms-$(uname -m).tgz" | \
         tar zxf - -C "${WORKDIR}/rpms"
 
@@ -156,7 +156,7 @@ fi
 # Update the 'latest' tag to the latest released version (only for github source)
 if [ "${RPM_SOURCE}" == "github" ] && [ "${TAG}" == "latest" ] ; then
     dnf install -y jq
-    TAG="$(curl -s --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
+    TAG="$(curl -fsSL --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
         exit 1

@@ -22,7 +22,7 @@ CLUSTER_CIDR="10.42.0.0/16"
 get_kindnet_image_info() {
     echo "Fetching latest kindnet image info..."
     # Get the latest kindnet tag from Docker Hub
-    KINDNET_LATEST_TAG="$(curl -f -s 'https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags?page_size=1&ordering=last_updated' | jq -r '.results[0].name')"
+    KINDNET_LATEST_TAG="$(curl -fsSL 'https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags?page_size=1&ordering=last_updated' | jq -r '.results[0].name')"
     if [ -z "${KINDNET_LATEST_TAG}" ] || [ "${KINDNET_LATEST_TAG}" = "null" ]; then
         echo "Error: Failed to retrieve latest kindnet tag from Docker Hub"
         exit 1
@@ -30,7 +30,7 @@ get_kindnet_image_info() {
     echo "Latest kindnet tag: ${KINDNET_LATEST_TAG}"
 
     # Get the manifest list to extract architecture-specific digests
-    KINDNET_MANIFEST="$(curl -f -s "https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags/${KINDNET_LATEST_TAG}")"
+    KINDNET_MANIFEST="$(curl -fsSL "https://registry.hub.docker.com/v2/repositories/kindest/kindnetd/tags/${KINDNET_LATEST_TAG}")"
     KINDNET_SHA256_AARCH64="sha256:$(echo "${KINDNET_MANIFEST}" | jq -r '.images[] | select(.architecture == "arm64") | .digest' | sed 's/sha256://')"
     KINDNET_SHA256_X86_64="sha256:$(echo "${KINDNET_MANIFEST}" | jq -r '.images[] | select(.architecture == "amd64") | .digest' | sed 's/sha256://')"
 
@@ -57,7 +57,7 @@ get_kube_proxy_image_info() {
 
     # Fetch all tags from registry.k8s.io and get the latest stable version
     # (excludes alpha, beta, rc versions)
-    KUBE_PROXY_LATEST_TAG="$(curl -sL "https://registry.k8s.io/v2/kube-proxy/tags/list" | \
+    KUBE_PROXY_LATEST_TAG="$(curl -fsSL "https://registry.k8s.io/v2/kube-proxy/tags/list" | \
         jq -r '.tags[]' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
     if [ -z "${KUBE_PROXY_LATEST_TAG}" ]; then
         echo "Error: No kube-proxy tags found"
@@ -67,7 +67,7 @@ get_kube_proxy_image_info() {
 
     # Get the manifest list for the tag using OCI registry API
     # We need to accept the manifest list media type to get multi-arch info
-    KUBE_PROXY_MANIFEST="$(curl -sL \
+    KUBE_PROXY_MANIFEST="$(curl -fsSL \
         -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
         "https://registry.k8s.io/v2/kube-proxy/manifests/${KUBE_PROXY_LATEST_TAG}")"
 

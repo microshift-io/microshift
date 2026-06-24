@@ -49,8 +49,8 @@ cp "${_scriptdir}/containernetworking-plugins.spec" "${temp_dir}/"
 pushd "${temp_dir}" >/dev/null
 
 echo "### Downloading the CNI plugins x86_64 and aarch64 releases for ${version}"
-curl -L -o amd64.tgz "https://github.com/containernetworking/plugins/releases/download/v${version}/cni-plugins-linux-amd64-v${version}.tgz"
-curl -L -o arm64.tgz "https://github.com/containernetworking/plugins/releases/download/v${version}/cni-plugins-linux-arm64-v${version}.tgz"
+curl -fsSL -o amd64.tgz "https://github.com/containernetworking/plugins/releases/download/v${version}/cni-plugins-linux-amd64-v${version}.tgz"
+curl -fsSL -o arm64.tgz "https://github.com/containernetworking/plugins/releases/download/v${version}/cni-plugins-linux-arm64-v${version}.tgz"
 
 mkdir -p "containernetworking-plugins-${version}"/{x86_64,aarch64}
 
