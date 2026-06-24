@@ -45,7 +45,7 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then \
 RUN [ "$(uname -m)" = "aarch64" ] && ARCH="-arm64" || ARCH="" ; \
     OKD_CLIENT_URL="https://github.com/okd-project/okd/releases/download/${OKD_VERSION_TAG}/openshift-client-linux${ARCH}-${OKD_VERSION_TAG}.tar.gz" && \
     echo "OKD_CLIENT_URL: ${OKD_CLIENT_URL}" && \
-    curl -L --retry 5 -o /tmp/okd-client.tar.gz "${OKD_CLIENT_URL}" && \
+    curl -fsSL --retry 5 -o /tmp/okd-client.tar.gz "${OKD_CLIENT_URL}" && \
     tar -xzf /tmp/okd-client.tar.gz -C /usr/local/bin/ && \
     rm -rf /tmp/okd-client.tar.gz
 

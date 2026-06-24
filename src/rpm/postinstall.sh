@@ -14,7 +14,7 @@ install_cni_plugins() {
     [ "$(uname -m)" = "aarch64" ] && CNP_PKG="cni-plugins-linux-arm64-${CNP_VER}.tgz"
 
     # Download the package
-    curl -sSL --retry 5 -o "/tmp/${CNP_PKG}" \
+    curl -fsSL --retry 5 -o "/tmp/${CNP_PKG}" \
         "https://github.com/containernetworking/plugins/releases/download/${CNP_VER}/${CNP_PKG}"
 
     # Extract the package into the CNI plugins directory as defined
