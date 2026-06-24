@@ -91,6 +91,7 @@ base_image() {
   local -r repo="${WORKDIR}/$(basename "${repo_url}")"
 
   git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
+  sed -i 's|^FROM registry.ci.openshift.org/ocp/.* AS builder|FROM quay.io/centos/centos:stream9 AS builder|' "${dockerfile_path}"
   sed -i 's|^FROM registry.ci.openshift.org/ocp/.*|FROM quay.io/centos/centos:stream9|' "${dockerfile_path}"
 
   podman build --platform "linux/${TARGET_ARCH}" -t "${images[base]}" -f "${dockerfile_path}" .
