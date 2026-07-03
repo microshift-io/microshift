@@ -97,6 +97,7 @@ srpm:
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
         --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
+        --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
         -f packaging/srpm.Containerfile .
 
 	@outdir="$${SRPM_WORKDIR:-$$(mktemp -d /tmp/microshift-srpms-XXXXXX)}" && \
