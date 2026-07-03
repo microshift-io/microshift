@@ -25,12 +25,25 @@ on:
         - bootc-image
 
 jobs:
+  generate-version:
+    name: Generate build version
+    runs-on: ubuntu-24.04
+    outputs:
+      build-timestamp: ${{ steps.timestamp.outputs.value }}
+    steps:
+      - name: Generate build timestamp
+        id: timestamp
+        run: echo "value=$(date -u +%Y%m%d%H%M)" >> "${GITHUB_OUTPUT}"
+
   build-microshift:
+    needs: generate-version
     strategy:
       matrix:
         runners: [ubuntu-24.04, ubuntu-24.04-arm]
     name: Build MicroShift upstream
     runs-on: ${{ matrix.runners }}
+    env:
+      BUILD_TIMESTAMP: ${{ needs.generate-version.outputs.build-timestamp }}
     steps:
       - name: Check out MicroShift upstream repository
         uses: actions/checkout@v4
