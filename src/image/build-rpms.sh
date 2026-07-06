@@ -50,7 +50,8 @@ if [[ $(git tag -l "${USHIFT_GITREF}") ]]; then
 else
     MICROSHIFT_VERSION="$(awk -F'[=.-]' '{print $2 "." $3 "." $4}' Makefile.version.aarch64.var | sed -e 's/ //g')"
     # After the X.Y.Z, add build timestamp for correct ordering of the RPMs based on the version.
-    MICROSHIFT_VERSION="${MICROSHIFT_VERSION}-$(date -u +%Y%m%d%H%M)"
+    # BUILD_TIMESTAMP can be set externally to ensure identical versions across parallel builds.
+    MICROSHIFT_VERSION="${MICROSHIFT_VERSION}-${BUILD_TIMESTAMP:-$(date -u +%Y%m%d%H%M)}"
 fi
 # Example results:
 # - 4.21.0-202511271015-ga9cd00b34_4.21.0_okd_scos.ec.5   for build against HEAD of main which was 4.21 at the time.

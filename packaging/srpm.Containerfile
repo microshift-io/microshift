@@ -83,4 +83,5 @@ RUN sed -i -e 's,CHECK_RPMS="y",,g' -e 's,CHECK_SRPMS="y",,g' ./packaging/rpm/ma
     "${USHIFT_MODIFY_SPEC_SCRIPT}" ./packaging/rpm/microshift.spec "${SPEC_KINDNET}" "${SPEC_TOPOLVM}"
 
 COPY --chmod=755 ./src/image/build-rpms.sh ${USHIFT_BUILDRPMS_SCRIPT}
+ARG BUILD_TIMESTAMP
 RUN "${USHIFT_BUILDRPMS_SCRIPT}" srpm
