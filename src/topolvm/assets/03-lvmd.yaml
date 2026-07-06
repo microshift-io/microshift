@@ -1,0 +1,15 @@
+# Source: topolvm/templates/lvmd/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: topolvm-lvmd-0
+  namespace: topolvm-system
+  labels:
+    idx: "0"
+    helm.sh/chart: topolvm-15.5.2
+    app.kubernetes.io/name: topolvm
+    app.kubernetes.io/instance: topolvm
+    app.kubernetes.io/version: "0.36.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 10\n    volume-group: myvg1\n"
