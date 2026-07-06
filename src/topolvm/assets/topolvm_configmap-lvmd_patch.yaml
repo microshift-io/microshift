@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: topolvm-lvmd-0
+  namespace: topolvm-system
+data:
+  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 0\n    volume-group: myvg1\n"
+
