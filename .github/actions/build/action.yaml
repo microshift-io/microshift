@@ -105,7 +105,7 @@ runs:
         # when the isolated network is enabled
         if [ "${{ inputs.isolated-network }}" = "1" ]; then
           for cmd in "ping -c1 -W10 8.8.8.8" "curl -I -m 10 quay.io" "curl -I -m 10 ghcr.io"; do
-            if sudo podman exec -i microshift-okd ${cmd} ; then
+            if sudo podman exec -i microshift-okd-1 ${cmd} ; then
               echo "ERROR: Internet access is available in the isolated network container"
               exit 1
             fi
@@ -115,6 +115,69 @@ runs:
         # Start-stop test with readiness check
         make run-ready
         make run-healthy
+
+        # Validate OVN-K networking when enabled
+        if [ "${{ inputs.ovnk-networking }}" = "1" ]; then
+          echo "=== Validating OVN-K networking ==="
+          CONTAINER="microshift-okd-1"
+
+          echo "Checking OVN-K pods in openshift-ovn-kubernetes namespace..."
+          ovnk_pods=$(sudo podman exec -i "${CONTAINER}" \
+            kubectl get pods -n openshift-ovn-kubernetes \
+              --field-selector=status.phase=Running \
+              -o name 2>&1) || true
+          if [ -z "${ovnk_pods}" ]; then
+            echo "ERROR: No running OVN-K pods found in openshift-ovn-kubernetes namespace"
+            sudo podman exec -i "${CONTAINER}" kubectl get pods -n openshift-ovn-kubernetes -o wide || true
+            exit 1
+          fi
+          echo "OVN-K pods running:"
+          echo "${ovnk_pods}"
+
+          echo "Checking OVN-K pod IP assignments..."
+          pods_without_ip=$(sudo podman exec -i "${CONTAINER}" \
+            kubectl get pods -n openshift-ovn-kubernetes \
+              --field-selector=status.phase=Running \
+              -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.podIP}{"\n"}{end}' 2>&1 \
+            | awk -F'\t' '$2 == "" {print $1}')
+          if [ -n "${pods_without_ip}" ]; then
+            echo "ERROR: The following OVN-K pods have no IP address:"
+            echo "${pods_without_ip}"
+            sudo podman exec -i "${CONTAINER}" kubectl get pods -n openshift-ovn-kubernetes -o wide || true
+            exit 1
+          fi
+          echo "All OVN-K pods have IP addresses assigned"
+
+          echo "=== OVN-K networking validation passed ==="
+        fi
+
+        # Validate Multus when enabled
+        if [ "${{ inputs.with-multus }}" = "1" ]; then
+          echo "=== Validating Multus CNI ==="
+          CONTAINER="microshift-okd-1"
+
+          echo "Checking Multus pods in openshift-multus namespace..."
+          multus_pods=$(sudo podman exec -i "${CONTAINER}" \
+            kubectl get pods -n openshift-multus \
+              --field-selector=status.phase=Running \
+              -o name 2>&1) || true
+          if [ -z "${multus_pods}" ]; then
+            echo "ERROR: No running Multus pods found in openshift-multus namespace"
+            sudo podman exec -i "${CONTAINER}" kubectl get pods -n openshift-multus -o wide || true
+            exit 1
+          fi
+          echo "Multus pods running:"
+          echo "${multus_pods}"
+
+          if ! sudo podman exec -i "${CONTAINER}" \
+            kubectl get crd network-attachment-definitions.k8s.cni.cncf.io >/dev/null 2>&1; then
+            echo "ERROR: Multus NetworkAttachmentDefinition CRD not found"
+            exit 1
+          fi
+          echo "Multus CRD verified: network-attachment-definitions.k8s.cni.cncf.io"
+
+          echo "=== Multus CNI validation passed ==="
+        fi
 
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
