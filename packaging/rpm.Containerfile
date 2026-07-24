@@ -1,6 +1,6 @@
 FROM localhost/microshift-okd-srpm:latest AS srpm
 
-FROM quay.io/centos/centos:stream9
+FROM quay.io/centos/centos:stream10
 
 RUN dnf install -y \
         --setopt=install_weak_deps=False \

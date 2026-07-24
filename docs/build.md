@@ -56,7 +56,7 @@ Notes:
 
 Create the MicroShift RPM packages by running the `make rpm` command.
 
-The `make rpm` command builds MicroShift RPMs for CentOS Stream 9 operating
+The `make rpm` command builds MicroShift RPMs for CentOS Stream 10 operating
 system. RPMs are build from the SRPM built by running `make srpm`.
 
 The following options can be specified in the make command line using the `NAME=VAL` format.
