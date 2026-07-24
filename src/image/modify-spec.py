@@ -18,6 +18,9 @@ pkgs_to_remove = [
     'cert-manager',
     'observability',
     'sriov',
+    'metrics-server',
+    'metrics-node-exporter',
+    'metrics-kube-state'
 ]
 
 # Sections to remove for the subpackages
@@ -40,6 +43,8 @@ install_keywords_to_remove = [
     '05-high-performance-runtime.conf',
     'microshift-baseline',
     'microshift-tuned',
+    'kube-state-metrics',
+    'node-exporter'
 ]
 
 
