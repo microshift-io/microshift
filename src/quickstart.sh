@@ -200,9 +200,19 @@ check_podman_version
 # For remote images with the 'latest' tag, update the tag to the latest released version
 if [[ "${IMAGE}" != localhost/* ]] && [ "${TAG}" == "latest" ]; then
     check_prerequisites curl jq
-    TAG="$(curl -fsSL --max-time 60 "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest" | jq -r .tag_name)"
+    curl_args=(-fsSL --max-time 60)
+    # If the GITHUB_TOKEN is available use it to authN and avoid anonymous request limits
+    [ -n "${GITHUB_TOKEN:-}" ] && curl_args+=(-H "Authorization: token ${GITHUB_TOKEN}")
+    response=""
+    if ! response="$(curl "${curl_args[@]}" "https://api.github.com/repos/${OWNER}/${REPO}/releases/latest")"; then
+        echo "ERROR: Failed to query GitHub API for the latest release"
+        echo "${response}"
+        exit 1
+    fi
+    TAG="$(echo "${response}" | jq -r .tag_name)"
     if [ -z "${TAG}" ] || [ "${TAG}" == "null" ] ; then
         echo "ERROR: Could not determine the latest release tag from GitHub"
+        echo "${response}"
         exit 1
     fi
 fi

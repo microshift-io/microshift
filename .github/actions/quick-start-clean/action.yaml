@@ -27,7 +27,7 @@ runs:
           IMAGE="${image_ref%%:*}"
           TAG="${image_ref##*:}"
         fi
-        sudo IMAGE="${IMAGE}" TAG="${TAG}" bash -xeuo pipefail < ./src/quickstart.sh
+        sudo IMAGE="${IMAGE}" TAG="${TAG}" GITHUB_TOKEN="${GITHUB_TOKEN:-}" bash -xeuo pipefail < ./src/quickstart.sh
 
         # Wait until the MicroShift service is ready and healthy
         for _ in $(seq 100); do

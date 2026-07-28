@@ -8,6 +8,19 @@ RUN dnf install -y \
         gcc gettext golang jq make policycoreutils selinux-policy selinux-policy-devel systemd && \
     dnf clean all
 
+# Install the latest Go from upstream (EL9's Go is too old)
+# hadolint ignore=DL4006
+RUN GO_VER=$(curl -sL 'https://go.dev/VERSION?m=text' | head -1 | sed 's/^go//') && \
+    GO_ARCH=$([ "$(uname -m)" = "x86_64" ] && echo "amd64" || echo "arm64") && \
+    curl --fail --retry 3 --retry-delay 5 -L \
+        -o "/tmp/go${GO_VER}.linux-${GO_ARCH}.tar.gz" \
+        "https://go.dev/dl/go${GO_VER}.linux-${GO_ARCH}.tar.gz" && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf "/tmp/go${GO_VER}.linux-${GO_ARCH}.tar.gz" && \
+    rm -f "/tmp/go${GO_VER}.linux-${GO_ARCH}.tar.gz"
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+
 COPY --from=srpm /home/microshift/microshift/_output/rpmbuild/SRPMS/ /tmp/
 
 ARG BUILDER_RPM_REPO_PATH=/home/microshift/microshift/_output/rpmbuild/

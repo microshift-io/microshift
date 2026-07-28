@@ -35,6 +35,12 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# CRI-O (built for el9) only checks /etc/containers/policy.json, but
+# CentOS 10's containers-common-6.0 moved it to /usr/share/containers/.
+if [ ! -f /etc/containers/policy.json ] && [ -f /usr/share/containers/policy.json ]; then
+    cp /usr/share/containers/policy.json /etc/containers/policy.json
+fi
+
 # Configure network and add some useful utilities
 dnf install -y firewalld jq bash-completion
 firewall-offline-cmd --zone=trusted --add-source=10.42.0.0/16
