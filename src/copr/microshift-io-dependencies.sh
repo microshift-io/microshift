@@ -22,6 +22,20 @@ minor=$(echo "${OKD_VERSION_TAG}" | cut -d. -f2)
 pkg_version="${major}.${minor}"
 echo "New package version: '${pkg_version}'"
 
+declare -A LAST_MINOR_FOR_MAJOR=([4]=22)
+
+get_prev_version() {
+    local major=$1
+    local minor=$2
+    if (( minor > 0 )); then
+        prev_major="${major}"
+        prev_minor=$(( minor - 1 ))
+    else
+        prev_major=$(( major - 1 ))
+        prev_minor="${LAST_MINOR_FOR_MAJOR[${prev_major}]:-}"
+    fi
+}
+
 if copr-cli list-packages "${COPR_REPO_NAME}" | jq -r '.[].name' | grep -q "${_package_name}"; then
     existing_package_version=$(copr-cli get-package \
                                 --name "${_package_name}" \
@@ -36,11 +50,22 @@ if copr-cli list-packages "${COPR_REPO_NAME}" | jq -r '.[].name' | grep -q "${_p
 fi
 
 # Include 3 repos (X.Y, X.Y-1, and X.Y-2) just in case there's some dependencies misalignment.
-minor_version_start=$((minor - 2))
-rhocp_versions=""
-for min in $(seq "${minor_version_start}" "${minor}") ; do
-    rhocp_versions+="${major}.${min} "
+# Handles cross-major boundaries (e.g. from 5.0 back to 4.22).
+rhocp_versions="${major}.${minor}"
+cur_major=$major
+cur_minor=$minor
+for ((i = 0; i < 2; i++)); do
+    prev_major=""
+    prev_minor=""
+    get_prev_version "${cur_major}" "${cur_minor}"
+    if [[ -z "${prev_minor}" ]]; then
+        break
+    fi
+    rhocp_versions+=" ${prev_major}.${prev_minor}"
+    cur_major="${prev_major}"
+    cur_minor="${prev_minor}"
 done
+rhocp_versions+=" "
 
 echo "RHOCP versions to create .repo files for: '${rhocp_versions}'"
 
