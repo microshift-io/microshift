@@ -37,15 +37,29 @@ get_prev_version() {
 }
 
 if copr-cli list-packages "${COPR_REPO_NAME}" | jq -r '.[].name' | grep -q "${_package_name}"; then
-    existing_package_version=$(copr-cli get-package \
-                                --name "${_package_name}" \
-                                --with-latest-succeeded-build \
-                                "${COPR_REPO_NAME}" \
-                                | jq -r '.latest_succeeded_build.source_package.version')
+    build_info=$(copr-cli get-package \
+                    --name "${_package_name}" \
+                    --with-latest-succeeded-build \
+                    "${COPR_REPO_NAME}")
+
+    existing_package_version=$(echo "${build_info}" | jq -r '.latest_succeeded_build.source_package.version')
 
     if [[ "${existing_package_version}" == "${pkg_version}-1" ]]; then
-        echo "Package ${_package_name} ${pkg_version} already exists in the COPR repository"
-        exit 0
+        copr_ownername="${COPR_REPO_NAME%%/*}"
+        copr_projectname="${COPR_REPO_NAME##*/}"
+
+        enabled_chroots=$(curl -fsSL \
+            "https://copr.fedorainfracloud.org/api_3/project?ownername=${copr_ownername}&projectname=${copr_projectname}" \
+            | jq -r '.chroot_repos | keys[]' | sort)
+        build_chroots=$(echo "${build_info}" | jq -r '.latest_succeeded_build.chroots[]' | sort)
+
+        missing_chroots=$(comm -23 <(echo "${enabled_chroots}") <(echo "${build_chroots}"))
+
+        if [[ -z "${missing_chroots}" ]]; then
+            echo "Package ${_package_name} ${pkg_version} already exists with all chroots in the COPR repository"
+            exit 0
+        fi
+        echo "Rebuilding: missing chroots: ${missing_chroots//$'\n'/, }"
     fi
 fi
 
