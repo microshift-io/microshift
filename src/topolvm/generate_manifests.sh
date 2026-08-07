@@ -97,6 +97,17 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: topolvm-mutatingwebhook
 EOF
+  # lvmd configmap patch to override the spare-db:0
+  cat >"${ASSETS_DIR}/topolvm_configmap-lvmd_patch.yaml" <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: topolvm-lvmd-0
+  namespace: topolvm-system
+data:
+  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 0\n    volume-group: myvg1\n"
+EOF
+
 
 # Generate kustomize
   cat >"${ASSETS_DIR}/kustomization.yaml" <<'EOF'
@@ -108,6 +119,7 @@ resources:
 patches:
   - path: topolvm_mutatingwebhook_patch.yaml
   - path: topolvm_service_patch.yaml
+  - path: topolvm_configmap-lvmd_patch.yaml
 EOF
 }
 
