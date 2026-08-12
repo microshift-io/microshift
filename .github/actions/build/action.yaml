@@ -81,6 +81,7 @@ runs:
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
         [ "${{ inputs.with-multus }}"     = "1" ] && make_opts+=("WITH_MULTUS=1")
+        [ "${{ inputs.ovnk-networking }}"  = "1" ] && [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_TEST_IMAGE=1")
 
         make image \
           BOOTC_IMAGE_URL="${{ inputs.bootc-image-url }}" \
@@ -149,6 +150,59 @@ runs:
           echo "All OVN-K pods have IP addresses assigned"
 
           echo "=== OVN-K networking validation passed ==="
+
+          # Validate pod-to-pod connectivity through OVN-K in isolated network mode
+          if [ "${{ inputs.isolated-network }}" = "1" ]; then
+            echo "=== Validating OVN-K pod-to-pod connectivity ==="
+
+            sudo podman exec -i "${CONTAINER}" \
+              kubectl run test-a --image=docker.io/library/busybox:latest \
+                --image-pull-policy=IfNotPresent --restart=Never -- sleep 3600
+            sudo podman exec -i "${CONTAINER}" \
+              kubectl run test-b --image=docker.io/library/busybox:latest \
+                --image-pull-policy=IfNotPresent --restart=Never -- sleep 3600
+
+            if ! sudo podman exec -i "${CONTAINER}" \
+              kubectl wait --for=condition=Ready pod/test-a pod/test-b --timeout=120s; then
+              echo "ERROR: Test pods did not become ready"
+              sudo podman exec -i "${CONTAINER}" kubectl describe pod test-a || true
+              sudo podman exec -i "${CONTAINER}" kubectl describe pod test-b || true
+              exit 1
+            fi
+
+            TEST_B_IP=$(sudo podman exec -i "${CONTAINER}" \
+              kubectl get pod test-b -o jsonpath='{.status.podIP}')
+            if [ -z "${TEST_B_IP}" ]; then
+              echo "ERROR: Could not get test-b pod IP"
+              exit 1
+            fi
+            echo "test-b IP: ${TEST_B_IP}"
+
+            sudo podman exec -i "${CONTAINER}" \
+              kubectl exec test-b -- sh -c "echo 'ovnk-works' | nc -l -p 8080" &
+            sleep 2
+
+            result=$(sudo podman exec -i "${CONTAINER}" \
+              kubectl exec test-a -- nc -w 5 "${TEST_B_IP}" 8080)
+            if [ "${result}" != "ovnk-works" ]; then
+              echo "ERROR: Pod-to-pod connectivity failed (expected 'ovnk-works', got '${result}')"
+              exit 1
+            fi
+            echo "Pod-to-pod connectivity verified"
+
+            dns_result=$(sudo podman exec -i "${CONTAINER}" \
+              kubectl exec test-a -- wget -T 5 -O /dev/null http://kubernetes.default.svc.cluster.local:443 2>&1 || true)
+            if echo "${dns_result}" | grep -q "Connecting to kubernetes.default.svc.cluster.local"; then
+              echo "DNS resolution verified"
+            else
+              echo "WARNING: DNS resolution could not be verified"
+              echo "${dns_result}"
+            fi
+
+            sudo podman exec -i "${CONTAINER}" kubectl delete pod test-a test-b --timeout=30s || true
+
+            echo "=== OVN-K pod-to-pod connectivity validation passed ==="
+          fi
         fi
 
         # Validate Multus when enabled

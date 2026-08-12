@@ -23,6 +23,7 @@ WITH_TOPOLVM ?= 1
 WITH_OLM ?= 0
 WITH_MULTUS ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
+EMBED_TEST_IMAGE ?= 0
 
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
@@ -137,6 +138,7 @@ image:
     	--env WITH_OLM="${WITH_OLM}" \
     	--env WITH_MULTUS="${WITH_MULTUS}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
+    	--env EMBED_TEST_IMAGE="${EMBED_TEST_IMAGE}" \
         -f packaging/bootc.Containerfile .
 
 .PHONY: run
