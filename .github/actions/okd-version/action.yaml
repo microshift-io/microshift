@@ -11,6 +11,10 @@ inputs:
     description: "Check the 'amd64' build availability"
     required: false
     default: "false"
+  stream:
+    description: "Restrict the lookup to an OKD x.y stream (e.g. '4.22'). Empty means latest."
+    required: false
+    default: ""
 
 outputs:
   okd-version-tag:
@@ -27,9 +31,9 @@ runs:
         sudo apt-get install -y jq
 
         if [ "${{ inputs.check-amd64 }}" = "true" ]; then
-          okd_version_tag="$(./src/okd/get_version.sh latest-amd64)"
+          okd_version_tag="$(./src/okd/get_version.sh latest-amd64 "${{ inputs.stream }}")"
         else
-          okd_version_tag="$(./src/okd/get_version.sh latest-arm64)"
+          okd_version_tag="$(./src/okd/get_version.sh latest-arm64 "${{ inputs.stream }}")"
         fi
 
         if [ -z "${okd_version_tag}" ]; then

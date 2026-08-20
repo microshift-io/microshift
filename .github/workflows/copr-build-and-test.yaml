@@ -11,6 +11,10 @@ on:
         description: "MicroShift git ref (branch or tag)"
         type: string
         default: "main"
+      okd-version-stream:
+        description: "OKD x.y stream to build against (e.g. '4.22'). Empty means latest."
+        type: string
+        default: ""
       copr-repo-name:
         description: "COPR repository name"
         type: string
@@ -37,6 +41,8 @@ jobs:
       - name: Detect OKD version tag
         id: detect-okd-version
         uses: ./.github/actions/okd-version
+        with:
+          stream: ${{ inputs.okd-version-stream }}
 
       - name: Build dependencies RPM
         shell: bash
@@ -77,6 +83,8 @@ jobs:
       - name: Detect OKD version tag
         id: detect-okd-version
         uses: ./.github/actions/okd-version
+        with:
+          stream: ${{ inputs.okd-version-stream }}
 
       - name: Build SRPM
         shell: bash
@@ -86,6 +94,7 @@ jobs:
             USHIFT_GIT_URL="${{ inputs.ushift-git-url }}" \
             USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
             OKD_VERSION_TAG=${{ steps.detect-okd-version.outputs.okd-version-tag }} \
+            OKD_VERSION_STREAM="${{ inputs.okd-version-stream }}" \
             SRPM_WORKDIR=/mnt/srpm
 
       - name: Create copr-cli image and secret

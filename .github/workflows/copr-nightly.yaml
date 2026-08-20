@@ -5,17 +5,73 @@ on:
      - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
+      ushift-gitref:
+        description: MicroShift git ref (branch or tag) to build
+        default: "main"
+        type: string
+      okd-version-stream:
+        description: "OKD x.y stream to build against (e.g. '4.22'), empty for the latest one"
+        default: ""
+        type: string
       copr-repo-name:
         description: COPR repository name
         default: "@microshift-io/microshift-nightly"
         type: string
 
 jobs:
-  copr-pipeline:
+  # One COPR project per maintained MicroShift stream. 'main' follows the newest
+  # OKD payload, release branches are pinned to the OKD stream of their release,
+  # so that their component images belong to that release instead of the newest
+  # one. Adding or dropping a stream is a single line in the matrix below.
+  setup:
     if: github.event_name != 'schedule' || github.repository == 'microshift-io/microshift'
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Compute the build matrix
+        id: matrix
+        shell: bash
+        env:
+          INPUT_GITREF: ${{ inputs.ushift-gitref }}
+          INPUT_STREAM: ${{ inputs.okd-version-stream }}
+          INPUT_COPR: ${{ inputs.copr-repo-name }}
+        run: |
+          set -euo pipefail
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            # A manual run builds exactly one stream. Expanding the full matrix
+            # here would push several MicroShift versions into the single COPR
+            # project given as input.
+            matrix="$(jq -c -n \
+              --arg gitref "${INPUT_GITREF}" \
+              --arg stream "${INPUT_STREAM}" \
+              --arg copr   "${INPUT_COPR}" \
+              '{include: [{"ushift-gitref": $gitref, "okd-version-stream": $stream, "copr-repo-name": $copr}]}')"
+          else
+            matrix='{"include":[
+              {"ushift-gitref":"main","okd-version-stream":"","copr-repo-name":"@microshift-io/microshift-nightly"},
+              {"ushift-gitref":"release-4.22","okd-version-stream":"4.22","copr-repo-name":"@microshift-io/microshift-nightly-4.22"}
+            ]}'
+            matrix="$(jq -c . <<< "${matrix}")"
+          fi
+
+          echo "${matrix}"
+          echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
+
+  copr-pipeline:
+    needs: setup
+    name: ${{ matrix.ushift-gitref }}
+    strategy:
+      # Keep the streams independent: a broken release branch must not cancel
+      # the main build and vice versa.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
     uses: ./.github/workflows/copr-build-and-test.yaml
     with:
-      copr-repo-name: ${{ github.event.inputs.copr-repo-name || '@microshift-io/microshift-nightly' }}
+      ushift-gitref: ${{ matrix.ushift-gitref }}
+      okd-version-stream: ${{ matrix.okd-version-stream }}
+      copr-repo-name: ${{ matrix.copr-repo-name }}
       bootc-image-tag: stream10
     secrets:
       COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
