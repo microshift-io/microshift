@@ -28,6 +28,12 @@ if [ $# -lt 1 ] || [ $# -gt 2 ]; then
     usage
 fi
 OKD_STREAM="${2:-}"
+# The stream ends up in a regular expression below, so anything but a plain x.y
+# value is rejected: '4.22|5.0' would silently match more than one stream.
+if [ -n "${OKD_STREAM}" ] && ! [[ "${OKD_STREAM}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    echo "ERROR: OKD stream must use the x.y format, got '${OKD_STREAM}'" >&2
+    exit 1
+fi
 TAG_LIST=""
 TAG_LATEST=""
 

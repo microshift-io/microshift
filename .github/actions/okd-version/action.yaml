@@ -27,13 +27,17 @@ runs:
     - name: Compute the latest OKD version tag
       id: okd-version-tag
       shell: bash
+      env:
+        # Expanded by the runner instead of being pasted into the script by the
+        # expression evaluator, so the value cannot turn into shell syntax.
+        OKD_VERSION_STREAM: ${{ inputs.stream }}
       run: |
         sudo apt-get install -y jq
 
         if [ "${{ inputs.check-amd64 }}" = "true" ]; then
-          okd_version_tag="$(./src/okd/get_version.sh latest-amd64 "${{ inputs.stream }}")"
+          okd_version_tag="$(./src/okd/get_version.sh latest-amd64 "${OKD_VERSION_STREAM}")"
         else
-          okd_version_tag="$(./src/okd/get_version.sh latest-arm64 "${{ inputs.stream }}")"
+          okd_version_tag="$(./src/okd/get_version.sh latest-arm64 "${OKD_VERSION_STREAM}")"
         fi
 
         if [ -z "${okd_version_tag}" ]; then

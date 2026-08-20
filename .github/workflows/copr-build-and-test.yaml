@@ -88,13 +88,15 @@ jobs:
 
       - name: Build SRPM
         shell: bash
+        env:
+          OKD_VERSION_STREAM: ${{ inputs.okd-version-stream }}
         run: |
           cd ${GITHUB_WORKSPACE}/
           make srpm \
             USHIFT_GIT_URL="${{ inputs.ushift-git-url }}" \
             USHIFT_GITREF="${{ inputs.ushift-gitref }}" \
             OKD_VERSION_TAG=${{ steps.detect-okd-version.outputs.okd-version-tag }} \
-            OKD_VERSION_STREAM="${{ inputs.okd-version-stream }}" \
+            OKD_VERSION_STREAM="${OKD_VERSION_STREAM}" \
             SRPM_WORKDIR=/mnt/srpm
 
       - name: Create copr-cli image and secret

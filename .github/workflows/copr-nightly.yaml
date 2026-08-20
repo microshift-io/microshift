@@ -18,6 +18,12 @@ on:
         default: "@microshift-io/microshift-nightly"
         type: string
 
+# Nothing in the pipeline writes through the GITHUB_TOKEN: the artifact actions
+# use the runtime token and quickstart.sh only reads the API, so a checkout-only
+# grant is enough.
+permissions:
+  contents: read
+
 jobs:
   # One COPR project per maintained MicroShift stream. 'main' follows the newest
   # OKD payload, release branches are pinned to the OKD stream of their release,
