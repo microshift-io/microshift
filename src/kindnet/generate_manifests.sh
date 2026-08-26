@@ -12,8 +12,11 @@ KINDNET_IMAGE_BASE="docker.io/kindest/kindnetd"
 KUBE_PROXY_IMAGE_BASE="registry.k8s.io/kube-proxy"
 
 # Network configuration (can be overridden)
-POD_SUBNET="10.244.0.0/16"
+# Both must match MicroShift's clusterNetwork, whose default is 10.42.0.0/16.
+# kindnet's own default (10.244.0.0/16) is the one kind uses and does not apply
+# here.
 CLUSTER_CIDR="10.42.0.0/16"
+POD_SUBNET="${CLUSTER_CIDR}"
 
 #######################################
 # Kindnet image resolution

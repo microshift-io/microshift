@@ -42,7 +42,7 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
           - name: POD_SUBNET
-            value: 10.244.0.0/16
+            value: 10.42.0.0/16
           resources:
             requests:
               cpu: 100m
