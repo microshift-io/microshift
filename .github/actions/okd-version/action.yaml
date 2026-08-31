@@ -1,11 +1,10 @@
 name: detect-okd-version-tag
 description: Reusable action to detect the latest available OKD version tag
 
-# By default, check the 'arm64' build version availability because it determines
-# the latest available OKD version tag for both 'amd64' and 'arm64' architectures.
-#
-# Checking the latest 'amd64' build version availability is required when building
-# a new OKD release for the corresponding version on the 'arm64' architecture.
+# Since OKD 4.22, quay.io/okd/scos-release is multi-arch (amd64 + arm64), so both
+# the default 'arm64' and 'amd64' checks resolve the same version tag from the
+# same release repository. The 'check-amd64' input is kept for backward
+# compatibility with the arm64 OKD release producer (see release-okd.yaml).
 inputs:
   check-amd64:
     description: "Check the 'amd64' build availability"

@@ -30,9 +30,10 @@ The build process is containerized and consists of three sequential stages:
 - `USHIFT_GITREF`: MicroShift branch/tag (default: main)
 - `OKD_VERSION_TAG`: OKD release version (auto-detects latest if unset)
 - `ARCH`: Automatically detected (x86_64 or aarch64)
-- OKD release images differ by arch:
-  - x86_64: `quay.io/okd/scos-release`
-  - aarch64: `ghcr.io/microshift-io/okd/okd-release-arm64`
+- OKD release image (both arches, OKD 4.22+): `quay.io/okd/scos-release`
+  is now a multi-arch (amd64 + arm64) image, so both architectures consume it
+  directly. (The `ghcr.io/microshift-io/okd/okd-release-arm64` producer pipeline
+  in `release-okd.yaml` predates this and is no longer consumed.)
 
 ## Common Commands
 
@@ -133,9 +134,12 @@ make check              # Run linters (hadolint + shellcheck)
 ## Multi-Architecture Support
 
 - x86_64 and aarch64 supported
-- ARM builds use custom OKD images at `ghcr.io/microshift-io/okd/okd-release-arm64`
+- Since OKD 4.22, `quay.io/okd/scos-release` is multi-arch, so arm64 builds
+  consume the upstream release image directly (same path as amd64)
 - Architecture detected automatically via `uname -m`
-- OKD ARM builds run daily at 03:00 UTC via GitHub Actions
+- Legacy: the custom arm64 OKD release producer (`release-okd.yaml`, daily at
+  03:00 UTC, `ghcr.io/microshift-io/okd/okd-release-arm64`) predates multi-arch
+  scos-release and is no longer consumed by the build
 
 ## Versioning Scheme
 

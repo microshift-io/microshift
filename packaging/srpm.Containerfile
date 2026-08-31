@@ -12,7 +12,7 @@ ARG OKD_VERSION_TAG
 
 # Internal variables
 ARG OKD_RELEASE_IMAGE_X86_64=quay.io/okd/scos-release
-ARG OKD_RELEASE_IMAGE_AARCH64=ghcr.io/microshift-io/okd/okd-release-arm64
+ARG OKD_RELEASE_IMAGE_AARCH64=quay.io/okd/scos-release
 ARG USHIFT_GIT_URL=https://github.com/openshift/microshift.git
 ENV HOME=/home/microshift
 ARG USHIFT_PREBUILD_SCRIPT=/tmp/prebuild.sh
@@ -29,16 +29,11 @@ RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
         exit 1; \
     fi
 
-# Resolve per-architecture OKD version tags
-# OKD_VERSION_TAG is for the host arch; the cross-arch version is auto-detected
+# Since OKD 4.22, quay.io/okd/scos-release is a multi-arch (amd64 + arm64) image,
+# so the same OKD_VERSION_TAG applies to both architectures.
 COPY --chmod=755 ./src/okd/get_version.sh ${OKD_GET_VERSION_SCRIPT}
-RUN if [ "$(uname -m)" = "aarch64" ]; then \
-        echo "${OKD_VERSION_TAG}" > /tmp/okd_version_aarch64 ; \
-        "${OKD_GET_VERSION_SCRIPT}" latest-amd64 > /tmp/okd_version_x86_64 ; \
-    else \
-        echo "${OKD_VERSION_TAG}" > /tmp/okd_version_x86_64 ; \
-        "${OKD_GET_VERSION_SCRIPT}" latest-arm64 > /tmp/okd_version_aarch64 ; \
-    fi && \
+RUN echo "${OKD_VERSION_TAG}" > /tmp/okd_version_x86_64 && \
+    echo "${OKD_VERSION_TAG}" > /tmp/okd_version_aarch64 && \
     echo "OKD version x86_64:  $(cat /tmp/okd_version_x86_64)" && \
     echo "OKD version aarch64: $(cat /tmp/okd_version_aarch64)"
 

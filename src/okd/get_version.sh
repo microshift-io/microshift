@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Since OKD 4.22, quay.io/okd/scos-release is a multi-arch (amd64 + arm64) image,
+# so the same release repository is queried for both architectures.
 QUERY_URL_AMD64=${QUERY_URL_AMD64:-quay.io/okd}
-QUERY_URL_ARM64=${QUERY_URL_ARM64:-ghcr.io/microshift-io/okd}
+QUERY_URL_ARM64=${QUERY_URL_ARM64:-quay.io/okd}
 
 function usage() {
     echo "Usage: $(basename "$0") <latest-amd64 | latest-arm64>" >&2
@@ -32,7 +34,7 @@ case "$1" in
         TAG_LIST="$(get_okd_version_tags "${QUERY_URL_AMD64}/scos-release")"
         ;;
     latest-arm64)
-        TAG_LIST="$(get_okd_version_tags "${QUERY_URL_ARM64}/okd-release-arm64")"
+        TAG_LIST="$(get_okd_version_tags "${QUERY_URL_ARM64}/scos-release")"
         ;;
     *)
         usage

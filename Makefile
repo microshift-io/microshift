@@ -7,11 +7,9 @@ ARCH := $(shell uname -m)
 # Options used in the 'srpm' and 'rpm' targets
 USHIFT_GIT_URL ?= https://github.com/openshift/microshift.git
 USHIFT_GITREF ?= main
-ifeq ($(ARCH),aarch64)
-OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64)
-else
+# Since OKD 4.22, quay.io/okd/scos-release is multi-arch, so the same version
+# tag applies to both amd64 and arm64.
 OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64)
-endif
 RPM_OUTDIR ?=
 SRPM_WORKDIR ?=
 
@@ -33,7 +31,7 @@ EXPOSE_KUBEAPI_PORT ?= 1
 SHELL := /bin/bash
 # OKD release image URLs for different architectures
 OKD_RELEASE_IMAGE_X86_64 ?= quay.io/okd/scos-release
-OKD_RELEASE_IMAGE_AARCH64 ?= ghcr.io/microshift-io/okd/okd-release-arm64
+OKD_RELEASE_IMAGE_AARCH64 ?= quay.io/okd/scos-release
 
 RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd

@@ -13,13 +13,19 @@ oc_release_info() {
     local -r okd_releaseTag=$2
     local -r image=${3:-}
 
+    # quay.io/okd/scos-release is multi-arch (amd64 + arm64) since OKD 4.22, and
+    # both the x86_64 and aarch64 passes run on the same host. Filter by the
+    # target architecture so we resolve the correct per-arch component digests
+    # regardless of the host architecture.
+    local -r os_filter="linux/${UNAME_TO_GOARCH_MAP[${ARCH}]}"
+
     if [ -z "${image}" ] ; then
-        oc adm release info "${okd_url}:${okd_releaseTag}"
+        oc adm release info --filter-by-os="${os_filter}" "${okd_url}:${okd_releaseTag}"
         return
     fi
 
     if [ ! -s "${RELEASE_IMAGE_CACHE}" ] ; then
-        oc adm release info "${okd_url}:${okd_releaseTag}" -o json > "${RELEASE_IMAGE_CACHE}"
+        oc adm release info --filter-by-os="${os_filter}" "${okd_url}:${okd_releaseTag}" -o json > "${RELEASE_IMAGE_CACHE}"
     fi
 
     local -r okd_image="$(jq -r --arg IMAGE "${image}" '.references.spec.tags[] | select(.name == $IMAGE) | .from.name' "${RELEASE_IMAGE_CACHE}")"
