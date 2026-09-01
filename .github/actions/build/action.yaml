@@ -87,6 +87,32 @@ runs:
           BOOTC_IMAGE_TAG="${{ inputs.bootc-image-tag }}" \
           ${make_opts[@]}
 
+    - name: Load netfilter kernel modules on the host (arm64 runner)
+      if: runner.arch == 'ARM64' && contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+      shell: bash
+      run: |
+        set -x
+        # The bootc image runs as a podman container that shares the host
+        # runner's kernel. kube-proxy (iptables-nft) needs the host's nf_tables
+        # module, but on the arm64 GitHub-hosted runner it is neither loaded nor
+        # autoloadable from inside the container (the image ships
+        # /usr/lib/modules for a different kernel), which makes iptables-nft fail
+        # with "Failed to initialize nft: Protocol not supported". Load it here
+        # on the host so iptables-nft works inside the container.
+        #
+        # nf_tables is provided by linux-modules-extra on the Azure runner
+        # kernel, which is not always installed on the arm64 runner image.
+        if ! sudo modprobe nf_tables 2>/dev/null; then
+          sudo apt-get update -y -q
+          sudo apt-get install -y -q "linux-modules-extra-$(uname -r)"
+          sudo modprobe nf_tables
+        fi
+        # Preload the modules kube-proxy needs for the nat table via iptables-nft.
+        for m in nft_compat nft_chain_nat nf_nat nf_conntrack; do
+          sudo modprobe "${m}" || true
+        done
+        lsmod | grep -E 'nf_tables|nft_|nf_nat|nf_conntrack'
+
     - name: Run a test to verify that MicroShift is functioning properly
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
