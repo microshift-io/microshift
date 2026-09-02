@@ -73,7 +73,11 @@ fi
 # Get the latest version tag giving priority to the released versions
 TAG_LATEST="$(echo "${TAG_LIST}" | grep -Ev '\.rc\.|\.ec\.' | tail -1 || true)"
 if [ -z "${TAG_LATEST}" ]; then
-    # If no released version tag is found, use the latest version tag
+    # If no released version tag is found, use the latest version tag.
+    # With a pinned stream this is not a transient state: the arm64 mirror never
+    # publishes GA tags for a stream that has already branched, so this fallback
+    # is what every later release-branch build gets. See the note in
+    # .github/actions/okd-version/action.yaml.
     TAG_LATEST="$(echo "${TAG_LIST}" | tail -1)"
 fi
 

@@ -6,6 +6,18 @@ description: Reusable action to detect the latest available OKD version tag
 #
 # Checking the latest 'amd64' build version availability is required when building
 # a new OKD release for the corresponding version on the 'arm64' architecture.
+#
+# What this means for a stream-pinned lookup: keeping both architectures on one
+# payload is what a single MICROSHIFT_VERSION can honestly name, so the arm64
+# default stays. The cost is that a pinned release stream is only ever as fresh
+# as the self-built arm64 mirror, and that mirror stops rebuilding a stream once
+# the next one has branched - 4.22 ends there at ec.16 (8 May 2026) while quay.io
+# has published releases well past it. The released-tag preference in
+# get_version.sh then finds nothing and the fallback pins that last EC for good.
+#
+# Flipping this default to amd64 is not the fix: the aarch64 RPM would carry a
+# version string naming a payload it does not contain. See #237, which consumes
+# the multi-arch scos-release on arm64 and removes the divergence at its source.
 inputs:
   check-amd64:
     description: "Check the 'amd64' build availability"
