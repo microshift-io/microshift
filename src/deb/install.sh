@@ -111,6 +111,16 @@ function install_firewall() {
     ufw reload
 }
 
+# Install the CRI-O container runtime and its dependencies, and configure it
+# for MicroShift.
+#
+# The version to install comes from the CRIO_VERSION variable of the
+# dependencies.txt file written during the RPM to DEB conversion.
+#
+# Arguments:
+#   - None
+# Returns:
+#   - None
 function install_crio() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
@@ -144,6 +154,16 @@ EOF
     systemctl restart crio
 }
 
+# Install the kubectl and cri-tools command line utilities and point the
+# kubectl configuration at the MicroShift kubeconfig.
+#
+# The Kubernetes repository is versioned like the CRI-O one, so the version
+# from dependencies.txt applies to both.
+#
+# Arguments:
+#   - None
+# Returns:
+#   - None
 function install_ctl_tools() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
