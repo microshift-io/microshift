@@ -69,19 +69,27 @@ runs:
     - name: Pull the bootc base image
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
+      env:
+        BOOTC_IMAGE_URL: ${{ inputs.bootc-image-url }}
+        BOOTC_IMAGE_TAG: ${{ inputs.bootc-image-tag }}
       run: |
         # Pull the base image in a separate step with retries. The registry CDN
         # intermittently drops connections mid-transfer ('unexpected EOF'),
         # which fails the whole image build with no chance to recover.
-        image="${{ inputs.bootc-image-url }}:${{ inputs.bootc-image-tag }}"
-        for i in 1 2 3 ; do
+        readonly attempts=3
+        image="${BOOTC_IMAGE_URL}:${BOOTC_IMAGE_TAG}"
+
+        for i in $(seq "${attempts}") ; do
           if sudo podman pull "${image}" ; then
             exit 0
           fi
-          echo "WARNING: Failed to pull '${image}' (attempt ${i}), retrying in 30s"
-          sleep 30
+          # Do not wait after the last attempt, the step fails right away
+          if [ "${i}" -lt "${attempts}" ] ; then
+            echo "WARNING: Failed to pull '${image}' (attempt ${i}), retrying in 30s"
+            sleep 30
+          fi
         done
-        echo "ERROR: Failed to pull '${image}'"
+        echo "ERROR: Failed to pull '${image}' after ${attempts} attempts"
         exit 1
 
     - name: Build MicroShift bootc container image
