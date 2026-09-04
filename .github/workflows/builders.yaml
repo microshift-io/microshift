@@ -88,6 +88,8 @@ jobs:
   isolated-network:
     if: ${{ !github.event.pull_request.draft }}
     strategy:
+      # A flake in one network variant should not cancel the others
+      fail-fast: false
       matrix:
         include:
           - name: kindnet

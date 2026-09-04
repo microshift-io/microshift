@@ -66,6 +66,24 @@ runs:
           OKD_VERSION_TAG="${{ inputs.okd-version-tag }}" \
           RPM_OUTDIR=/mnt/rpms
 
+    - name: Pull the bootc base image
+      if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+      shell: bash
+      run: |
+        # Pull the base image in a separate step with retries. The registry CDN
+        # intermittently drops connections mid-transfer ('unexpected EOF'),
+        # which fails the whole image build with no chance to recover.
+        image="${{ inputs.bootc-image-url }}:${{ inputs.bootc-image-tag }}"
+        for i in 1 2 3 ; do
+          if sudo podman pull "${image}" ; then
+            exit 0
+          fi
+          echo "WARNING: Failed to pull '${image}' (attempt ${i}), retrying in 30s"
+          sleep 30
+        done
+        echo "ERROR: Failed to pull '${image}'"
+        exit 1
+
     - name: Build MicroShift bootc container image
       if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
