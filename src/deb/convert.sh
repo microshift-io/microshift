@@ -46,9 +46,17 @@ for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm" | sort -u)
         echo "ERROR: Failed to convert '${rpm}' to Debian package"
         exit 1
     fi
-    # Save cri-o dependency to a file
-    crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -uV | head -1 | cut -d. -f1,2)"
-    [ -n "${crio_ver}" ] && echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"
+    # Save the CRI-O dependency version to a file.
+    #
+    # Note that the 'cri-o' requirement follows the downstream OpenShift
+    # versioning scheme (e.g. 'cri-o >= 5.1.0'), while the community packages
+    # are versioned after the Kubernetes release they belong to (e.g. 1.36).
+    # The 'cri-tools' requirement still uses the upstream versioning, so it is
+    # the reliable source for the CRI-O and kubectl versions to install.
+    crio_ver="$(rpm -qpR "${rpm}" | awk '$1 == "cri-tools" {print $3}' | sort -uV | head -1 | cut -d. -f1,2)"
+    if [ -n "${crio_ver}" ] && ! grep -qs "^CRIO_VERSION=" "dependencies.txt" ; then
+        echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"
+    fi
 done
 
 rm -f /mnt/deb/microshift-networking*.deb
