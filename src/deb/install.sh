@@ -21,7 +21,7 @@ function usage() {
 # Arguments:
 #   - debpkg (for reporting, e.g., "cri-o" or "kubectl")
 #   - version (initial full version string, e.g., "1.28")
-#   - relkey_base (base URL, e.g., "https://pkgs.k8s.io/addons:/cri-o:/stable:")
+#   - relkey_base (base URL, e.g., "${CRIO_REPO_BASE}" or "${KUBE_REPO_BASE}")
 # Returns:
 #   - Echoes the found version to stdout
 #   - Exits with an error if the package is not found
