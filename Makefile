@@ -7,10 +7,13 @@ ARCH := $(shell uname -m)
 # Options used in the 'srpm' and 'rpm' targets
 USHIFT_GIT_URL ?= https://github.com/openshift/microshift.git
 USHIFT_GITREF ?= main
+# Optional OKD x.y stream (e.g. '4.22') to build against. Empty means latest,
+# which is what main is built with. Release branches must pin their stream.
+OKD_VERSION_STREAM ?=
 ifeq ($(ARCH),aarch64)
-OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64)
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-arm64 "$(OKD_VERSION_STREAM)")
 else
-OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64)
+OKD_VERSION_TAG ?= $$(./src/okd/get_version.sh latest-amd64 "$(OKD_VERSION_STREAM)")
 endif
 RPM_OUTDIR ?=
 SRPM_WORKDIR ?=
@@ -95,6 +98,7 @@ srpm:
         --build-arg USHIFT_GIT_URL="${USHIFT_GIT_URL}" \
         --build-arg USHIFT_GITREF="${USHIFT_GITREF}" \
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
+        --build-arg OKD_VERSION_STREAM="${OKD_VERSION_STREAM}" \
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
         --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
         --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \

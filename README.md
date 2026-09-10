@@ -41,7 +41,11 @@ Notes:
 Prebuilt MicroShift artifacts are published at the
 [Releases](https://github.com/microshift-io/microshift/releases) page.
 Nightly MicroShift RPMs are published on the COPR
-[@microshift-io/microshift-nightly](https://copr.fedorainfracloud.org/coprs/g/microshift-io/microshift-nightly/).
+[@microshift-io/microshift-nightly](https://copr.fedorainfracloud.org/coprs/g/microshift-io/microshift-nightly/),
+which follows the `main` branch of MicroShift and the newest OKD payload.
+Nightly builds of the latest `4.y` release branch are published separately on
+[@microshift-io/microshift-nightly-4.22](https://copr.fedorainfracloud.org/coprs/g/microshift-io/microshift-nightly-4.22/),
+built against the matching OKD 4.22 payload.
 MicroShift can be run on the host or inside a Bootc container.
 
 * Install the [latest](https://github.com/microshift-io/microshift/releases/latest)
@@ -55,6 +59,13 @@ MicroShift can be run on the host or inside a Bootc container.
 
   ```bash
   curl -s https://microshift-io.github.io/microshift/quickrpm.sh | sudo env RPM_SOURCE=copr-nightly bash
+  ```
+
+  Set `COPR_REPO` to stay on a release branch instead of `main`.
+
+  ```bash
+  curl -s https://microshift-io.github.io/microshift/quickrpm.sh | \
+    sudo env RPM_SOURCE=copr-nightly COPR_REPO=@microshift-io/microshift-nightly-4.22 bash
   ```
 
 * Bootstrap the [latest](https://github.com/microshift-io/microshift/releases/latest)

@@ -11,6 +11,11 @@ on:
         description: "Branch name to build"
         required: true
         type: string
+      okd-version-stream:
+        description: "OKD x.y stream to build against (e.g. '4.22'), empty for the latest one"
+        required: false
+        default: ""
+        type: string
       copr-repo:
         description: "COPR repository name (e.g., @microshift-io/experimental-c2cc)"
         required: true
@@ -22,6 +27,7 @@ jobs:
     with:
       ushift-git-url: "https://github.com/${{ inputs.fork-repo }}.git"
       ushift-gitref: ${{ inputs.branch }}
+      okd-version-stream: ${{ inputs.okd-version-stream }}
       copr-repo-name: ${{ inputs.copr-repo }}
       bootc-image-tag: stream9
     secrets:

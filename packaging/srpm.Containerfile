@@ -9,6 +9,9 @@ RUN dnf install -y \
 # Variables controlling the source of MicroShift components to build
 ARG USHIFT_GITREF=main
 ARG OKD_VERSION_TAG
+# Optional OKD x.y stream (e.g. '4.22'). It pins the auto-detected cross-arch
+# OKD version to the same stream as OKD_VERSION_TAG. Empty means latest.
+ARG OKD_VERSION_STREAM=
 
 # Internal variables
 ARG OKD_RELEASE_IMAGE_X86_64=quay.io/okd/scos-release
@@ -31,13 +34,16 @@ RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
 
 # Resolve per-architecture OKD version tags
 # OKD_VERSION_TAG is for the host arch; the cross-arch version is auto-detected
+# within the same OKD stream when OKD_VERSION_STREAM is set. Without the pin, a
+# release branch build would embed release images of the newest OKD stream for
+# the other architecture.
 COPY --chmod=755 ./src/okd/get_version.sh ${OKD_GET_VERSION_SCRIPT}
 RUN if [ "$(uname -m)" = "aarch64" ]; then \
         echo "${OKD_VERSION_TAG}" > /tmp/okd_version_aarch64 ; \
-        "${OKD_GET_VERSION_SCRIPT}" latest-amd64 > /tmp/okd_version_x86_64 ; \
+        "${OKD_GET_VERSION_SCRIPT}" latest-amd64 "${OKD_VERSION_STREAM}" > /tmp/okd_version_x86_64 ; \
     else \
         echo "${OKD_VERSION_TAG}" > /tmp/okd_version_x86_64 ; \
-        "${OKD_GET_VERSION_SCRIPT}" latest-arm64 > /tmp/okd_version_aarch64 ; \
+        "${OKD_GET_VERSION_SCRIPT}" latest-arm64 "${OKD_VERSION_STREAM}" > /tmp/okd_version_aarch64 ; \
     fi && \
     echo "OKD version x86_64:  $(cat /tmp/okd_version_x86_64)" && \
     echo "OKD version aarch64: $(cat /tmp/okd_version_aarch64)"
