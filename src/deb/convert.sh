@@ -39,6 +39,9 @@ set -euo pipefail
 apt-get update -y -q && apt-get install -y -qq alien
 
 rm -rf /mnt/deb && mkdir -p /mnt/deb && cd /mnt/deb
+
+CRIO_VERSIONS="$(mktemp)"
+trap 'rm -f "${CRIO_VERSIONS}"' EXIT
 for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm" | sort -u) ; do
     echo "Converting '${rpm}' to Debian package..."
     # Omit the --scripts option because some of them do not work on Ubuntu
@@ -46,10 +49,28 @@ for rpm in $(find /mnt -type f -iname "*.rpm" -not -iname "*.src.rpm" | sort -u)
         echo "ERROR: Failed to convert '${rpm}' to Debian package"
         exit 1
     fi
-    # Save cri-o dependency to a file
-    crio_ver="$(rpm -qpR "${rpm}" | awk '/cri-o/ {print $3}' | sort -uV | head -1 | cut -d. -f1,2)"
-    [ -n "${crio_ver}" ] && echo "CRIO_VERSION=${crio_ver}" >> "dependencies.txt"
+    # Collect the CRI-O dependency version of the package.
+    #
+    # Note that the 'cri-o' requirement follows the downstream OpenShift
+    # versioning scheme (e.g. 'cri-o >= 5.1.0'), while the community packages
+    # are versioned after the Kubernetes release they belong to (e.g. 1.36).
+    # The 'cri-tools' requirement still uses the upstream versioning, so it is
+    # the reliable source for the CRI-O and kubectl versions to install.
+    #
+    # Only the lower bound of the requirement is of interest. The upper bound
+    # is exclusive ('cri-tools < 1.37.0'), so it denotes the first version that
+    # must not be installed.
+    rpm -qpR "${rpm}" | awk '$1 == "cri-tools" && ($2 == ">=" || $2 == "=") {print $3}' >> "${CRIO_VERSIONS}"
 done
+
+# The packages are installed together, so the version to install is the highest
+# version any of them requires.
+crio_ver="$(sort -uV "${CRIO_VERSIONS}" | tail -1 | cut -d. -f1,2)"
+if [ -z "${crio_ver}" ] ; then
+    echo "ERROR: No 'cri-tools' requirement found in the MicroShift packages"
+    exit 1
+fi
+echo "CRIO_VERSION=${crio_ver}" > "dependencies.txt"
 
 rm -f /mnt/deb/microshift-networking*.deb
 rm -f /mnt/deb/microshift-greenboot*.deb

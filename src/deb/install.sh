@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# CRI-O community packages are no longer served from the Kubernetes package
+# infrastructure. They moved to a dedicated openSUSE Build Service project.
+# See https://github.com/cri-o/packaging?tab=readme-ov-file#about-the-packages
+readonly CRIO_REPO_BASE="https://download.opensuse.org/repositories/isv:/cri-o:/stable:"
+readonly KUBE_REPO_BASE="https://pkgs.k8s.io/core:/stable:"
+
 function usage() {
     echo "Usage: $(basename "$0") <deb_dir>"
     exit 1
@@ -15,7 +21,7 @@ function usage() {
 # Arguments:
 #   - debpkg (for reporting, e.g., "cri-o" or "kubectl")
 #   - version (initial full version string, e.g., "1.28")
-#   - relkey_base (base URL, e.g., "https://pkgs.k8s.io/addons:/cri-o:/stable:")
+#   - relkey_base (base URL, e.g., "${CRIO_REPO_BASE}" or "${KUBE_REPO_BASE}")
 # Returns:
 #   - Echoes the found version to stdout
 #   - Exits with an error if the package is not found
@@ -105,14 +111,27 @@ function install_firewall() {
     ufw reload
 }
 
+# Install the CRI-O container runtime and its dependencies, and configure it
+# for MicroShift.
+#
+# The version to install comes from the CRIO_VERSION variable of the
+# dependencies.txt file written during the RPM to DEB conversion.
+#
+# Arguments:
+#   - None
+# Returns:
+#   - None
 function install_crio() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
 
-    # Find the desired CRI-O package in the repository
-    local -r pkgver="$(find_debpkg_version "cri-o" "${CRIO_VERSION}" "https://pkgs.k8s.io/addons:/cri-o:/stable:")"
+    # Find the desired CRI-O package in the repository.
+    # Note that the assignment is separate from the declaration so that a
+    # failure of the lookup is not masked by the 'local' built-in.
+    local pkgver
+    pkgver="$(find_debpkg_version "cri-o" "${CRIO_VERSION}" "${CRIO_REPO_BASE}")"
     # Install the package of the found version and its dependencies
-    local -r relkey="https://pkgs.k8s.io/addons:/cri-o:/stable:/v${pkgver}/deb/Release.key"
+    local -r relkey="${CRIO_REPO_BASE}/v${pkgver}/deb/Release.key"
     install_debpkg "cri-o" "${pkgver}" "${relkey}" "crun containernetworking-plugins"
 
     # Disable all CNI plugin configuration files to allow Kindnet override
@@ -135,14 +154,27 @@ EOF
     systemctl restart crio
 }
 
+# Install the kubectl and cri-tools command line utilities and point the
+# kubectl configuration at the MicroShift kubeconfig.
+#
+# The Kubernetes repository is versioned like the CRI-O one, so the version
+# from dependencies.txt applies to both.
+#
+# Arguments:
+#   - None
+# Returns:
+#   - None
 function install_ctl_tools() {
     # shellcheck source=/dev/null
     source "${DEB_DIR}/dependencies.txt"
 
-    # Find the desired kubectl package in the repository
-    local -r pkgver="$(find_debpkg_version "kubectl" "${CRIO_VERSION}" "https://pkgs.k8s.io/core:/stable:")"
+    # Find the desired kubectl package in the repository.
+    # Note that the assignment is separate from the declaration so that a
+    # failure of the lookup is not masked by the 'local' built-in.
+    local pkgver
+    pkgver="$(find_debpkg_version "kubectl" "${CRIO_VERSION}" "${KUBE_REPO_BASE}")"
     # Install the package of the found version and its dependencies
-    local -r relkey="https://pkgs.k8s.io/core:/stable:/v${pkgver}/deb/Release.key"
+    local -r relkey="${KUBE_REPO_BASE}/v${pkgver}/deb/Release.key"
     install_debpkg "kubectl" "${pkgver}" "${relkey}" cri-tools
 
     # Set the kubectl configuration
