@@ -120,6 +120,17 @@ metadata:
     workload.openshift.io/allowed: "management"
 EOF
 
+    # 00-kindnet-config.yaml
+    cat >"${KINDNET_ASSETS_DIR}/00-kindnet-config.yaml" <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kindnet-config
+  namespace: kube-kindnet
+data:
+  podSubnet: ${POD_SUBNET}
+EOF
+
     # 01-service-account.yaml
     cat >"${KINDNET_ASSETS_DIR}/01-service-account.yaml" <<'EOF'
 apiVersion: v1
@@ -238,7 +249,7 @@ subjects:
 EOF
 
     # 04-daemonset.yaml
-    cat >"${KINDNET_ASSETS_DIR}/04-daemonset.yaml" <<EOF
+    cat >"${KINDNET_ASSETS_DIR}/04-daemonset.yaml" <<'EOF'
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -283,7 +294,10 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
           - name: POD_SUBNET
-            value: ${POD_SUBNET}
+            valueFrom:
+              configMapKeyRef:
+                name: kindnet-config
+                key: podSubnet
           resources:
             requests:
               cpu: 100m
@@ -333,6 +347,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - 00-namespace.yaml
+  - 00-kindnet-config.yaml
   - 01-service-account.yaml
   - 02-cluster-role.yaml
   - 03-cluster-role-binding.yaml

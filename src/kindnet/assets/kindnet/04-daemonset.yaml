@@ -42,7 +42,10 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
           - name: POD_SUBNET
-            value: 10.42.0.0/16
+            valueFrom:
+              configMapKeyRef:
+                name: kindnet-config
+                key: podSubnet
           resources:
             requests:
               cpu: 100m
