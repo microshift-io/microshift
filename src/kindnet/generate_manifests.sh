@@ -12,11 +12,12 @@ KINDNET_IMAGE_BASE="docker.io/kindest/kindnetd"
 KUBE_PROXY_IMAGE_BASE="registry.k8s.io/kube-proxy"
 
 # Network configuration (can be overridden)
-# Both must match MicroShift's clusterNetwork, whose default is 10.42.0.0/16.
+# Default pod subnet for kindnet, shipped in the kindnet-config ConfigMap. It
+# must match MicroShift's clusterNetwork, whose default is 10.42.0.0/16;
 # kindnet's own default (10.244.0.0/16) is the one kind uses and does not apply
-# here.
-CLUSTER_CIDR="10.42.0.0/16"
-POD_SUBNET="${CLUSTER_CIDR}"
+# here. kube-proxy needs no CIDR: it recognises pod traffic by the node's
+# podCIDR, which MicroShift allocates from clusterNetwork.
+POD_SUBNET="10.42.0.0/16"
 
 #######################################
 # Kindnet image resolution
@@ -476,13 +477,13 @@ subjects:
 EOF
 
     # 04-configmap.yaml
-    cat >"${KUBE_PROXY_ASSETS_DIR}/04-configmap.yaml" <<EOF
+    cat >"${KUBE_PROXY_ASSETS_DIR}/04-configmap.yaml" <<'EOF'
 apiVersion: v1
 data:
   config.conf: |
     apiVersion: kubeproxy.config.k8s.io/v1alpha1
     kind: KubeProxyConfiguration
-    clusterCIDR: ${CLUSTER_CIDR}
+    detectLocalMode: NodeCIDR
     mode: iptables
     clientConnection:
       kubeconfig: /var/lib/kubeconfig
@@ -533,6 +534,12 @@ spec:
           command:
             - /usr/bin/kube-proxy
             - --config=/var/lib/kube-proxy/config.conf
+            - --hostname-override=$(NODE_NAME)
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           volumeMounts:
             - name: config
               mountPath: /var/lib/kube-proxy/

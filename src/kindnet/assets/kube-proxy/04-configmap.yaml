@@ -3,7 +3,7 @@ data:
   config.conf: |
     apiVersion: kubeproxy.config.k8s.io/v1alpha1
     kind: KubeProxyConfiguration
-    clusterCIDR: 10.42.0.0/16
+    detectLocalMode: NodeCIDR
     mode: iptables
     clientConnection:
       kubeconfig: /var/lib/kubeconfig
