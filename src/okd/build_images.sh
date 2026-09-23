@@ -223,7 +223,8 @@ pod_image() {
   local -r repo="${WORKDIR}/$(basename "${repo_url}")"
 
   git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
-  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
+  sed -i 's|^FROM registry.ci.openshift.org/ocp/builder.*AS builder|FROM quay.io/centos/centos:stream9 AS builder|' "${dockerfile_path}"
+  sed -i 's|RUN dnf install -y glibc-static|RUN dnf install -y dnf-plugins-core \&\& dnf config-manager --set-enabled crb \&\& dnf install -y gcc glibc-static|' "${dockerfile_path}"
   sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
 
   pushd build/pause &>/dev/null
