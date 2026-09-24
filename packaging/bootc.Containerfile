@@ -20,6 +20,7 @@ ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
 ENV WITH_MULTUS=${WITH_MULTUS:-0}
 ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
+ENV EMBED_TEST_IMAGE=${EMBED_TEST_IMAGE:-0}
 
 # Run repository configuration script, install MicroShift and cleanup
 COPY --chmod=755 ./src/rpm/create_repos.sh ${REPO_CONFIG_SCRIPT}
@@ -57,6 +58,18 @@ RUN if [ "${EMBED_CONTAINER_IMAGES}" = "1" ] ; then \
         echo "root:100000:65536" > /etc/subuid && \
         echo "root:100000:65536" > /etc/subgid && \
         ${USHIFT_EMBED_IMAGES_SCRIPT} && rm -vf "${USHIFT_EMBED_IMAGES_SCRIPT}" && \
+        rm -vf /etc/subuid /etc/subgid ; \
+    fi
+
+# Embed a test image for isolated-network connectivity validation
+RUN if [ "${EMBED_TEST_IMAGE}" = "1" ] ; then \
+        TEST_IMAGE="docker.io/library/busybox:latest" && \
+        IMAGE_STORAGE_DIR=/usr/lib/containers/storage && \
+        sha="$(echo "${TEST_IMAGE}" | sha256sum | awk '{print $1}')" && \
+        echo "root:100000:65536" > /etc/subuid && \
+        echo "root:100000:65536" > /etc/subgid && \
+        skopeo copy "docker://${TEST_IMAGE}" "dir:${IMAGE_STORAGE_DIR}/${sha}" && \
+        echo "${TEST_IMAGE},${sha}" >> ${IMAGE_STORAGE_DIR}/image-list.txt && \
         rm -vf /etc/subuid /etc/subgid ; \
     fi
 
