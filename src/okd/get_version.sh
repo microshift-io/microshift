@@ -46,7 +46,7 @@ fi
 
 # Compute the latest OKD x.y base version
 OKD_XY="$(echo "${TAG_LIST}" | tail -1)"
-OKD_XY="${OKD_XY%.*}"
+OKD_XY="$(echo "${OKD_XY}" | awk -F. '{print $1 "." $2}')"
 
 # Update the list to only include the latest OKD x.y base version
 TAG_LIST="$(echo "${TAG_LIST}" | grep -E "^${OKD_XY}")"
