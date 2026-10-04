@@ -4,6 +4,18 @@ set -x
 
 IMAGE_STORAGE_DIR=/usr/lib/containers/storage
 IMAGE_LIST_FILE=${IMAGE_STORAGE_DIR}/image-list.txt
+TEST_IMAGE=quay.io/microshift/busybox:1.36
+
+pull_image() {
+    local -r image=$1
+    local sha
+    shift
+
+    sha="$(echo "${image}" | sha256sum | awk '{print $1}')"
+    skopeo copy "$@" --preserve-digests \
+        "docker://${image}" "dir:${IMAGE_STORAGE_DIR}/${sha}"
+    echo "${image},${sha}" >> "${IMAGE_LIST_FILE}"
+}
 
 # Pull the container images into /usr/lib/containers/storage:
 # - Each image goes into a separate sub-directory
@@ -20,12 +32,17 @@ pull_images() {
                 continue
             fi
 
-            sha="$(echo "${img}" | sha256sum | awk '{print $1}')"
-            skopeo copy --all --preserve-digests \
-                "docker://${img}" "dir:$IMAGE_STORAGE_DIR/${sha}"
-            echo "${img},${sha}" >> "${IMAGE_LIST_FILE}"
+            pull_image "${img}" --all
         done
     done
+
+    if [ "${EMBED_TEST_IMAGE:-0}" = "1" ]; then
+        case "$(uname -m)" in
+            x86_64) pull_image "${TEST_IMAGE}" --override-arch=amd64 ;;
+            aarch64) pull_image "${TEST_IMAGE}" --override-arch=arm64 ;;
+            *) echo "ERROR: Unsupported test image architecture: $(uname -m)" >&2; return 1 ;;
+        esac
+    fi
 }
 
 # Install a systemd drop-in unit to address the problem with image upgrades
