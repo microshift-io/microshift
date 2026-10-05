@@ -226,7 +226,7 @@ spec:
     {
       "cniVersion": "0.4.0",
       "type": "bridge",
-      "bridge": "br-network-smoke",
+      "bridge": "br-smoke221",
       "ipam": {
         "type": "host-local",
         "ranges": [[{
@@ -235,7 +235,7 @@ spec:
           "rangeEnd": "${range_prefix}50",
           "gateway": "${range_prefix}254"
         }]],
-        "dataDir": "/var/lib/cni/br-network-smoke"
+        "dataDir": "/var/lib/cni/br-smoke221"
       }
     }
 EOF
