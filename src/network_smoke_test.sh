@@ -15,14 +15,17 @@ readonly KUBE_LISTENER_TIMEOUT="120s"
 namespace_created=0
 listener_pid=""
 
+# Run the supplied command inside the configured MicroShift node container.
 run_on_node() {
     sudo podman exec -i "${CONTAINER}" "$@"
 }
 
+# Run kubectl inside the node container with the standard request timeout.
 kube() {
     run_on_node kubectl --request-timeout="${KUBE_REQUEST_TIMEOUT}" "$@"
 }
 
+# Run kubectl with the request timeout supplied as the first argument.
 kube_with_request_timeout() {
     local -r request_timeout=$1
     shift
@@ -30,6 +33,7 @@ kube_with_request_timeout() {
     run_on_node kubectl --request-timeout="${request_timeout}" "$@"
 }
 
+# Run kubectl exec inside the node container, bounded by the supplied outer timeout.
 kube_exec() {
     local -r exec_timeout=$1
     shift
@@ -38,6 +42,7 @@ kube_exec() {
         kubectl --request-timeout="${KUBE_REQUEST_TIMEOUT}" exec "$@"
 }
 
+# Print best-effort node, cluster, and test-namespace diagnostics.
 diagnose() {
     echo "=== Network smoke test diagnostics ==="
     run_on_node ip -4 route show table all || true
@@ -49,6 +54,8 @@ diagnose() {
     fi
 }
 
+# Handle script exit by stopping the listener, diagnosing failures, and deleting
+# the test namespace, reporting a deletion failure when the script had succeeded.
 cleanup() {
     local status=$?
     trap - EXIT
@@ -73,6 +80,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Verify that a node command fails with an allowed status and matching error text.
+# The first two arguments are a status list and error regex; the rest are the command.
 verify_isolated_probe() {
     local expected_statuses=$1
     local expected_output=$2
@@ -113,6 +122,7 @@ verify_isolated_probe() {
     fi
 }
 
+# Print the first candidate subnet that does not overlap a node IPv4 route.
 select_secondary_subnet() {
     local node_routes
     local candidate
@@ -143,6 +153,7 @@ for line in os.environ["NODE_ROUTES"].splitlines():
     return 1
 }
 
+# Create the restricted client and server pods, attaching Multus when enabled.
 create_test_pods() {
     {
         cat <<EOF
@@ -211,6 +222,7 @@ EOF
     } | kube apply -f -
 }
 
+# Create a bridge NetworkAttachmentDefinition for the supplied test subnet.
 create_secondary_network() {
     local test_subnet=$1
     local range_prefix="${test_subnet%0/24}"
@@ -241,6 +253,7 @@ spec:
 EOF
 }
 
+# Run a client command up to six times and print its expected payload on success.
 receive_payload() {
     local expected=$1
     shift
@@ -266,6 +279,7 @@ receive_payload() {
     return 1
 }
 
+# Verify that both test pods use pod networking, have an IP, and run as UID 1001.
 verify_test_pods() {
     local actual_uid
     local host_network
@@ -296,6 +310,7 @@ verify_test_pods() {
     done
 }
 
+# Verify direct pod-IP payload delivery and Kubernetes Service DNS resolution.
 verify_primary_network() {
     local server_ip
     local service_ip
@@ -349,6 +364,7 @@ verify_primary_network() {
     echo "Kubernetes Service DNS resolved to ${service_ip}"
 }
 
+# Wait for the Multus CRD and daemonset, then verify the required CNI plugins.
 wait_for_multus() {
     kube_with_request_timeout 70s wait --for=condition=Established \
         crd/network-attachment-definitions.k8s.cni.cncf.io --timeout=60s
@@ -358,6 +374,7 @@ wait_for_multus() {
     run_on_node test -x /run/cni/bin/host-local
 }
 
+# Verify net1 addressing and routes plus payload delivery on the supplied subnet.
 verify_secondary_network() {
     local test_subnet=$1
     local subnet_prefix="${test_subnet%0/24}"

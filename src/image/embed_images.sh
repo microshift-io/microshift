@@ -6,6 +6,8 @@ IMAGE_STORAGE_DIR=/usr/lib/containers/storage
 IMAGE_LIST_FILE=${IMAGE_STORAGE_DIR}/image-list.txt
 TEST_IMAGE=quay.io/microshift/busybox:1.36
 
+# Pull an image with the supplied skopeo options into a hashed storage directory
+# and append its image-to-directory mapping to the image list.
 pull_image() {
     local -r image=$1
     local sha
