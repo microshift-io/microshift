@@ -162,27 +162,26 @@ runs:
       run: |
         make clean
 
-        if ! all_containers="$(sudo podman ps -a --format '{{.Names}}')"; then
+        all_containers="$(sudo podman ps -a --format '{{.Names}}')" && containers_status=0 || containers_status=$?
+        if [ "${containers_status}" -ne 0 ]; then
           echo "ERROR: Failed to inspect containers after cleanup"
           exit 1
         fi
-        remaining_containers="$(grep -E '^microshift-okd-[0-9]+$' \
-          <<<"${all_containers}" || true)"
+        remaining_containers="$(grep -E '^microshift-okd-[0-9]+$' <<<"${all_containers}" || true)"
         if [ -n "${remaining_containers}" ]; then
           echo "ERROR: MicroShift test containers remain after cleanup:"
           echo "${remaining_containers}"
           exit 1
         fi
-        network_status=0
-        sudo podman network exists microshift-okd-multinode || network_status=$?
-        case "${network_status}" in
-          0)
-            echo "ERROR: Podman network 'microshift-okd-multinode' remains after cleanup"
-            exit 1
-            ;;
-          1) ;;
-          *)
-            echo "ERROR: Failed to inspect Podman network after cleanup"
-            exit "${network_status}"
-            ;;
-        esac
+        set +e
+        sudo podman network exists microshift-okd-multinode
+        network_status=$?
+        set -e
+        if [ "${network_status}" -eq 0 ]; then
+          echo "ERROR: Podman network 'microshift-okd-multinode' remains after cleanup"
+          exit 1
+        fi
+        if [ "${network_status}" -ne 1 ]; then
+          echo "ERROR: Failed to inspect Podman network after cleanup"
+          exit "${network_status}"
+        fi
