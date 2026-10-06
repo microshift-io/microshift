@@ -10,15 +10,11 @@ TEST_IMAGE=quay.io/microshift/busybox:1.36
 # and append its image-to-directory mapping to the image list.
 pull_image() {
     local -r image=$1
-    local -a skopeo_options=("$2")
     local sha
-
-    if [ -n "${3:-}" ]; then
-        skopeo_options+=("$3")
-    fi
+    shift
 
     sha="$(echo "${image}" | sha256sum | awk '{print $1}')"
-    skopeo copy "${skopeo_options[@]}" --preserve-digests \
+    skopeo copy "$@" --preserve-digests \
         "docker://${image}" "dir:${IMAGE_STORAGE_DIR}/${sha}"
     echo "${image},${sha}" >> "${IMAGE_LIST_FILE}"
 }
