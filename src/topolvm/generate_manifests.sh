@@ -39,6 +39,10 @@ EOF
   # remove the caBundle from the mutatingwebhookconfiguration
   yq -i 'del(.webhooks.0.clientConfig.caBundle)' "${ASSETS_DIR}/02-topolvm.yaml"
 
+  # extract lvmd config to its own file and remove from main manifest; bind mount during run
+  yq 'select(.kind == "ConfigMap" and .metadata.name == "topolvm-lvmd-0")' "${ASSETS_DIR}/02-topolvm.yaml" >"${ASSETS_DIR}/03-lvmd.yaml"
+  yq -i 'del(select(.kind == "ConfigMap" and .metadata.name == "topolvm-lvmd-0"))' "${ASSETS_DIR}/02-topolvm.yaml"
+
   # Patch replicas to 1
   # shellcheck disable=SC2016
   yq 'select(.kind == "Deployment").spec.replicas = 1' -i "${ASSETS_DIR}/02-topolvm.yaml"
@@ -105,6 +109,7 @@ kind: Kustomization
 resources:
   - 01-namespace.yaml
   - 02-topolvm.yaml
+  - 03-lvmd.yaml
 patches:
   - path: topolvm_mutatingwebhook_patch.yaml
   - path: topolvm_service_patch.yaml
