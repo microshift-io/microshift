@@ -223,7 +223,8 @@ pod_image() {
   local -r repo="${WORKDIR}/$(basename "${repo_url}")"
 
   git_clone_repo "${repo_url}" "${OCP_BRANCH}" "${repo}"
-  sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
+  sed -i 's|^FROM registry.ci.openshift.org/ocp/builder.*AS builder|FROM quay.io/centos/centos:stream9 AS builder|' "${dockerfile_path}"
+  sed -i 's|RUN dnf install -y glibc-static|RUN dnf install -y dnf-plugins-core \&\& dnf config-manager --set-enabled crb \&\& dnf install -y gcc glibc-static|' "${dockerfile_path}"
   sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
 
   pushd build/pause &>/dev/null
@@ -393,10 +394,19 @@ push_image_manifests() {
 create_new_okd_release() {
   # TODO: Implement a proper way to handle the haproxy-router for the amd64 architecture
   local haproxy_router_image
+  local haproxy_router_haproxy32_image
   if [ "${TARGET_ARCH}" != "arm64" ] ; then
     haproxy_router_image=""
+    haproxy_router_haproxy32_image=""
   else
     haproxy_router_image="haproxy-router=${images_sha[haproxy-router]}"
+    # The router deployment's "haproxy" sidecar pulls the separate
+    # "haproxy-router-haproxy32" release component (see MicroShift's
+    # assets/components/openshift-router/deployment.yaml). Our build only
+    # produces one arm64 router image (which already bundles the haproxy32
+    # binary), so register it under both component names to avoid falling
+    # back to the amd64-only image from the base OKD release.
+    haproxy_router_haproxy32_image="haproxy-router-haproxy32=${images_sha[haproxy-router]}"
   fi
 
   # shellcheck disable=SC2086
@@ -405,6 +415,7 @@ create_new_okd_release() {
       "cli=${images_sha[cli]}" \
       "cli-artifacts=${images_sha[cli-artifacts]}" \
       ${haproxy_router_image} \
+      ${haproxy_router_haproxy32_image} \
       "kube-proxy=${images_sha[kube-proxy]}" \
       "coredns=${images_sha[coredns]}" \
       "csi-snapshot-controller=${images_sha[csi-snapshot-controller]}" \
