@@ -30,9 +30,11 @@ The following operating systems are tested:
 
 The following configurations are tested:
 * The `x86_64` and `aarch64` architectures
-* Isolated network for OVN-K and Kindnet CNI, including primary pod traffic and
-  cluster DNS. The OVN-K with Multus variant also verifies same-node traffic over
-  a bridge network with host-local IP address management.
+* Online networking for the Kindnet CNI and isolated networking for the OVN-K
+  and Kindnet CNIs, including primary pod traffic and cluster DNS. Isolated tests
+  also verify that node egress is blocked.
+  The OVN-K with Multus variant verifies same-node traffic over a bridge network
+  with host-local IP address management.
 
 #### Installers
 

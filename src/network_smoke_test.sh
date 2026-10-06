@@ -1,6 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
+usage() {
+    echo "Usage: $0 online|offline" >&2
+}
+
+if [ "$#" -ne 1 ]; then
+    usage
+    exit 2
+fi
+
+case "$1" in
+    online)
+        readonly TEST_IMAGE_PULL_POLICY="IfNotPresent"
+        ;;
+    offline)
+        readonly TEST_IMAGE_PULL_POLICY="Never"
+        ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac
+readonly NETWORK_MODE=$1
+
 readonly CONTAINER="${CONTAINER:-microshift-okd-1}"
 readonly WITH_MULTUS="${WITH_MULTUS:-0}"
 readonly TEST_NAMESPACE="network-smoke-test"
@@ -176,7 +199,7 @@ spec:
   containers:
   - name: test
     image: ${TEST_IMAGE}
-    imagePullPolicy: Never
+    imagePullPolicy: ${TEST_IMAGE_PULL_POLICY}
     command: ["/bin/sh", "-c", "sleep 3600"]
     securityContext:
       allowPrivilegeEscalation: false
@@ -207,7 +230,7 @@ spec:
   containers:
   - name: test
     image: ${TEST_IMAGE}
-    imagePullPolicy: Never
+    imagePullPolicy: ${TEST_IMAGE_PULL_POLICY}
     command: ["/bin/sh", "-c", "sleep 3600"]
     securityContext:
       allowPrivilegeEscalation: false
@@ -454,17 +477,23 @@ verify_secondary_network() {
     echo "Secondary Multus payload verified on ${client_ip} -> ${server_ip}: ${payload}"
 }
 
-echo "=== Verifying isolated node networking ==="
-run_on_node sh -c 'command -v ping >/dev/null && command -v curl >/dev/null'
-verify_isolated_probe "1,2" \
-    "100% packet loss|Network is unreachable|Destination Host Unreachable|No route to host" \
-    ping -c 1 -W 10 8.8.8.8
-verify_isolated_probe "5,6,7,28" \
-    "Could not resolve|Failed to connect|Connection timed out|Resolving timed out|Operation timed out|Network is unreachable" \
-    curl --head --max-time 10 https://quay.io
-verify_isolated_probe "5,6,7,28" \
-    "Could not resolve|Failed to connect|Connection timed out|Resolving timed out|Operation timed out|Network is unreachable" \
-    curl --head --max-time 10 https://ghcr.io
+echo "=== Verifying ${NETWORK_MODE} node networking ==="
+if [ "${NETWORK_MODE}" = "offline" ]; then
+    run_on_node sh -c 'command -v ping >/dev/null && command -v curl >/dev/null'
+    verify_isolated_probe "1,2" \
+        "100% packet loss|Network is unreachable|Destination Host Unreachable|No route to host" \
+        ping -c 1 -W 10 8.8.8.8
+    verify_isolated_probe "5,6,7,28" \
+        "Could not resolve|Failed to connect|Connection timed out|Resolving timed out|Operation timed out|Network is unreachable" \
+        curl --head --max-time 10 https://quay.io
+    verify_isolated_probe "5,6,7,28" \
+        "Could not resolve|Failed to connect|Connection timed out|Resolving timed out|Operation timed out|Network is unreachable" \
+        curl --head --max-time 10 https://ghcr.io
+else
+    run_on_node sh -c 'command -v curl >/dev/null'
+    run_on_node curl --head --max-time 10 https://quay.io
+    run_on_node curl --head --max-time 10 https://ghcr.io
+fi
 
 if ! kube create namespace "${TEST_NAMESPACE}"; then
     echo "ERROR: Refusing to reuse pre-existing namespace '${TEST_NAMESPACE}'" >&2

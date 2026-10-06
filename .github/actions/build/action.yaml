@@ -132,9 +132,10 @@ runs:
         make run-ready
         make run-healthy
 
-        if [ "${{ inputs.isolated-network }}" = "1" ]; then
-          WITH_MULTUS="${{ inputs.with-multus }}" ./src/network_smoke_test.sh
-        fi
+        network_mode=online
+        [ "${{ inputs.isolated-network }}" = "1" ] && network_mode=offline
+        WITH_MULTUS="${{ inputs.with-multus }}" \
+          ./src/network_smoke_test.sh "${network_mode}"
 
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
