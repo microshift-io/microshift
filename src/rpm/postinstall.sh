@@ -48,9 +48,8 @@ for f in /usr/share/containers/registries.d/*.yaml; do
         cp "${f}" /etc/containers/registries.d/
     fi
 done
-# Same for storage.conf. CRI-O reads a single storage.conf and no drop-ins, so it
-# misses metacopy=on, and a chown on an image file copies the whole file. Set it
-# for CRI-O only, so that podman keeps the containers-common defaults.
+# CRI-O (built for el9) does not read the storage.conf drop-ins, so it misses
+# metacopy=on. Set it for CRI-O only so that podman keeps its defaults.
 if [ ! -f /etc/containers/storage.conf ]; then
     mkdir -p /etc/crio/crio.conf.d
     cat > /etc/crio/crio.conf.d/20-microshift-metacopy.conf <<'EOF'
