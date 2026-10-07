@@ -4,6 +4,20 @@ set -x
 
 IMAGE_STORAGE_DIR=/usr/lib/containers/storage
 IMAGE_LIST_FILE=${IMAGE_STORAGE_DIR}/image-list.txt
+TEST_IMAGE=quay.io/microshift/busybox:1.36
+
+# Pull an image with the supplied skopeo options into a hashed storage directory
+# and append its image-to-directory mapping to the image list.
+pull_image() {
+    local -r image=$1
+    local sha
+    shift
+
+    sha="$(echo "${image}" | sha256sum | awk '{print $1}')"
+    skopeo copy "$@" --preserve-digests \
+        "docker://${image}" "dir:${IMAGE_STORAGE_DIR}/${sha}"
+    echo "${image},${sha}" >> "${IMAGE_LIST_FILE}"
+}
 
 # Pull the container images into /usr/lib/containers/storage:
 # - Each image goes into a separate sub-directory
@@ -20,12 +34,13 @@ pull_images() {
                 continue
             fi
 
-            sha="$(echo "${img}" | sha256sum | awk '{print $1}')"
-            skopeo copy --all --preserve-digests \
-                "docker://${img}" "dir:$IMAGE_STORAGE_DIR/${sha}"
-            echo "${img},${sha}" >> "${IMAGE_LIST_FILE}"
+            pull_image "${img}" --all
         done
     done
+
+    if [ "${EMBED_TEST_IMAGE:-0}" = "1" ]; then
+        pull_image "${TEST_IMAGE}" --all
+    fi
 }
 
 # Install a systemd drop-in unit to address the problem with image upgrades

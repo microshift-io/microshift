@@ -105,6 +105,7 @@ runs:
         # Adjust the make options based on the inputs
         make_opts=()
         [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_CONTAINER_IMAGES=1")
+        [ "${{ inputs.isolated-network }}" = "1" ] && make_opts+=("EMBED_TEST_IMAGE=1")
         [ "${{ inputs.ovnk-networking }}"  = "1" ] && make_opts+=("WITH_KINDNET=0")
         [ "${{ inputs.with-multus }}"     = "1" ] && make_opts+=("WITH_MULTUS=1")
 
@@ -127,20 +128,14 @@ runs:
         # Run the MicroShift container
         make run ${make_opts[@]}
 
-        # Verify that Internet access is not available in the container
-        # when the isolated network is enabled
-        if [ "${{ inputs.isolated-network }}" = "1" ]; then
-          for cmd in "ping -c1 -W10 8.8.8.8" "curl -I -m 10 quay.io" "curl -I -m 10 ghcr.io"; do
-            if sudo podman exec -i microshift-okd ${cmd} ; then
-              echo "ERROR: Internet access is available in the isolated network container"
-              exit 1
-            fi
-          done
-        fi
-
         # Start-stop test with readiness check
         make run-ready
         make run-healthy
+
+        network_mode=online
+        [ "${{ inputs.isolated-network }}" = "1" ] && network_mode=offline
+        WITH_MULTUS="${{ inputs.with-multus }}" \
+          ./src/network_smoke_test.sh "${network_mode}"
 
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
@@ -148,9 +143,6 @@ runs:
 
         make run-healthy
         make stop
-        # Clean is necessary to avoid conflicts with other actions that may
-        # potentially run in subsequent actions
-        make clean
 
     # Uncomment this to enable tmate-debug on failure
     # - name: Pause and open tmate debug session
@@ -164,3 +156,33 @@ runs:
     - name: Collect MicroShift container sos-report on failure
       if: failure()
       uses: ./.github/actions/sos-report
+
+    - name: Clean up the MicroShift test cluster
+      if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+      shell: bash
+      run: |
+        make clean
+
+        all_containers="$(sudo podman ps -a --format '{{.Names}}')" && containers_status=0 || containers_status=$?
+        if [ "${containers_status}" -ne 0 ]; then
+          echo "ERROR: Failed to inspect containers after cleanup"
+          exit 1
+        fi
+        remaining_containers="$(grep -E '^microshift-okd-[0-9]+$' <<<"${all_containers}" || true)"
+        if [ -n "${remaining_containers}" ]; then
+          echo "ERROR: MicroShift test containers remain after cleanup:"
+          echo "${remaining_containers}"
+          exit 1
+        fi
+        set +e
+        sudo podman network exists microshift-okd-multinode
+        network_status=$?
+        set -e
+        if [ "${network_status}" -eq 0 ]; then
+          echo "ERROR: Podman network 'microshift-okd-multinode' remains after cleanup"
+          exit 1
+        fi
+        if [ "${network_status}" -ne 1 ]; then
+          echo "ERROR: Failed to inspect Podman network after cleanup"
+          exit "${network_status}"
+        fi
