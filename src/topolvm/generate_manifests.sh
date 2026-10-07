@@ -88,6 +88,67 @@ EOF
         "path": "/healthz"
       }
     })' -i "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Patch lvmd DaemonSet to support configurable volume group via hostPath override
+  echo 'Patching lvmd DaemonSet for configurable volume group support'
+
+  # Step 1: Rename 'config' volume to 'config-default'
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0").spec.template.spec;
+      .volumes[] |= (select(.name == "config").name = "config-default")
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Step 2: Add new 'config-override' hostPath volume
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0").spec.template.spec;
+      .volumes += [{
+        "name": "config-override",
+        "hostPath": {
+          "path": "/var/lib/microshift-topolvm",
+          "type": "DirectoryOrCreate"
+        }
+      }]
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Step 3: Update volumeMount name in lvmd container
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
+      .spec.template.spec.containers[] | select(.name == "lvmd");
+      .volumeMounts[] |= (select(.name == "config").name = "config-default")
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Step 4: Make config-default volumeMount read-only
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
+      .spec.template.spec.containers[] | select(.name == "lvmd");
+      .volumeMounts[] |= (select(.name == "config-default").readOnly = true)
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Step 5: Add config-override volumeMount to lvmd container
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
+      .spec.template.spec.containers[] | select(.name == "lvmd");
+      .volumeMounts += [{
+        "name": "config-override",
+        "mountPath": "/var/lib/microshift-topolvm",
+        "readOnly": true
+      }]
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Step 6: Replace lvmd command with conditional config wrapper
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
+      .spec.template.spec.containers[] | select(.name == "lvmd");
+      .command = ["/bin/sh", "-c"] |
+      .args = ["CONFIG=/var/lib/microshift-topolvm/lvmd.yaml\n[ -f \"$CONFIG\" ] || CONFIG=/etc/topolvm/lvmd.yaml\nexec /lvmd --config \"$CONFIG\"\n"]
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
   # Generate Patch with annotation to dynamically inject the CA bundle
   cat >"${ASSETS_DIR}/topolvm_mutatingwebhook_patch.yaml" <<'EOF'
 apiVersion: admissionregistration.k8s.io/v1

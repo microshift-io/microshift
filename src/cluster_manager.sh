@@ -56,6 +56,40 @@ delete_topolvm_backend() {
     fi
 }
 
+# Configure TopoLVM lvmd with custom volume group
+# This injects a custom lvmd.yaml config into the container before MicroShift starts,
+# allowing the volume group name to be configurable at runtime.
+configure_topolvm_lvmd() {
+    local -r container_name="${1}"
+    local -r vg_name="${2}"
+    local -r config_dir="/var/lib/microshift-topolvm"
+    local -r config_file="${config_dir}/lvmd.yaml"
+    local -r tmp_config=$(mktemp /home/jcope/.cache/tmp/lvmd-XXXXXX.yaml)
+
+    echo "Configuring TopoLVM lvmd for volume group: ${vg_name}"
+
+    # Generate lvmd config matching the volume group created by create_topolvm_backend()
+    cat > "${tmp_config}" <<EOF
+socket-name: /run/topolvm/lvmd.sock
+device-classes:
+  - default: true
+    name: ssd
+    spare-gb: 10
+    volume-group: ${vg_name}
+EOF
+
+    # Create config directory in container
+    sudo podman exec -i "${container_name}" mkdir -p "${config_dir}"
+
+    # Copy config into container at runtime
+    sudo podman cp "${tmp_config}" "${container_name}:${config_file}"
+
+    # Cleanup temporary file
+    rm -f "${tmp_config}"
+
+    echo "TopoLVM lvmd config injected at ${config_file} (VG: ${vg_name})"
+}
+
 _create_podman_network() {
     local -r name="${1}"
     if ! sudo podman network exists "${name}"; then
@@ -247,6 +281,9 @@ cluster_create() {
         fi
     fi
 
+    # Configure TopoLVM lvmd with the volume group name
+    configure_topolvm_lvmd "${node_name}" "${VG_NAME}"
+
     echo "Cluster created successfully. To access the node container, run:"
     echo "  sudo podman exec -it ${node_name} /bin/bash -l"
 }
@@ -275,6 +312,10 @@ cluster_add_node() {
         echo "ERROR: failed to create node: ${node_name}" >&2
         exit 1
     fi
+
+    # Configure TopoLVM lvmd with the volume group name
+    configure_topolvm_lvmd "${node_name}" "${VG_NAME}"
+
     echo "Joining node to the cluster: ${node_name}"
     if ! _join_node "${node_name}"; then
         echo "ERROR: failed to join node to the cluster: ${node_name}" >&2

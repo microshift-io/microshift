@@ -764,7 +764,8 @@ spec:
           securityContext:
             privileged: true
           command:
-            - /lvmd
+            - /bin/sh
+            - -c
           livenessProbe:
             exec:
               command:
@@ -780,21 +781,34 @@ spec:
           volumeMounts:
             - name: devices-dir
               mountPath: /dev
-            - name: config
+            - name: config-default
               mountPath: /etc/topolvm
+              readOnly: true
             - name: lvmd-socket-dir
               mountPath: /run/topolvm
+            - name: config-override
+              mountPath: /var/lib/microshift-topolvm
+              readOnly: true
+          args:
+            - |
+              CONFIG=/var/lib/microshift-topolvm/lvmd.yaml
+              [ -f "$CONFIG" ] || CONFIG=/etc/topolvm/lvmd.yaml
+              exec /lvmd --config "$CONFIG"
       volumes:
         - name: devices-dir
           hostPath:
             path: /dev
             type: Directory
-        - name: config
+        - name: config-default
           configMap:
             name: topolvm-lvmd-0
         - name: lvmd-socket-dir
           hostPath:
             path: /run/topolvm
+            type: DirectoryOrCreate
+        - name: config-override
+          hostPath:
+            path: /var/lib/microshift-topolvm
             type: DirectoryOrCreate
 ---
 # Source: topolvm/templates/node/daemonset.yaml
