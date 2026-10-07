@@ -158,7 +158,7 @@ runs:
       uses: ./.github/actions/sos-report
 
     - name: Clean up the MicroShift test cluster
-      if: always() && contains(fromJSON('["all", "bootc-image"]'), inputs.build)
+      if: contains(fromJSON('["all", "bootc-image"]'), inputs.build)
       shell: bash
       run: |
         make clean
