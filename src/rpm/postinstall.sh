@@ -48,6 +48,14 @@ for f in /usr/share/containers/registries.d/*.yaml; do
         cp "${f}" /etc/containers/registries.d/
     fi
 done
+# Same for storage.conf. CRI-O reads a single storage.conf and no drop-ins, so
+# merge them. Without metacopy=on, a chown on an image file copies the whole file.
+if [ ! -f /etc/containers/storage.conf ] &&
+   compgen -G "/usr/share/containers/storage.conf.d/*.conf" >/dev/null &&
+   compgen -G "/usr/share/containers/storage.rootful.conf.d/*.conf" >/dev/null; then
+    cat /usr/share/containers/storage.conf.d/*.conf \
+        /usr/share/containers/storage.rootful.conf.d/*.conf > /etc/containers/storage.conf
+fi
 
 # Configure network and add some useful utilities
 dnf install -y firewalld jq bash-completion
