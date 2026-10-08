@@ -61,22 +61,6 @@ metadata:
     app.kubernetes.io/version: "0.36.2"
     app.kubernetes.io/managed-by: Helm
 ---
-# Source: topolvm/templates/lvmd/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: topolvm-lvmd-0
-  namespace: topolvm-system
-  labels:
-    idx: "0"
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-data:
-  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 0\n    volume-group: myvg1\n"
----
 # Source: topolvm/templates/storageclass.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -753,7 +737,6 @@ spec:
         app.kubernetes.io/name: topolvm
         app.kubernetes.io/instance: topolvm
       annotations:
-        checksum/config: f2b1234a4e84fb5831fb3d645cfa9af641572e161ee598d426e367aab8d0312d
         prometheus.io/port: metrics
     spec:
       serviceAccountName: topolvm-lvmd
@@ -764,8 +747,7 @@ spec:
           securityContext:
             privileged: true
           command:
-            - /bin/sh
-            - -c
+            - /lvmd
           livenessProbe:
             exec:
               command:
@@ -781,34 +763,23 @@ spec:
           volumeMounts:
             - name: devices-dir
               mountPath: /dev
-            - name: config-default
-              mountPath: /etc/topolvm
+            - name: config
+              mountPath: /etc/topolvm/lvmd.yaml
               readOnly: true
             - name: lvmd-socket-dir
               mountPath: /run/topolvm
-            - name: config-override
-              mountPath: /var/lib/microshift-topolvm
-              readOnly: true
-          args:
-            - |
-              CONFIG=/var/lib/microshift-topolvm/lvmd.yaml
-              [ -f "$CONFIG" ] || CONFIG=/etc/topolvm/lvmd.yaml
-              exec /lvmd --config "$CONFIG"
       volumes:
         - name: devices-dir
           hostPath:
             path: /dev
             type: Directory
-        - name: config-default
-          configMap:
-            name: topolvm-lvmd-0
+        - name: config
+          hostPath:
+            path: /etc/topolvm/lvmd.yaml
+            type: File
         - name: lvmd-socket-dir
           hostPath:
             path: /run/topolvm
-            type: DirectoryOrCreate
-        - name: config-override
-          hostPath:
-            path: /var/lib/microshift-topolvm
             type: DirectoryOrCreate
 ---
 # Source: topolvm/templates/node/daemonset.yaml

@@ -26,23 +26,11 @@ EOF
   # NOTE: this will produce multi-arch manifest, support both amd64 and arm64
   helm repo add topolvm https://topolvm.github.io/topolvm/
   helm repo update
-  # spare-gb defaults to 10 in the chart, which zeroes out usable capacity on
-  # the small default LVM backend (1G) and leaves PVCs Pending with "not enough
-  # free storage". Render it as 0 so the ConfigMap and the DaemonSet's
-  # checksum/config annotation stay consistent (a post-render patch would leave
-  # the checksum stale and skip the pod rollout on in-place updates).
-  # Implication: with spare-gb=0 TopoLVM may allocate the entire volume group,
-  # leaving no headroom. Operators using a large backend who want a safety
-  # margin should raise spare-gb accordingly.
   helm template --include-crds --namespace=topolvm-system \
   --set "cert-manager.enabled=false" \
   --set "webhook.podMutatingWebhook.enabled=false" \
   --set webhook.caBundle="dummy" \
   --set webhook.tlsSecretName=topolvm-webhook-cert \
-  --set "lvmd.deviceClasses[0].name=ssd" \
-  --set "lvmd.deviceClasses[0].volume-group=myvg1" \
-  --set "lvmd.deviceClasses[0].default=true" \
-  --set "lvmd.deviceClasses[0].spare-gb=0" \
   --version=${TOPO_LVM_VERSION} \
   topolvm topolvm/topolvm >"${ASSETS_DIR}/02-topolvm.yaml"
   
@@ -89,63 +77,29 @@ EOF
       }
     })' -i "${ASSETS_DIR}/02-topolvm.yaml"
 
-  # Patch lvmd DaemonSet to support configurable volume group via hostPath override
-  echo 'Patching lvmd DaemonSet for configurable volume group support'
+  # Replace the chart ConfigMap with the canonical host configuration
+  echo 'Patching lvmd DaemonSet to use /etc/topolvm/lvmd.yaml'
+  yq -i 'select(.kind != "ConfigMap" or .metadata.name != "topolvm-lvmd-0")' \
+    "${ASSETS_DIR}/02-topolvm.yaml"
 
-  # Step 1: Rename 'config' volume to 'config-default'
   yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0").spec.template.spec;
-      .volumes[] |= (select(.name == "config").name = "config-default")
-    )
-  ' "${ASSETS_DIR}/02-topolvm.yaml"
-
-  # Step 2: Add new 'config-override' hostPath volume
-  yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0").spec.template.spec;
-      .volumes += [{
-        "name": "config-override",
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0");
+      del(.spec.template.metadata.annotations."checksum/config") |
+      (.spec.template.spec.volumes[] | select(.name == "config")) = {
+        "name": "config",
         "hostPath": {
-          "path": "/var/lib/microshift-topolvm",
-          "type": "DirectoryOrCreate"
+          "path": "/etc/topolvm/lvmd.yaml",
+          "type": "File"
         }
-      }]
-    )
-  ' "${ASSETS_DIR}/02-topolvm.yaml"
-
-  # Step 3: Update volumeMount name in lvmd container
-  yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
-      .spec.template.spec.containers[] | select(.name == "lvmd");
-      .volumeMounts[] |= (select(.name == "config").name = "config-default")
-    )
-  ' "${ASSETS_DIR}/02-topolvm.yaml"
-
-  # Step 4: Make config-default volumeMount read-only
-  yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
-      .spec.template.spec.containers[] | select(.name == "lvmd");
-      .volumeMounts[] |= (select(.name == "config-default").readOnly = true)
-    )
-  ' "${ASSETS_DIR}/02-topolvm.yaml"
-
-  # Step 5: Add config-override volumeMount to lvmd container
-  yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
-      .spec.template.spec.containers[] | select(.name == "lvmd");
-      .volumeMounts += [{
-        "name": "config-override",
-        "mountPath": "/var/lib/microshift-topolvm",
-        "readOnly": true
-      }]
-    )
-  ' "${ASSETS_DIR}/02-topolvm.yaml"
-
-  # Step 6: Replace lvmd command with conditional config wrapper
-  yq -i '
-    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0")
-      .spec.template.spec.containers[] | select(.name == "lvmd");
-      .command = ["/bin/sh", "-c"] |
-      .args = ["CONFIG=/var/lib/microshift-topolvm/lvmd.yaml\n[ -f \"$CONFIG\" ] || CONFIG=/etc/topolvm/lvmd.yaml\nexec /lvmd --config \"$CONFIG\"\n"]
+      } |
+      with(.spec.template.spec.containers[] | select(.name == "lvmd");
+        .command = ["/lvmd"] |
+        del(.args) |
+        with(.volumeMounts[] | select(.name == "config");
+          .mountPath = "/etc/topolvm/lvmd.yaml" |
+          .readOnly = true
+        )
+      )
     )
   ' "${ASSETS_DIR}/02-topolvm.yaml"
 

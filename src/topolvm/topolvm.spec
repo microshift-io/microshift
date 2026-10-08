@@ -36,6 +36,8 @@ cert-manager to be installed on MicroShift.
 %files topolvm
 %dir %{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
 %{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm/*
+%dir %{_sysconfdir}/topolvm
+%config(noreplace) %{_sysconfdir}/topolvm/lvmd.yaml
 %{_sysconfdir}/greenboot/check/required.d/50_microshift_topolvm_check.sh
 %config(noreplace) %{_sysconfdir}/microshift/config.d/01-disable-storage-csi.yaml
 
@@ -55,6 +57,9 @@ release. These files contain the list of container image references used by the 
 # topolvm
 install -d -m755 %{buildroot}/%{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
 install -p -m644 assets/optional/topolvm/*.yaml %{buildroot}/%{_prefix}/lib/microshift/manifests.d/001-microshift-topolvm
+
+install -d -m755 %{buildroot}%{_sysconfdir}/topolvm
+install -p -m644 packaging/topolvm/lvmd.yaml %{buildroot}%{_sysconfdir}/topolvm/lvmd.yaml
 
 install -d -m755 %{buildroot}%{_sysconfdir}/microshift/config.d
 install -p -m644 packaging/microshift/dropins/disable-storage-csi.yaml %{buildroot}%{_sysconfdir}/microshift/config.d/01-disable-storage-csi.yaml

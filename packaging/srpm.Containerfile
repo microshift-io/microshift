@@ -21,6 +21,8 @@ ARG OKD_GET_VERSION_SCRIPT=/tmp/get_version.sh
 ARG USHIFT_MODIFY_SPEC_SCRIPT=/tmp/modify-spec.py
 ARG SPEC_KINDNET=/tmp/kindnet.spec
 ARG SPEC_TOPOLVM=/tmp/topolvm.spec
+ARG LVMD_CONFIG_SCRIPT=/tmp/prepare_lvmd_config.sh
+ARG VG_NAME
 
 # Verify mandatory build arguments
 RUN if [ -z "${OKD_VERSION_TAG}" ]; then \
@@ -70,6 +72,9 @@ COPY ./src/topolvm/assets/  ./assets/optional/topolvm/
 COPY ./src/topolvm/dropins/ ./packaging/microshift/dropins/
 COPY ./src/topolvm/greenboot/ ./packaging/greenboot/
 COPY ./src/topolvm/release/ ./assets/optional/topolvm/
+COPY --chmod=755 ./src/topolvm/prepare_lvmd_config.sh ${LVMD_CONFIG_SCRIPT}
+RUN ${LVMD_CONFIG_SCRIPT} ./packaging/topolvm/lvmd.yaml "${VG_NAME}" && \
+    rm -f ${LVMD_CONFIG_SCRIPT}
 
 RUN ARCH="x86_64"  "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_X86_64}"  "$(cat /tmp/okd_version_x86_64)" && \
     ARCH="aarch64" "${USHIFT_PREBUILD_SCRIPT}" --replace-kindnet "${OKD_RELEASE_IMAGE_AARCH64}" "$(cat /tmp/okd_version_aarch64)" && \
