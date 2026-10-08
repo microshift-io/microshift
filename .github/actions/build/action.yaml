@@ -137,6 +137,10 @@ runs:
         WITH_MULTUS="${{ inputs.with-multus }}" \
           ./src/network_smoke_test.sh "${network_mode}"
 
+        # Run a test to verify that TopoLVM is functioning properly (skip in isolated-network mode)
+        if [ "${{ inputs.isolated-network }}" != "1" ]; then
+          make env "CMD=./src/topolvm/tests/createWorkloads.sh"
+        fi
         for i in $(seq 2 ${{ inputs.node-count }}); do
           make add-node
         done
