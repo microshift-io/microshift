@@ -149,4 +149,4 @@ tested. Test results are uploaded as workflow artifacts with 30-day retention.
 The following parameters can be configured for manual runs:
 * MicroShift version to test (default: `latest` published release)
 * Container registry to pull Bootc images from (default: `ghcr.io/microshift-io`)
-* Sonobuoy test timeout in seconds (default: `8400` / ~2.5 hours)
+* Sonobuoy test timeout in seconds (default: `8400`)
