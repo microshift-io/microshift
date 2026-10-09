@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kindnet-config
+  namespace: kube-kindnet
+data:
+  podSubnet: 10.42.0.0/16
