@@ -11,7 +11,7 @@ ARG USHIFT_EMBED_IMAGES_SCRIPT=/tmp/embed_images.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
 ARG LVMD_CONFIG_SCRIPT=/tmp/prepare_lvmd_config.sh
 ARG VG_NAME
-ARG LVMD_CONFIG_DIGEST
+ARG SPARE_GB
 
 # Builder image related variables
 ARG BUILDER_RPM_REPO_PATH=/home/microshift/microshift/_output/rpmbuild/RPMS
@@ -49,16 +49,10 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     rm -rvf ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
 
-# Configure TopoLVM from the supplied file or synthesize it from the volume group name
+# Configure TopoLVM lvmd from build parameters
 COPY --chmod=755 ./src/topolvm/prepare_lvmd_config.sh ${LVMD_CONFIG_SCRIPT}
-RUN --mount=type=secret,id=lvmd_config,required=false \
-    if [ "${WITH_TOPOLVM}" = "1" ]; then \
-        test -n "${LVMD_CONFIG_DIGEST}" ; \
-        if [ -f /run/secrets/lvmd_config ]; then \
-            ${LVMD_CONFIG_SCRIPT} /etc/topolvm/lvmd.yaml "${VG_NAME}" /run/secrets/lvmd_config ; \
-        else \
-            ${LVMD_CONFIG_SCRIPT} /etc/topolvm/lvmd.yaml "${VG_NAME}" ; \
-        fi ; \
+RUN if [ "${WITH_TOPOLVM}" = "1" ]; then \
+        ${LVMD_CONFIG_SCRIPT} /etc/topolvm/lvmd.yaml "${VG_NAME}" "${SPARE_GB}" ; \
     fi && \
     rm -f ${LVMD_CONFIG_SCRIPT}
 

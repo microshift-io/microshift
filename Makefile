@@ -24,7 +24,6 @@ WITH_OLM ?= 0
 WITH_MULTUS ?= 0
 EMBED_CONTAINER_IMAGES ?= 0
 EMBED_TEST_IMAGE ?= 0
-LVMD_CONFIG_FILE ?=
 
 # Options used in the 'run' target
 LVM_VOLSIZE ?= 1G
@@ -33,6 +32,7 @@ EXPOSE_KUBEAPI_PORT ?= 1
 
 # Options used in TopoLVM build and run targets
 VG_NAME ?= myvg1
+SPARE_GB ?= 0
 
 # Internal variables
 SHELL := /bin/bash
@@ -102,6 +102,7 @@ srpm:
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
         --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
         --build-arg VG_NAME="${VG_NAME}" \
+        --build-arg SPARE_GB="${SPARE_GB}" \
         --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
         -f packaging/srpm.Containerfile .
 
@@ -130,20 +131,6 @@ image:
 	fi
 
 	@echo "Building the MicroShift bootc container image"
-	@set -euo pipefail; \
-	lvmd_secret=(); \
-	lvmd_config_digest="generated:${VG_NAME}"; \
-	if [ "${WITH_TOPOLVM}" = "1" ] && [ -n "${LVMD_CONFIG_FILE}" ]; then \
-		if [ ! -f "${LVMD_CONFIG_FILE}" ] || [ ! -r "${LVMD_CONFIG_FILE}" ]; then \
-			echo "ERROR: LVMD_CONFIG_FILE must be a readable regular file: ${LVMD_CONFIG_FILE}" >&2; \
-			exit 1; \
-		fi; \
-		lvmd_config_file="$$(realpath "${LVMD_CONFIG_FILE}")"; \
-		lvmd_config_digest="$$(sha256sum "$${lvmd_config_file}" | cut -d ' ' -f 1)"; \
-		lvmd_secret=(--secret "id=lvmd_config,src=$${lvmd_config_file}"); \
-	elif [ "${WITH_TOPOLVM}" != "1" ]; then \
-		lvmd_config_digest="disabled"; \
-	fi; \
 	sudo podman build \
 		-t "${USHIFT_IMAGE}" \
         --ulimit nofile=524288:524288 \
@@ -152,14 +139,13 @@ image:
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
         --build-arg BOOTC_IMAGE_TAG="${BOOTC_IMAGE_TAG}" \
 		--build-arg VG_NAME="${VG_NAME}" \
-		--build-arg LVMD_CONFIG_DIGEST="$${lvmd_config_digest}" \
+		--build-arg SPARE_GB="${SPARE_GB}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env WITH_MULTUS="${WITH_MULTUS}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
 		--env EMBED_TEST_IMAGE="${EMBED_TEST_IMAGE}" \
-		"$${lvmd_secret[@]}" \
         -f packaging/bootc.Containerfile .
 
 .PHONY: run

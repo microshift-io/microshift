@@ -33,7 +33,7 @@ EOF
   --set webhook.tlsSecretName=topolvm-webhook-cert \
   --version=${TOPO_LVM_VERSION} \
   topolvm topolvm/topolvm >"${ASSETS_DIR}/02-topolvm.yaml"
-  
+
   helm repo remove topolvm
 
   # remove the caBundle from the mutatingwebhookconfiguration
