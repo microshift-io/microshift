@@ -18,6 +18,8 @@ namespace_created=0
 signed_image_added=0
 container_id=""
 container_pid=""
+signature_workdir=""
+signature_policy_file=""
 
 run_on_node() {
     sudo podman exec -i "${CONTAINER}" "$@"
@@ -34,6 +36,9 @@ diagnose() {
     run_on_node cat /etc/containers/storage.conf || true
     run_on_node crio status config || true
     run_on_node journalctl -u crio --no-pager -n 100 || true
+    if [ -n "${signature_policy_file}" ]; then
+        run_on_node cat "${signature_policy_file}" || true
+    fi
     if [ -n "${container_id}" ]; then
         run_on_node crictl inspect "${container_id}" || true
     fi
@@ -63,6 +68,18 @@ cleanup() {
     if [ "${signed_image_added}" -eq 1 ]; then
         if ! run_on_node timeout 60s crictl rmi "${SIGNED_TEST_IMAGE}"; then
             echo "ERROR: Could not remove the signed test image" >&2
+            status=1
+        fi
+    fi
+    if [ -n "${signature_policy_file}" ]; then
+        if ! run_on_node rm -f -- "${signature_policy_file}"; then
+            echo "ERROR: Could not remove the test signature policy" >&2
+            status=1
+        fi
+    fi
+    if [ -n "${signature_workdir}" ]; then
+        if ! run_on_node rm -rf -- "${signature_workdir}"; then
+            echo "ERROR: Could not remove the signature test directory" >&2
             status=1
         fi
     fi
@@ -135,29 +152,9 @@ EOF
 }
 
 verify_signed_pull() {
-    local runtime_config policy_path policy
+    local runtime_config policy_dir policy_path pull_output key
     if [[ "${SIGNED_TEST_IMAGE}" != registry.access.redhat.com/* ]]; then
         echo "ERROR: SIGNED_TEST_IMAGE must use the public registry.access.redhat.com registry" >&2
-        return 1
-    fi
-
-    # Use the running daemon's policy path, falling back to its system-wide default.
-    runtime_config=$(run_on_node crio status config)
-    policy_path=$(sed -nE 's/^[[:space:]]*signature_policy[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' <<<"${runtime_config}")
-    policy_path=${policy_path:-/etc/containers/policy.json}
-    policy=$(run_on_node cat "${policy_path}")
-    # Check the most specific matching scope, including namespace/image overrides.
-    # jq evaluates these variables inside the node.
-    # shellcheck disable=SC2016
-    if ! run_on_node jq -e --arg reference "${SIGNED_TEST_IMAGE}" '
-        . as $policy
-        | ($reference | split("@")[0] | sub(":[^/]*$"; "")) as $image
-        | [($policy.transports.docker // {} | to_entries[]) | . as $scope
-           | select(.key == "" or .key == $image or ($image | startswith($scope.key + "/")))]
-        | sort_by(.key | length) | (last.value // $policy.default)
-        | type == "array" and length > 0 and all(.[]; .type == "sigstoreSigned")
-    ' <<<"${policy}" >/dev/null; then
-        echo "ERROR: Effective policy does not require sigstore signatures for ${SIGNED_TEST_IMAGE}" >&2
         return 1
     fi
 
@@ -165,7 +162,64 @@ verify_signed_pull() {
         echo "ERROR: Signed test image is already cached; choose an uncached SIGNED_TEST_IMAGE" >&2
         return 1
     fi
-    run_on_node timeout 120s crictl pull "${SIGNED_TEST_IMAGE}"
+
+    # CRI-O reads <signature_policy_dir>/<namespace>.json for each namespaced pull.
+    # Select it with --pod-config instead of modifying the system-wide policy.
+    runtime_config=$(run_on_node crio status config)
+    policy_dir=$(sed -nE 's/^[[:space:]]*signature_policy_dir[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' <<<"${runtime_config}")
+    if [[ "${policy_dir}" != /* ]]; then
+        echo "ERROR: CRI-O must expose an absolute signature_policy_dir" >&2
+        return 1
+    fi
+    for key in /etc/pki/sigstore/SIGSTORE-redhat-release3 /etc/pki/sigstore/REKOR-signing-key; do
+        if ! run_on_node test -r "${key}"; then
+            echo "ERROR: Required image signing key is unavailable: ${key}" >&2
+            return 1
+        fi
+    done
+    run_on_node mkdir -p "${policy_dir}"
+    signature_workdir=$(run_on_node mktemp -d "${policy_dir}/.crio-config-test-XXXXXX")
+    run_on_node tee "${signature_workdir}/pod-config.json" >/dev/null <<EOF
+{"metadata":{"name":"signature-probe","namespace":"${TEST_NAMESPACE}","uid":"${TEST_NAMESPACE}"}}
+EOF
+    run_on_node tee "${signature_workdir}/policy.json" >/dev/null <<'EOF'
+{"default":[{"type":"reject"}]}
+EOF
+    policy_path="${policy_dir}/${TEST_NAMESPACE}.json"
+    # Refuse to replace an existing administrator file or symlink.
+    if ! run_on_node ln -sT -- "${signature_workdir}/policy.json" "${policy_path}"; then
+        echo "ERROR: Could not create a separate namespace signature policy: ${policy_path}" >&2
+        return 1
+    fi
+    signature_policy_file=${policy_path}
+
+    if pull_output=$(run_on_node timeout 120s crictl pull \
+        --pod-config "${signature_workdir}/pod-config.json" "${SIGNED_TEST_IMAGE}" 2>&1); then
+        signed_image_added=1
+        echo "ERROR: CRI-O ignored the test namespace's reject policy" >&2
+        return 1
+    fi
+    if ! grep -Eqi 'rejected by policy' <<<"${pull_output}"; then
+        echo "ERROR: Expected policy rejection, received: ${pull_output}" >&2
+        return 1
+    fi
+    echo "PASS: CRI-O rejects the image under the test namespace's reject policy"
+
+    run_on_node tee "${signature_workdir}/policy.json" >/dev/null <<'EOF'
+{
+  "default": [{"type": "reject"}],
+  "transports": {
+    "docker": {
+      "registry.access.redhat.com": [{
+        "type": "sigstoreSigned",
+        "keyPath": "/etc/pki/sigstore/SIGSTORE-redhat-release3",
+        "rekorPublicKeyPath": "/etc/pki/sigstore/REKOR-signing-key"
+      }]
+    }
+  }
+}
+EOF
+    run_on_node timeout 120s crictl pull --pod-config "${signature_workdir}/pod-config.json" "${SIGNED_TEST_IMAGE}"
     signed_image_added=1
     echo "PASS: CRI-O pulled the Red Hat image with sigstore signature verification required"
 }
@@ -173,7 +227,7 @@ verify_signed_pull() {
 echo "=== Verifying CRI-O configuration in ${CONTAINER} (${MODE}) ==="
 # The tool variable is evaluated by the shell inside the node.
 # shellcheck disable=SC2016
-run_on_node sh -c 'for tool in kubectl crictl crio jq awk timeout; do command -v "$tool" >/dev/null || exit 1; done'
+run_on_node sh -c 'for tool in kubectl crictl crio jq awk timeout tee mktemp ln; do command -v "$tool" >/dev/null || exit 1; done'
 run_on_node systemctl is-active --quiet crio
 verify_storage
 if [ "${MODE}" = online ]; then
