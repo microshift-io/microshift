@@ -132,8 +132,10 @@ runs:
         make run-ready
         make run-healthy
 
+        # Run configuration smoke tests for CRI-O and the network
         network_mode=online
         [ "${{ inputs.isolated-network }}" = "1" ] && network_mode=offline
+        ./src/crio_config_test.sh "${network_mode}"
         WITH_MULTUS="${{ inputs.with-multus }}" \
           ./src/network_smoke_test.sh "${network_mode}"
 
