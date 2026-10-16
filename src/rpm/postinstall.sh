@@ -27,7 +27,7 @@ install_cni_plugins() {
 }
 
 # Create the storage merger separately from the container configuration steps.
-create_storage_config_script() {
+container_config_create_storage_script() {
     cat > "$1" <<'PY'
 import os
 from pathlib import Path
@@ -131,7 +131,7 @@ PY
 }
 
 # Missing paths can be created; existing paths must resolve to the expected type.
-check_container_config_path() {
+container_config_check_path() {
     local -r path=$1 type=$2
 
     if [ -L "${path}" ] && [ ! -e "${path}" ]; then
@@ -149,31 +149,57 @@ check_container_config_path() {
     return 1
 }
 
-configure_container_config() (
-    # The containers-common package version 6 moved vendor defaults out of /etc/containers.
-    local pkgver
-    pkgver=$(rpm -q --qf '%{VERSION}' containers-common 2>/dev/null) || pkgver=0
-    if [ "${pkgver%%.*}" -lt 6 ]; then
-        return 0
-    fi
-
-    local -r vendor_dir=/usr/share/containers
-    local -r config_dir=/etc/containers
-    local source destination name storage_workdir
+# Validate administrator paths before deciding whether any defaults are missing.
+container_config_validate_paths() {
+    local -r config_dir=$1
+    local destination
 
     # Validate directories separately from file destinations, before any copies.
     for destination in "${config_dir}" \
         "${config_dir}"/{registries.d,registries.conf.d,storage.conf.d,storage.rootful.conf.d}; do
-        check_container_config_path "${destination}" directory || return 1
+        container_config_check_path "${destination}" directory || return 1
     done
     for destination in \
         "${config_dir}"/{policy.json,registries.conf,storage.conf} \
         "${config_dir}"/registries.d/*.yaml "${config_dir}"/registries.conf.d/*.conf \
         "${config_dir}"/storage.conf.d/*.conf "${config_dir}"/storage.rootful.conf.d/*.conf; do
-        check_container_config_path "${destination}" file || return 1
+        container_config_check_path "${destination}" file || return 1
+    done
+}
+
+# Return success only when vendor-backed defaults are missing locally.
+container_config_needs_update() {
+    local -r vendor_dir=$1 config_dir=$2
+    local source destination
+
+    for source in "${vendor_dir}"/{policy.json,registries.conf} \
+        "${vendor_dir}"/registries.d/*.yaml "${vendor_dir}"/registries.conf.d/*.conf; do
+        [ -f "${source}" ] || continue
+        destination="${config_dir}/${source#"${vendor_dir}/"}"
+        if [ ! -f "${destination}" ]; then
+            return 0
+        fi
     done
 
-    # Vendor defaults moved to /usr/share/containers in containers-common 6.0.
+    # A base file alone is the legacy layout; flatten only split vendor defaults.
+    if [ -f "${vendor_dir}/storage.conf" ] && [ ! -f "${config_dir}/storage.conf" ] && \
+       { [ -d "${vendor_dir}/storage.conf.d" ] || [ -d "${vendor_dir}/storage.rootful.conf.d" ]; }; then
+        return 0
+    fi
+    return 1
+}
+
+container_config_apply() (
+    local -r vendor_dir=/usr/share/containers
+    local -r config_dir=/etc/containers
+    local source destination name storage_workdir
+
+    container_config_validate_paths "${config_dir}"
+    if ! container_config_needs_update "${vendor_dir}" "${config_dir}"; then
+        return 0
+    fi
+
+    # Vendor defaults may be shipped under /usr/share/containers.
     # Older CRI-O needs policy and registry settings under /etc/containers.
     # Preserve existing administrator files and valid symlinks.
     for name in policy.json registries.conf; do
@@ -196,8 +222,8 @@ configure_container_config() (
         fi
     done
 
-    if [ -f "${config_dir}/storage.conf" ] || \
-       [ ! -f "${vendor_dir}/storage.conf" ]; then
+    # After copying policy and registry defaults, only storage work can remain.
+    if ! container_config_needs_update "${vendor_dir}" "${config_dir}"; then
         return 0
     fi
 
@@ -223,7 +249,7 @@ configure_container_config() (
 
     # Older CRI-O reads only one storage.conf. Flatten the rootful defaults and
     # local drop-ins into that file rather than losing settings such as metacopy.
-    create_storage_config_script "${storage_workdir}/configure-storage.py"
+    container_config_create_storage_script "${storage_workdir}/configure-storage.py"
     "${storage_workdir}/venv/bin/python" "${storage_workdir}/configure-storage.py" \
         "${vendor_dir}" "${config_dir}"
 )
@@ -238,9 +264,8 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Configure container policy, registries, and rootful storage defaults.
-# This is required for older CRI-O versions to work properly with the
-# containers-common package version 6 or newer.
-configure_container_config
+# Make split vendor defaults available to older CRI-O versions.
+container_config_apply
 
 # Configure network and add some useful utilities
 dnf install -y firewalld jq bash-completion
