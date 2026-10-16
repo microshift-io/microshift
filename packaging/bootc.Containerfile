@@ -9,6 +9,9 @@ ARG REPO_CONFIG_SCRIPT=/tmp/create_repos.sh
 ARG USHIFT_POSTINSTALL_SCRIPT=/tmp/postinstall.sh
 ARG USHIFT_EMBED_IMAGES_SCRIPT=/tmp/embed_images.sh
 ARG USHIFT_RPM_REPO_PATH=/tmp/rpm-repo
+ARG LVMD_CONFIG_SCRIPT=/tmp/prepare_lvmd_config.sh
+ARG VG_NAME
+ARG SPARE_GB
 
 # Builder image related variables
 ARG BUILDER_RPM_REPO_PATH=/home/microshift/microshift/_output/rpmbuild/RPMS
@@ -45,6 +48,13 @@ RUN ${REPO_CONFIG_SCRIPT} -create ${USHIFT_RPM_REPO_PATH} && \
     rm -vf  ${REPO_CONFIG_SCRIPT} && \
     rm -rvf ${USHIFT_RPM_REPO_PATH} && \
     dnf clean all
+
+# Configure TopoLVM lvmd from build parameters
+COPY --chmod=755 ./src/topolvm/prepare_lvmd_config.sh ${LVMD_CONFIG_SCRIPT}
+RUN if [ "${WITH_TOPOLVM}" = "1" ]; then \
+        ${LVMD_CONFIG_SCRIPT} /etc/topolvm/lvmd.yaml "${VG_NAME}" "${SPARE_GB}" ; \
+    fi && \
+    rm -f ${LVMD_CONFIG_SCRIPT}
 
 # Post-install MicroShift configuration
 COPY --chmod=755 ./src/rpm/postinstall.sh ${USHIFT_POSTINSTALL_SCRIPT}

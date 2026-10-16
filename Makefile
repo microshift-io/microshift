@@ -30,6 +30,10 @@ LVM_VOLSIZE ?= 1G
 ISOLATED_NETWORK ?= 0
 EXPOSE_KUBEAPI_PORT ?= 1
 
+# Options used in TopoLVM build and run targets
+VG_NAME ?= myvg1
+SPARE_GB ?= 0
+
 # Internal variables
 SHELL := /bin/bash
 # OKD release image URLs for different architectures
@@ -40,7 +44,6 @@ RPM_IMAGE := microshift-okd-rpm
 USHIFT_IMAGE := microshift-okd
 SRPM_IMAGE := microshift-okd-srpm
 LVM_DISK := /var/lib/microshift-okd/lvmdisk.image
-VG_NAME := myvg1
 
 #
 # Define the main targets
@@ -98,6 +101,8 @@ srpm:
         --build-arg OKD_VERSION_TAG="${OKD_VERSION_TAG}" \
         --build-arg OKD_RELEASE_IMAGE_X86_64="${OKD_RELEASE_IMAGE_X86_64}" \
         --build-arg OKD_RELEASE_IMAGE_AARCH64="${OKD_RELEASE_IMAGE_AARCH64}" \
+        --build-arg VG_NAME="${VG_NAME}" \
+        --build-arg SPARE_GB="${SPARE_GB}" \
         --build-arg BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
         -f packaging/srpm.Containerfile .
 
@@ -133,12 +138,14 @@ image:
         --label okd.version="${OKD_VERSION_TAG}" \
         --build-arg BOOTC_IMAGE_URL="${BOOTC_IMAGE_URL}" \
         --build-arg BOOTC_IMAGE_TAG="${BOOTC_IMAGE_TAG}" \
+		--build-arg VG_NAME="${VG_NAME}" \
+		--build-arg SPARE_GB="${SPARE_GB}" \
     	--env WITH_KINDNET="${WITH_KINDNET}" \
     	--env WITH_TOPOLVM="${WITH_TOPOLVM}" \
     	--env WITH_OLM="${WITH_OLM}" \
     	--env WITH_MULTUS="${WITH_MULTUS}" \
     	--env EMBED_CONTAINER_IMAGES="${EMBED_CONTAINER_IMAGES}" \
-	--env EMBED_TEST_IMAGE="${EMBED_TEST_IMAGE}" \
+		--env EMBED_TEST_IMAGE="${EMBED_TEST_IMAGE}" \
         -f packaging/bootc.Containerfile .
 
 .PHONY: run

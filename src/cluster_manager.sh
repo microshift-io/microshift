@@ -13,9 +13,14 @@ LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
 EXTRA_CONFIG="${EXTRA_CONFIG:-/var/lib/microshift-okd/custom_config.yaml}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
 API_SERVER_PORT="${API_SERVER_PORT:-6443}"
-VG_NAME="${VG_NAME:-myvg1}"
+VG_NAME="${VG_NAME:-}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
 EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
+
+if [ -z "${VG_NAME}" ]; then
+    echo "ERROR: VG_NAME is required" >&2
+    exit 1
+fi
 
 _is_cluster_created() {
     if sudo podman container exists "${NODE_BASE_NAME}1"; then
@@ -56,6 +61,23 @@ delete_topolvm_backend() {
     fi
 }
 
+# Verify the build-time TopoLVM configuration before starting the container
+verify_topolvm_lvmd() {
+    local -r container_name="${1}"
+    local tmp_dir
+    local verify_rc=0
+
+    tmp_dir=$(mktemp -d /tmp/topolvm-lvmd-XXXXXX)
+    sudo podman cp "${container_name}:/etc/topolvm/lvmd.yaml" "${tmp_dir}/lvmd.yaml" >/dev/null || verify_rc=$?
+    rm -rf "${tmp_dir}"
+    if [ "${verify_rc}" -ne 0 ]; then
+        echo "ERROR: /etc/topolvm/lvmd.yaml is missing from container ${container_name}" >&2
+        return "${verify_rc}"
+    fi
+
+    echo "Using build-time TopoLVM lvmd config at /etc/topolvm/lvmd.yaml"
+}
+
 _create_podman_network() {
     local -r name="${1}"
     if ! sudo podman network exists "${name}"; then
@@ -84,7 +106,7 @@ _get_ip_address() {
 }
 
 _get_hostname() {
-    local -r hostname=$(hostname -f 2>/dev/null)        
+    local -r hostname=$(hostname -f 2>/dev/null)
     if [ -z "$hostname" ]; then
         echo "ERROR: Could not determine local FQDN hostname" >&2
         exit 1
@@ -148,7 +170,7 @@ _add_node() {
 
     local rc=0
     # shellcheck disable=SC2086
-    sudo podman run --privileged -d \
+    sudo podman create --privileged \
         --ulimit nofile=524288:524288 \
         ${dns_opts} \
         ${vol_opts} \
@@ -161,8 +183,28 @@ _add_node() {
         "${USHIFT_IMAGE}"
 
     rc=$?
-    if [ $rc -ne 0 ]; then
-        return $rc
+    if [ "${rc}" -ne 0 ]; then
+        return "${rc}"
+    fi
+
+    local with_topolvm=""
+    if ! with_topolvm=$(sudo podman inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${name}" | sed -n 's/^WITH_TOPOLVM=//p'); then
+        sudo podman rm "${name}" || true
+        return 1
+    fi
+    with_topolvm="${with_topolvm:-1}"
+
+    if [ "${with_topolvm}" = "1" ]; then
+        if ! verify_topolvm_lvmd "${name}"; then
+            sudo podman rm "${name}" || true
+            return 1
+        fi
+    fi
+
+    sudo podman start "${name}"
+    rc=$?
+    if [ "${rc}" -ne 0 ]; then
+        return "${rc}"
     fi
 
     if ! _wait_for_dbus "${name}"; then
@@ -275,6 +317,7 @@ cluster_add_node() {
         echo "ERROR: failed to create node: ${node_name}" >&2
         exit 1
     fi
+
     echo "Joining node to the cluster: ${node_name}"
     if ! _join_node "${node_name}"; then
         echo "ERROR: failed to join node to the cluster: ${node_name}" >&2
@@ -419,7 +462,7 @@ cluster_status() {
 
 cluster_env() {
     local command="${1:-}"
-   
+
     # Set first_container from the first value of containers array
     local -r first_container=$(_get_running_containers | head -n1)
     if [ -z "${first_container}" ]; then
@@ -440,7 +483,7 @@ cluster_env() {
     sudo podman cp "${first_container}:/var/lib/microshift/resources/kubeadmin/$(_get_hostname)/kubeconfig" "${workdir}/kubeconfig"
     sudo chown "$(whoami):$(whoami)" "${workdir}/kubeconfig"
     export KUBECONFIG="${workdir}/kubeconfig"
-    
+
     if [ -n "${command}" ]; then
         # Execute the command and exit
         echo "Executing command in environment with kubeconfig..."
@@ -448,7 +491,7 @@ cluster_env() {
     else
         # Start interactive shell
         echo "Starting shell environment with kubeconfig..."
-        bash -li 
+        bash -li
     fi
 }
 

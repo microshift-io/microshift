@@ -26,26 +26,14 @@ EOF
   # NOTE: this will produce multi-arch manifest, support both amd64 and arm64
   helm repo add topolvm https://topolvm.github.io/topolvm/
   helm repo update
-  # spare-gb defaults to 10 in the chart, which zeroes out usable capacity on
-  # the small default LVM backend (1G) and leaves PVCs Pending with "not enough
-  # free storage". Render it as 0 so the ConfigMap and the DaemonSet's
-  # checksum/config annotation stay consistent (a post-render patch would leave
-  # the checksum stale and skip the pod rollout on in-place updates).
-  # Implication: with spare-gb=0 TopoLVM may allocate the entire volume group,
-  # leaving no headroom. Operators using a large backend who want a safety
-  # margin should raise spare-gb accordingly.
   helm template --include-crds --namespace=topolvm-system \
   --set "cert-manager.enabled=false" \
   --set "webhook.podMutatingWebhook.enabled=false" \
   --set webhook.caBundle="dummy" \
   --set webhook.tlsSecretName=topolvm-webhook-cert \
-  --set "lvmd.deviceClasses[0].name=ssd" \
-  --set "lvmd.deviceClasses[0].volume-group=myvg1" \
-  --set "lvmd.deviceClasses[0].default=true" \
-  --set "lvmd.deviceClasses[0].spare-gb=0" \
   --version=${TOPO_LVM_VERSION} \
   topolvm topolvm/topolvm >"${ASSETS_DIR}/02-topolvm.yaml"
-  
+
   helm repo remove topolvm
 
   # remove the caBundle from the mutatingwebhookconfiguration
@@ -88,6 +76,33 @@ EOF
         "path": "/healthz"
       }
     })' -i "${ASSETS_DIR}/02-topolvm.yaml"
+
+  # Replace the chart ConfigMap with the canonical host configuration
+  echo 'Patching lvmd DaemonSet to use /etc/topolvm/lvmd.yaml'
+  yq -i 'select(.kind != "ConfigMap" or .metadata.name != "topolvm-lvmd-0")' \
+    "${ASSETS_DIR}/02-topolvm.yaml"
+
+  yq -i '
+    with(select(.kind == "DaemonSet" and .metadata.name == "topolvm-lvmd-0");
+      del(.spec.template.metadata.annotations."checksum/config") |
+      (.spec.template.spec.volumes[] | select(.name == "config")) = {
+        "name": "config",
+        "hostPath": {
+          "path": "/etc/topolvm/lvmd.yaml",
+          "type": "File"
+        }
+      } |
+      with(.spec.template.spec.containers[] | select(.name == "lvmd");
+        .command = ["/lvmd"] |
+        del(.args) |
+        with(.volumeMounts[] | select(.name == "config");
+          .mountPath = "/etc/topolvm/lvmd.yaml" |
+          .readOnly = true
+        )
+      )
+    )
+  ' "${ASSETS_DIR}/02-topolvm.yaml"
+
   # Generate Patch with annotation to dynamically inject the CA bundle
   cat >"${ASSETS_DIR}/topolvm_mutatingwebhook_patch.yaml" <<'EOF'
 apiVersion: admissionregistration.k8s.io/v1
