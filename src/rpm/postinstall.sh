@@ -215,8 +215,11 @@ configure_container_config() (
         echo "ERROR: Container storage requires Python venv with pip support" >&2
         return 1
     fi
-    "${storage_workdir}/venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir \
-        tomli-w 'tomli; python_version < "3.11"'
+    if ! "${storage_workdir}/venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir \
+        tomli-w 'tomli; python_version < "3.11"'; then
+        echo "ERROR: Cannot install TOML packages required to configure container storage" >&2
+        return 1
+    fi
 
     # Older CRI-O reads only one storage.conf. Flatten the rootful defaults and
     # local drop-ins into that file rather than losing settings such as metacopy.
