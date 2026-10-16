@@ -52,50 +52,55 @@ Instead of deploying and managing a full cert-manager stack, MicroShift uses [Op
 
 This approach is lighter-weight than running cert-manager, minimizing dependencies and reducing resource consumption.
 
-## Configurable Volume Group
+## Configurable Volume Group and Spare Space
 
 TopoLVM's lvmd configuration is created at build time and installed at `/etc/topolvm/lvmd.yaml`.
 
 ### Bootc Container Deployments
 
-The default image configuration uses the Makefile's default `VG_NAME`:
+The default image configuration uses the Makefile's defaults:
 
 ```bash
+make srpm        # Uses VG_NAME=myvg1, SPARE_GB=0
+make rpm
 make image
 make run
 ```
 
-To generate the image configuration for a different volume group, pass the same explicit `VG_NAME` when building and running:
+To customize the volume group name and spare space:
 
 ```bash
-make image VG_NAME=my-custom-vg
+make srpm VG_NAME=my-custom-vg SPARE_GB=10
+make rpm
+make image VG_NAME=my-custom-vg SPARE_GB=10
 make run VG_NAME=my-custom-vg
 ```
 
-To supply the complete configuration, set `LVMD_CONFIG_FILE`. Relative and absolute paths are accepted, and the file is copied unchanged:
-
-```bash
-make image VG_NAME=my-custom-vg LVMD_CONFIG_FILE=./lvmd.yaml
-make run VG_NAME=my-custom-vg
-```
-
-The custom file is not validated or rewritten. Its volume group must match `VG_NAME`. `LVMD_CONFIG_FILE` is ignored when `WITH_TOPOLVM=0`.
+**Important:** Use the same `VG_NAME` and `SPARE_GB` values for srpm, image, and run targets.
 
 At runtime, `cluster_manager.sh` creates the loopback volume group and verifies the build-time configuration exists. It never modifies the configuration.
 
 ### Bare Metal / VM Deployments
 
-The `microshift-topolvm` RPM installs the inherited `VG_NAME` configuration at `/etc/topolvm/lvmd.yaml` as `%config(noreplace)`. Build a different packaged default with `make rpm VG_NAME=my-custom-vg`, or replace the file before starting MicroShift:
+The `microshift-topolvm` RPM installs the lvmd configuration at `/etc/topolvm/lvmd.yaml` as `%config(noreplace)`.
+
+Build with custom defaults:
 
 ```bash
-# Create custom lvmd configuration
+make srpm VG_NAME=my-custom-vg SPARE_GB=10
+make rpm
+```
+
+Or replace the file after RPM installation:
+
+```bash
 sudo mkdir -p /etc/topolvm
 sudo tee /etc/topolvm/lvmd.yaml <<EOF
 socket-name: /run/topolvm/lvmd.sock
 device-classes:
   - default: true
     name: ssd
-    spare-gb: 0
+    spare-gb: 10
     volume-group: my-custom-vg
 EOF
 
@@ -108,7 +113,7 @@ sudo systemctl start microshift.service
 
 ### Verification
 
-TopoLVM has one lvmd configuration source:
+Verify the lvmd configuration:
 
 ```bash
 kubectl exec -n topolvm-system daemonset/topolvm-lvmd-0 -c lvmd -- \
