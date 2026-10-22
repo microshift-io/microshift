@@ -13,7 +13,7 @@ LVM_DISK="${LVM_DISK:-/var/lib/microshift-okd/lvmdisk.image}"
 EXTRA_CONFIG="${EXTRA_CONFIG:-/var/lib/microshift-okd/custom_config.yaml}"
 LVM_VOLSIZE="${LVM_VOLSIZE:-1G}"
 API_SERVER_PORT="${API_SERVER_PORT:-6443}"
-VG_NAME="${VG_NAME:-}"
+VG_NAME="${VG_NAME:-myvg1}"
 ISOLATED_NETWORK="${ISOLATED_NETWORK:-0}"
 EXPOSE_KUBEAPI_PORT="${EXPOSE_KUBEAPI_PORT:-0}"
 

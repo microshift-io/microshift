@@ -126,7 +126,7 @@ The following options can be specified in the make command line using the `NAME=
 | BOOTC_IMAGE_URL        | no       | quay.io/centos-bootc/centos-bootc | Base Bootc image URL
 | BOOTC_IMAGE_TAG        | no       | stream9  | Base Bootc image tag
 | VG_NAME                | no       | myvg1    | TopoLVM volume group used to generate `lvmd.yaml`
-| LVMD_CONFIG_FILE       | no       |          | Custom `lvmd.yaml` copied unchanged when TopoLVM is enabled
+| SPARE_GB               | no       | 0        | TopoLVM spare capacity (GB) written to `lvmd.yaml`
 | WITH_KINDNET           | no       | 1        | OVK-K CNI is used when Kindnet is disabled
 | WITH_TOPOLVM           | no       | 1        | Enable [TopoLVM](https://github.com/topolvm/topolvm) CSI
 | WITH_OLM               | no       | 0        | Enable OLM support
