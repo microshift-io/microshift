@@ -26,11 +26,23 @@ EOF
   # NOTE: this will produce multi-arch manifest, support both amd64 and arm64
   helm repo add topolvm https://topolvm.github.io/topolvm/
   helm repo update
+  # spare-gb defaults to 10 in the chart, which zeroes out usable capacity on
+  # the small default LVM backend (1G) and leaves PVCs Pending with "not enough
+  # free storage". Render it as 0 so the ConfigMap and the DaemonSet's
+  # checksum/config annotation stay consistent (a post-render patch would leave
+  # the checksum stale and skip the pod rollout on in-place updates).
+  # Implication: with spare-gb=0 TopoLVM may allocate the entire volume group,
+  # leaving no headroom. Operators using a large backend who want a safety
+  # margin should raise spare-gb accordingly.
   helm template --include-crds --namespace=topolvm-system \
   --set "cert-manager.enabled=false" \
   --set "webhook.podMutatingWebhook.enabled=false" \
   --set webhook.caBundle="dummy" \
   --set webhook.tlsSecretName=topolvm-webhook-cert \
+  --set "lvmd.deviceClasses[0].name=ssd" \
+  --set "lvmd.deviceClasses[0].volume-group=myvg1" \
+  --set "lvmd.deviceClasses[0].default=true" \
+  --set "lvmd.deviceClasses[0].spare-gb=0" \
   --version=${TOPO_LVM_VERSION} \
   topolvm topolvm/topolvm >"${ASSETS_DIR}/02-topolvm.yaml"
   

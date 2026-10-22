@@ -40,6 +40,14 @@ fi
 if [ ! -f /etc/containers/policy.json ] && [ -f /usr/share/containers/policy.json ]; then
     cp /usr/share/containers/policy.json /etc/containers/policy.json
 fi
+# Same for registries.d. Without these files, CRI-O does not look up the sigstore
+# signatures that policy.json requires for the Red Hat registries.
+for f in /usr/share/containers/registries.d/*.yaml; do
+    if [ -f "${f}" ] && [ ! -f "/etc/containers/registries.d/$(basename "${f}")" ]; then
+        mkdir -p /etc/containers/registries.d
+        cp "${f}" /etc/containers/registries.d/
+    fi
+done
 
 # Configure network and add some useful utilities
 dnf install -y firewalld jq bash-completion

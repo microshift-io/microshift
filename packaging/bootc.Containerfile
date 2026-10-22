@@ -20,6 +20,7 @@ ENV WITH_TOPOLVM=${WITH_TOPOLVM:-1}
 ENV WITH_OLM=${WITH_OLM:-0}
 ENV WITH_MULTUS=${WITH_MULTUS:-0}
 ENV EMBED_CONTAINER_IMAGES=${EMBED_CONTAINER_IMAGES:-0}
+ENV EMBED_TEST_IMAGE=${EMBED_TEST_IMAGE:-0}
 
 # Run repository configuration script, install MicroShift and cleanup
 COPY --chmod=755 ./src/rpm/create_repos.sh ${REPO_CONFIG_SCRIPT}

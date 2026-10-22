@@ -75,7 +75,7 @@ metadata:
     app.kubernetes.io/version: "0.36.2"
     app.kubernetes.io/managed-by: Helm
 data:
-  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 10\n    volume-group: myvg1\n"
+  lvmd.yaml: "socket-name: /run/topolvm/lvmd.sock\ndevice-classes: \n  - default: true\n    name: ssd\n    spare-gb: 0\n    volume-group: myvg1\n"
 ---
 # Source: topolvm/templates/storageclass.yaml
 apiVersion: storage.k8s.io/v1
@@ -753,7 +753,7 @@ spec:
         app.kubernetes.io/name: topolvm
         app.kubernetes.io/instance: topolvm
       annotations:
-        checksum/config: 4b53baf697187b0c4b7dec55d9f5cfe3e8f16ee6f388bf8ae986ff993a21512e
+        checksum/config: f2b1234a4e84fb5831fb3d645cfa9af641572e161ee598d426e367aab8d0312d
         prometheus.io/port: metrics
     spec:
       serviceAccountName: topolvm-lvmd
@@ -1099,24 +1099,6 @@ spec:
                       - topolvm
               topologyKey: kubernetes.io/hostname
 ---
-# Source: topolvm/templates/controller/csidriver.yaml
-apiVersion: storage.k8s.io/v1
-kind: CSIDriver
-metadata:
-  name: topolvm.io
-  labels:
-    helm.sh/chart: topolvm-15.5.2
-    app.kubernetes.io/name: topolvm
-    app.kubernetes.io/instance: topolvm
-    app.kubernetes.io/version: "0.36.2"
-    app.kubernetes.io/managed-by: Helm
-spec:
-  storageCapacity: true
-  attachRequired: false
-  podInfoOnMount: true
-  volumeLifecycleModes:
-    - Persistent
----
 # Source: topolvm/templates/mutatingwebhooks.yaml
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -1156,3 +1138,21 @@ webhooks:
         resources:
           - persistentvolumeclaims
     sideEffects: None
+---
+# Source: topolvm/templates/controller/csidriver.yaml
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: topolvm.io
+  labels:
+    helm.sh/chart: topolvm-15.5.2
+    app.kubernetes.io/name: topolvm
+    app.kubernetes.io/instance: topolvm
+    app.kubernetes.io/version: "0.36.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  storageCapacity: true
+  attachRequired: false
+  podInfoOnMount: true
+  volumeLifecycleModes:
+    - Persistent
