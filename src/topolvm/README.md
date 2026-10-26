@@ -50,5 +50,72 @@ MICROSHIFT_VARIANT=community make rpm
 
 Instead of deploying and managing a full cert-manager stack, MicroShift uses [OpenShift Service CA Operator](https://docs.openshift.com/container-platform/latest/security/certificate_types_descriptions/service-ca-certificates.html) to automate TopoLVM certificate creation. We annotate the TopoLVM Service and MutatingWebhookConfiguration resources, which triggers the Service CA Operator in MicroShift/OKD to inject valid serving certificates.
 
-This approach is lighter-weight than running cert-manager, minimizing dependencies and reducing resource consumption. 
+This approach is lighter-weight than running cert-manager, minimizing dependencies and reducing resource consumption.
 
+## Configurable Volume Group and Spare Space
+
+TopoLVM's lvmd configuration is created at build time and installed at `/etc/topolvm/lvmd.yaml`.
+
+### Bootc Container Deployments
+
+The default image configuration uses the Makefile's defaults:
+
+```bash
+make srpm        # Uses VG_NAME=myvg1, SPARE_GB=0
+make rpm
+make image
+make run
+```
+
+To customize the volume group name and spare space:
+
+```bash
+make srpm VG_NAME=my-custom-vg SPARE_GB=10
+make rpm
+make image VG_NAME=my-custom-vg SPARE_GB=10
+make run VG_NAME=my-custom-vg
+```
+
+**Important:** Use the same `VG_NAME` and `SPARE_GB` values for srpm, image, and run targets.
+
+At runtime, `cluster_manager.sh` creates the loopback volume group and verifies the build-time configuration exists. It never modifies the configuration.
+
+### Bare Metal / VM Deployments
+
+The `microshift-topolvm` RPM installs the lvmd configuration at `/etc/topolvm/lvmd.yaml` as `%config(noreplace)`.
+
+Build with custom defaults:
+
+```bash
+make srpm VG_NAME=my-custom-vg SPARE_GB=10
+make rpm
+```
+
+Or replace the file after RPM installation:
+
+```bash
+sudo mkdir -p /etc/topolvm
+sudo tee /etc/topolvm/lvmd.yaml <<EOF
+socket-name: /run/topolvm/lvmd.sock
+device-classes:
+  - default: true
+    name: ssd
+    spare-gb: 10
+    volume-group: my-custom-vg
+EOF
+
+# Ensure your LVM volume group exists
+sudo vgcreate my-custom-vg /dev/sdX
+
+# Start MicroShift
+sudo systemctl start microshift.service
+```
+
+### Verification
+
+Verify the lvmd configuration:
+
+```bash
+kubectl exec -n topolvm-system daemonset/topolvm-lvmd-0 -c lvmd -- \
+  cat /etc/topolvm/lvmd.yaml
+```
