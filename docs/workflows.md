@@ -87,6 +87,11 @@ artifacts that are required by MicroShift on the `aarch64` architecture. It runs
 every day at 03:00 UTC to make sure ARM artifacts are available for the latest
 OKD releases.
 
+The router build keeps the upstream test-extension builder stage, using the
+OpenShift release Go builder image. Only the router runtime base is replaced
+with the locally built `haproxy-router-base` image, so the test extension can
+still be copied into the final image.
+
 > Note: OKD `aarch64` builds are performed using MicroShift-specific build procedure
 > until [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215)
 > is implemented by the OKD team.

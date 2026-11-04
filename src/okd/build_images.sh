@@ -115,7 +115,9 @@ router_image() {
     return
   fi
 
-  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*|FROM ${images[haproxy-router-base]}|" "${dockerfile_haproxy_path}"
+  # Preserve the test-extension builder stage and only replace the runtime base.
+  sed -i 's|^FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_haproxy_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:haproxy-router-base|FROM ${images[haproxy-router-base]}|" "${dockerfile_haproxy_path}"
 
   # Detect which haproxy package the upstream Dockerfile requires
   local haproxy_pkg
