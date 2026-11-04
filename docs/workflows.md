@@ -92,6 +92,10 @@ OpenShift release Go builder image. Only the router runtime base is replaced
 with the locally built `haproxy-router-base` image, so the test extension can
 still be copied into the final image.
 
+The CLI artifact build keeps all upstream platform outputs. Each cross-build
+clears its Go build cache in the same `RUN` step, before Podman saves the layer,
+to reduce disk use on the runner.
+
 > Note: OKD `aarch64` builds are performed using MicroShift-specific build procedure
 > until [OKD Build of OpenShift on Arm](https://issues.redhat.com/browse/OKD-215)
 > is implemented by the OKD team.
