@@ -12,8 +12,12 @@ KINDNET_IMAGE_BASE="docker.io/kindest/kindnetd"
 KUBE_PROXY_IMAGE_BASE="registry.k8s.io/kube-proxy"
 
 # Network configuration (can be overridden)
-POD_SUBNET="10.244.0.0/16"
-CLUSTER_CIDR="10.42.0.0/16"
+# Default pod subnet for kindnet, shipped in the kindnet-config ConfigMap. It
+# must match MicroShift's clusterNetwork, whose default is 10.42.0.0/16;
+# kindnet's own default (10.244.0.0/16) is the one kind uses and does not apply
+# here. kube-proxy needs no CIDR: it recognises pod traffic by the node's
+# podCIDR, which MicroShift allocates from clusterNetwork.
+POD_SUBNET="10.42.0.0/16"
 
 #######################################
 # Kindnet image resolution
@@ -115,6 +119,17 @@ metadata:
     openshift.io/node-selector: ""
     openshift.io/description: "kindnet Kubernetes components"
     workload.openshift.io/allowed: "management"
+EOF
+
+    # 00-kindnet-config.yaml
+    cat >"${KINDNET_ASSETS_DIR}/00-kindnet-config.yaml" <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kindnet-config
+  namespace: kube-kindnet
+data:
+  podSubnet: ${POD_SUBNET}
 EOF
 
     # 01-service-account.yaml
@@ -235,7 +250,7 @@ subjects:
 EOF
 
     # 04-daemonset.yaml
-    cat >"${KINDNET_ASSETS_DIR}/04-daemonset.yaml" <<EOF
+    cat >"${KINDNET_ASSETS_DIR}/04-daemonset.yaml" <<'EOF'
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -280,7 +295,10 @@ spec:
               fieldRef:
                 fieldPath: status.podIP
           - name: POD_SUBNET
-            value: ${POD_SUBNET}
+            valueFrom:
+              configMapKeyRef:
+                name: kindnet-config
+                key: podSubnet
           resources:
             requests:
               cpu: 100m
@@ -330,6 +348,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - 00-namespace.yaml
+  - 00-kindnet-config.yaml
   - 01-service-account.yaml
   - 02-cluster-role.yaml
   - 03-cluster-role-binding.yaml
@@ -458,13 +477,13 @@ subjects:
 EOF
 
     # 04-configmap.yaml
-    cat >"${KUBE_PROXY_ASSETS_DIR}/04-configmap.yaml" <<EOF
+    cat >"${KUBE_PROXY_ASSETS_DIR}/04-configmap.yaml" <<'EOF'
 apiVersion: v1
 data:
   config.conf: |
     apiVersion: kubeproxy.config.k8s.io/v1alpha1
     kind: KubeProxyConfiguration
-    clusterCIDR: ${CLUSTER_CIDR}
+    detectLocalMode: NodeCIDR
     mode: iptables
     clientConnection:
       kubeconfig: /var/lib/kubeconfig
@@ -515,6 +534,12 @@ spec:
           command:
             - /usr/bin/kube-proxy
             - --config=/var/lib/kube-proxy/config.conf
+            - --hostname-override=$(NODE_NAME)
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           volumeMounts:
             - name: config
               mountPath: /var/lib/kube-proxy/
