@@ -115,7 +115,9 @@ router_image() {
     return
   fi
 
-  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*|FROM ${images[haproxy-router-base]}|" "${dockerfile_haproxy_path}"
+  # Preserve the test-extension builder stage and only replace the runtime base.
+  sed -i 's|^FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_haproxy_path}"
+  sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:haproxy-router-base|FROM ${images[haproxy-router-base]}|" "${dockerfile_haproxy_path}"
 
   # Detect which haproxy package the upstream Dockerfile requires
   local haproxy_pkg
@@ -256,6 +258,8 @@ cli_artifacts_image() {
   sed -i 's|FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_path}"
   sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:base-rhel9|FROM ${images[base]}|" "${dockerfile_path}"
   sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:cli|FROM ${images[cli]}|" "${dockerfile_path}"
+  # Drop the Go cache before committing each cross-build layer to save disk space.
+  sed -i '/^RUN make cross-build/s|$| \&\& go clean -cache|' "${dockerfile_path}"
 
   podman build --platform "linux/${TARGET_ARCH}" -t "${images[cli-artifacts]}" -f "${dockerfile_path}" .
 }
