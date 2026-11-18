@@ -119,16 +119,17 @@ router_image() {
   sed -i 's|^FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang|FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang|' "${dockerfile_haproxy_path}"
   sed -i "s|^FROM registry.ci.openshift.org/ocp/.*:haproxy-router-base|FROM ${images[haproxy-router-base]}|" "${dockerfile_haproxy_path}"
 
-  # Detect which haproxy package the upstream Dockerfile requires
+  # Newer upstream Dockerfiles omit HAProxy, but our image is also used for the
+  # haproxy-router-haproxy32 sidecar and must still provide the binary.
   local haproxy_pkg
-  haproxy_pkg=$(grep -oE 'haproxy[0-9]+' "${dockerfile_haproxy_path}" | head -1)
+  haproxy_pkg=$(grep -m1 -oE 'haproxy[0-9]+' "${dockerfile_haproxy_path}" | head -1 || true)
 
   if [ "${haproxy_pkg}" = "haproxy28" ] ; then
     # Use the pre-built haproxy28 RPM for aarch64
     sed -i "s|haproxy28|https://github.com/praveenkumar/minp/releases/download/v0.0.1/haproxy28-2.8.10-1.rhaos4.17.el9.aarch64.rpm|" "${dockerfile_haproxy_path}"
   else
-    # Build HAProxy from source since the versioned haproxy package (e.g. haproxy32)
-    # is only available in RHAOS repos, not in CentOS Stream 9
+    # Build HAProxy from source when the package is absent or only available
+    # in RHAOS repos (e.g. haproxy32), not in CentOS Stream 9.
     local -r haproxy_version="3.2.21"
     local -r haproxy_dir="haproxy-${haproxy_version}"
     local -r haproxy_tarball="${haproxy_dir}.tar.gz"
@@ -146,8 +147,11 @@ router_image() {
         cd '"${haproxy_dir}"' && \
         make -j$(nproc) TARGET=linux-glibc USE_OPENSSL=1 USE_PCRE2=1 && \
         cp haproxy /output/haproxy-bin'
-    sed -i "s|${haproxy_pkg} ||" "${dockerfile_haproxy_path}"
-    sed -i "/^FROM.*haproxy-router-base/a COPY images/router/haproxy/haproxy-bin /usr/sbin/haproxy" "${dockerfile_haproxy_path}"
+    if [ -n "${haproxy_pkg}" ] ; then
+      sed -i "s|${haproxy_pkg} ||" "${dockerfile_haproxy_path}"
+    fi
+    # Match the upstream HAProxy image: non-root sidecars must bind ports 80/443.
+    sed -i "/^FROM.*haproxy-router-base/a COPY images/router/haproxy/haproxy-bin /usr/sbin/haproxy\nRUN setcap 'cap_net_bind_service=ep' /usr/sbin/haproxy" "${dockerfile_haproxy_path}"
   fi
 
   # shellcheck disable=SC2016
